@@ -1,0 +1,8 @@
+.idea/
+*.pyc
+__pycache__/
+*.pyo
+*.pyd
+/download
+/out
+config.ini
