@@ -28,7 +28,7 @@ def polish_each_text(txt: str, temperature: float, max_tokens: int) -> str:
         'Content-Type': 'application/json'
     }
 
-    prompt = f"以下是语音识别的原始文本：\n{txt}\n\n请输出整理后的文本。"
+    prompt = f"以下是语音识别的原始文本：\n{txt}\n\n请你仅仅输出整理后的文本，不要增加多余的文字，也不要使用任何markdown形式的文字，只使用plain text的形式。"
 
     data = {
         "model": "deepseek-chat",

@@ -17,6 +17,16 @@ except KeyError:
 OUTPUT_DIR = '../out'
 DOWNLOAD_DIR = '../download'
 
+OUTPUT_STYLE = 'pdf only'
+OUTPUT_STYLE_SUPPORTED = ['pdf with img', 'img only', 'text only', 'pdf only']
+
+DISABLE_LLM_POLISH = False  # 是否禁用 LLM 润色
 LLM_SERVER = 'gemini'
+LLM_SERVER_SUPPORTED = ['gemini', 'deepseek']
 LLM_TEMPERATURE = 0.3
 LLM_MAX_TOKENS = 2048
+
+PROJECT_NAME = 'AutoVoiceCollation'
+
+assert LLM_SERVER in LLM_SERVER_SUPPORTED
+assert OUTPUT_STYLE in OUTPUT_STYLE_SUPPORTED

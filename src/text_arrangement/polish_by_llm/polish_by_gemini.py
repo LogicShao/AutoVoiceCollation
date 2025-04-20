@@ -24,7 +24,7 @@ def polish_each_text(txt: str, temperate: float, max_tokens: int) -> str:
     :param max_tokens: 最大输出字符数
     :return: 整理后的文本
     """
-    prompt = f"以下是语音识别的原始文本：\n{txt}\n\n请输出整理后的文本。"
+    prompt = f"以下是语音识别的原始文本：\n{txt}\n\n请你仅仅输出整理后的文本，不要增加多余的文字，也不要使用任何markdown形式的文字，只使用plain text的形式。"
 
     response = client.models.generate_content(
         model="gemini-2.0-flash",

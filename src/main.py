@@ -21,6 +21,8 @@ def main(prev_audio_path: str = None):
         audio_path = prev_audio_path
         print(f"使用已有音频：{audio_path}")
 
+    audio_file_name = os.path.basename(audio_path).split(".")[0]
+
     timer.start()
     print("正在提取音频文本...")
     audio_text = extract_audio_text(audio_path, language="auto")
@@ -31,21 +33,25 @@ def main(prev_audio_path: str = None):
         f.write(audio_text)
     print(f"音频文本已保存到：{text_file_path}")
 
-    timer.start()
-    print("正在润色文本...")
-    polished_text = polish_text(audio_text)
-    print("文本润色完成，用时：", timer.stop(), "秒")
+    if not DISABLE_LLM_POLISH:
+        timer.start()
+        print("正在润色文本...")
+        polished_text = polish_text(audio_text, api_service=LLM_SERVER, temperature=LLM_TEMPERATURE,
+                                    max_tokens=LLM_MAX_TOKENS)
+        print("文本润色完成，用时：", timer.stop(), "秒")
 
-    polish_text_file_path = os.path.join(OUTPUT_DIR, "polish_text.txt")
-    with open(polish_text_file_path, "w", encoding="utf-8") as f:
-        f.write(polished_text)
-    print(f"润色后的文本已保存到：{polish_text_file_path}")
+        polish_text_file_path = os.path.join(OUTPUT_DIR, "polish_text.txt")
+        with open(polish_text_file_path, "w", encoding="utf-8") as f:
+            f.write(polished_text)
+        print(f"润色后的文本已保存到：{polish_text_file_path}")
+    else:
+        polished_text = audio_text
+        print("文本润色已跳过。")
 
     print("正在保存为图片...")
-    image_path = text_to_image(polished_text, output_path=OUTPUT_DIR)
+    image_path = text_to_image(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR)
     print(f"文本已保存为图片：{image_path}")
 
 
 if __name__ == "__main__":
-    main(
-        prev_audio_path=r"../download/【主义主义】形而上学（2）——古代贵族的精神冒险，背景性的符号秩序与它自己的对立，比下（形而下学）有余，比上（观念论）不足.mp3")
+    main()
