@@ -37,7 +37,7 @@ def main(prev_audio_path: str = None):
         timer.start()
         print("正在润色文本...")
         polished_text = polish_text(audio_text, api_service=LLM_SERVER, temperature=LLM_TEMPERATURE,
-                                    max_tokens=LLM_MAX_TOKENS)
+                                    max_tokens=SPLIT_LIMIT, debug_flag=DEBUG_FLAG)
         print("文本润色完成，用时：", timer.stop(), "秒")
 
         polish_text_file_path = os.path.join(OUTPUT_DIR, "polish_text.txt")
@@ -49,9 +49,8 @@ def main(prev_audio_path: str = None):
         print("文本润色已跳过。")
 
     print("正在保存为图片...")
-    image_path = text_to_image(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR)
-    print(f"文本已保存为图片：{image_path}")
+    text_to_image(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR)
 
 
 if __name__ == "__main__":
-    main()
+    main(prev_audio_path=r"../download/【讲座】老e：科学与哲学之辩——“实证”有多“实”？“玄思”有多“玄”？.mp3")

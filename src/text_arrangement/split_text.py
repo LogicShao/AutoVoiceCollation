@@ -1,36 +1,6 @@
 import re
 
 
-def split_text_for_api(txt: str, max_tokens: int = 4000) -> list[str]:
-    """
-    将文本按 max_tokens 分割，确保每段文本长度不会超过 max_tokens 字符。
-    尝试按段落、句子或字符进行分割，以保持文本的可读性和完整性。
-    :param txt: 要分割的文本
-    :param max_tokens: 每段文本的最大字符数
-    :return: 分割后的文本列表
-    """
-    paragraphs = txt.split('\n')
-    split_text = []
-    current_chunk = ""
-
-    for para in paragraphs:
-        # 如果加上当前段落的文本后超过了最大字符数，就分割成新的一段
-        if len(current_chunk) + len(para) + 1 > max_tokens:
-            split_text.append(current_chunk.strip())
-            current_chunk = para
-        else:
-            if current_chunk:
-                current_chunk += '\n' + para
-            else:
-                current_chunk = para
-
-    # 处理剩余的部分
-    if current_chunk:
-        split_text.append(current_chunk.strip())
-
-    return split_text
-
-
 def split_text_by_sentences(txt: str, max_tokens: int = 4000) -> list[str]:
     """
     通过句子切分文本，确保每段不超过 max_tokens 字符。
@@ -40,26 +10,40 @@ def split_text_by_sentences(txt: str, max_tokens: int = 4000) -> list[str]:
     :return: 分割后的文本列表
     """
     # 使用正则表达式分割文本为句子（句号、问号、感叹号后切分）
-    sentences = re.split(r'([.!?])', txt)  # 保留分隔符
-    sentences = [s.strip() + (sentences[i + 1] if i + 1 < len(sentences) else '') for i, s in enumerate(sentences) if
-                 s.strip()]
+    split_ch = "。！？?"
+    pattern = r"([{}])".format(split_ch)
+    sentences = re.split(pattern, txt)[:-1]  # 保留分隔符
+    sentences = [sentences[i] + sentences[i + 1] for i in range(0, len(sentences), 2)]
 
-    split_text = []
+    split_texts = []
     current_chunk = ""
 
     for sentence in sentences:
         # 如果加上当前句子的文本后超过了最大字符数，就分割成新的一段
         if len(current_chunk) + len(sentence) + 1 > max_tokens:
-            split_text.append(current_chunk.strip())
+            split_texts.append(current_chunk.strip())
             current_chunk = sentence
         else:
             if current_chunk:
-                current_chunk += ' ' + sentence
+                current_chunk += sentence
             else:
                 current_chunk = sentence
 
     # 处理剩余的部分
     if current_chunk:
-        split_text.append(current_chunk.strip())
+        split_texts.append(current_chunk.strip())
 
-    return split_text
+    return split_texts
+
+if __name__ == '__main__':
+    # 测试代码
+    with open("../../out/audio_transcription.txt", "r", encoding="utf-8") as f:
+        text = f.read()
+    print("原文本长度：", len(text))
+
+    split_text = split_text_by_sentences(text, max_tokens=4000)
+    print("分割后的文本数量：", len(split_text))
+    with open("../../out/split_text.txt", "w", encoding="utf-8") as f:
+        for i, chunk in enumerate(split_text):
+            f.write(f"Chunk {i + 1}:\n{chunk}\n\n")
+    print("分割后的文本已保存到：../../out/split_text.txt")
