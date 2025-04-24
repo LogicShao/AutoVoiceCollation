@@ -22,6 +22,7 @@ python -m venv venv
 ```
 
 * 激活虚拟环境
+
 Windows:
 ```bash
 venv\Scripts\activate
@@ -43,8 +44,18 @@ cd src
 python main.py
 ```
 
+## 配置
+- `config.py`：配置文件，包含了模型选择等参数。
+- `config.ini`：配置文件，请配置你的api密钥。
+文件类似于：
+```ini
+[deepseek]
+api_key = sk-xxxxxxxxx
+
+[gemini]
+api_key = xxxxxxxx
+```
+
 ## TODO
 - [ ] TODO: 增加对于emoji的支持（情绪识别）
 - [ ] TODO: 增加b站cookies的支持
-- [ ] TODO: 修改split_text BUG
-- [ ] TODO: 修改润色文本断开的问题

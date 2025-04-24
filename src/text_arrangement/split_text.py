@@ -10,7 +10,7 @@ def split_text_by_sentences(txt: str, max_tokens: int = 4000) -> list[str]:
     :return: 分割后的文本列表
     """
     # 使用正则表达式分割文本为句子（句号、问号、感叹号后切分）
-    split_ch = "。！？?"
+    split_ch = ".。!！？?"
     pattern = r"([{}])".format(split_ch)
     sentences = re.split(pattern, txt)[:-1]  # 保留分隔符
     sentences = [sentences[i] + sentences[i + 1] for i in range(0, len(sentences), 2)]

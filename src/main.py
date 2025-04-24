@@ -48,9 +48,8 @@ def main(prev_audio_path: str = None):
         polished_text = audio_text
         print("文本润色已跳过。")
 
-    print("正在保存为图片...")
     text_to_image(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR)
 
 
 if __name__ == "__main__":
-    main(prev_audio_path=r"../download/【讲座】老e：科学与哲学之辩——“实证”有多“实”？“玄思”有多“玄”？.mp3")
+    main()
