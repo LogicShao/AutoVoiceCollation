@@ -1,13 +1,14 @@
 import asyncio
 import concurrent.futures
 import logging
+import os
 import time
 from collections import deque
 
 from .polish_by_deepseek import polish_each_text as polish_each_text_deepseek
 from .polish_by_gemini import polish_each_text as polish_each_text_gemini
 from ..split_text import split_text_by_sentences
-from ...config import LLM_TEMPERATURE, LLM_MAX_TOKENS
+from ...config import LLM_TEMPERATURE, LLM_MAX_TOKENS, OUTPUT_DIR
 
 MAX_RETRIES = 3
 RETRY_BACKOFF = 2
@@ -92,7 +93,8 @@ def polish_text(txt: str, api_service: str = 'deepseek', temperature: float = LL
             debug_text += f"Chunk {i + 1}:\n"
             debug_text += f"Original: {original}\n"
             debug_text += f"Polished: {polished}\n\n"
-        with open("../out/debug_polished_text.txt", "w", encoding="utf-8") as f:
+        debug_text_file = os.path.join(OUTPUT_DIR, "debug_polished_text.txt")
+        with open(debug_text_file, "w", encoding="utf-8") as f:
             f.write(debug_text)
 
     return "\n\n".join(polished_chunks).strip()

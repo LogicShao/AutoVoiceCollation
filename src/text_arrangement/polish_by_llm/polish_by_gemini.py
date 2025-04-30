@@ -1,9 +1,9 @@
+import os
+
 from google import genai
 from google.genai import types
 
-from ...config import GEMINI_API
-
-API_KEY = GEMINI_API
+API_KEY = os.environ['GEMINI_API_KEY']
 client = genai.Client(api_key=API_KEY)
 
 system_prompt = """你是一个高级语言处理助手，专注于文本清理、分段与拼写修正。请按照以下要求处理以下文本：

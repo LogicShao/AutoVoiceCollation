@@ -40,20 +40,16 @@ pip install -r requirements.txt
 
 * 运行
 ```bash
-cd src
-python main.py
+python -m src.main # 命令行调用
+# python -m src.webui # web调用
 ```
 
 ## 配置
 - `config.py`：配置文件，包含了模型选择等参数。
-- `config.ini`：配置文件，请配置你的api密钥。
-文件类似于：
-```ini
-[deepseek]
-api_key = sk-xxxxxxxxx
-
-[gemini]
-api_key = xxxxxxxx
+- `.env`：配置文件，请配置你的api密钥，或者直接设置环境变量。 文件类似于：
+```dotenv
+DEEPSEEK_API_KEY=your_deepseek_api_key
+GEMINI_API_KEY=your_gemini_api_key
 ```
 
 ## TODO

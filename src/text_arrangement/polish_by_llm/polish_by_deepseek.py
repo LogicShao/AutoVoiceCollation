@@ -1,8 +1,8 @@
+import os
+
 import requests
 
-from ...config import DEEPSEEK_API
-
-API_KEY = DEEPSEEK_API
+API_KEY = os.environ['DEEPSEEK_API_KEY']
 API_URL = 'https://api.deepseek.com/v1/chat/completions'
 
 system_prompt = """你是一个高级语言模型，专注于中文文本的整理与优化。你的任务是对以下文本进行处理，要求如下：

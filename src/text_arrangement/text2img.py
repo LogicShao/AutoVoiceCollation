@@ -17,15 +17,10 @@ pre_text = (
     "AI提取的文本可能存在错误和不准确之处，"
     "以及润色之后的文本可能会与原意有所偏差，请仔细辨别。\n\n"
 )
-
-if __name__ == "__main__":
-    font_ttf_path = '../../ttf/simfang.ttf'
-    pdfmetrics.registerFont(TTFont('FangSong', font_ttf_path))
-    addMapping('FangSong', 0, 0, 'FangSong')  # 正常字体
-else:
-    font_ttf_path = '../ttf/simfang.ttf'
-    pdfmetrics.registerFont(TTFont('FangSong', font_ttf_path))
-    addMapping('FangSong', 0, 0, 'FangSong')  # 正常字体
+# 设置字体路径
+font_ttf_path = './ttf/simfang.ttf'
+pdfmetrics.registerFont(TTFont('FangSong', font_ttf_path))
+addMapping('FangSong', 0, 0, 'FangSong')  # 正常字体
 
 
 def text_to_pdf(txt: str, with_img: bool = False, title: str | None = None, output_dir: str = "../../out") -> str:
@@ -234,11 +229,3 @@ def text_to_image(txt: str, output_style: str, title: str | None = None, output_
         return text_to_one_image(txt, title, output_path=output_path)
     else:
         raise ValueError(f"Unsupported output style: {output_style}")
-
-
-if __name__ == "__main__":
-    # 示例调用
-    test_file = "../../out/polish_text.txt"
-    with open(test_file, "r", encoding="utf-8") as f:
-        text = f.read()
-    text_to_pdf(text, output_dir="../../out", title="［计划］本账号视频总目标与计划")

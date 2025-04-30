@@ -1,11 +1,15 @@
+from .load_api_key import load_api_keys
+
+load_api_keys()
 import os
 
-from config import *
-from extract_audio_text import extract_audio_text
-from get_audio import download_bilibili_audio
-from src.Timer import Timer
-from src.text_arrangement.polish_by_llm.polish_by_llm import polish_text
-from src.text_arrangement.text2img import text_to_image
+from .Timer import Timer
+from .config import *
+from .extract_audio_text import extract_audio_text
+from .get_audio import download_bilibili_audio
+from .scripts import copy_output_files
+from .text_arrangement.polish_by_llm.polish_by_llm import polish_text
+from .text_arrangement.text2img import text_to_image
 
 
 def main(prev_audio_path: str = None):
@@ -50,6 +54,11 @@ def main(prev_audio_path: str = None):
 
     text_to_image(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR)
 
+    copy_output_files(audio_file_name)
+    print("所有操作完成。")
+
 
 if __name__ == "__main__":
-    main()
+    prev_audio_path = "./download/［计划］本账号视频总目标与计划.mp3"
+
+    main(prev_audio_path)
