@@ -44,9 +44,17 @@ python -m src.main # 命令行调用
 # python -m src.webui # web调用
 ```
 
+## Demo 展示
+
+webui demo:
+![](img/webui_demo.png)
+
+pdf output demo:
+![](img/pdf_output_demo.png)
+
 ## 配置
 - `config.py`：配置文件，包含了模型选择等参数。
-- `.env`：配置文件，请配置你的api密钥，或者直接设置环境变量。 文件类似于：
+- `.env`：配置文件，位于项目根目录下，请配置你的api密钥，或者直接设置环境变量。文件类似于：
 ```dotenv
 DEEPSEEK_API_KEY=your_deepseek_api_key
 GEMINI_API_KEY=your_gemini_api_key
@@ -55,3 +63,5 @@ GEMINI_API_KEY=your_gemini_api_key
 ## TODO
 - [ ] TODO: 增加对于emoji的支持（情绪识别）
 - [ ] TODO: 增加b站cookies的支持
+- [ ] TODO: 增加AI Summary
+- [ ] TODO: 修复pdf中英文混合的排版问题

@@ -23,7 +23,7 @@ pdfmetrics.registerFont(TTFont('FangSong', font_ttf_path))
 addMapping('FangSong', 0, 0, 'FangSong')  # 正常字体
 
 
-def text_to_pdf(txt: str, with_img: bool = False, title: str | None = None, output_dir: str = "../../out") -> str:
+def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str) -> str:
     """
     将文本转换为 PDF，并将每页转换为图片
     :param txt: 文本内容
@@ -161,12 +161,12 @@ def wrap_text_by_display_width(txt: str, max_width: int) -> list:
     return lines
 
 
-def text_to_one_image(txt: str, title: str | None = None, output_path: str = "../../out") -> str:
+def text_to_one_image(txt: str, output_path: str, title: str | None = None) -> str:
     """
     将文本转换为单张图片
     :param txt: 文本内容
-    :param title: 文本标题（可选）
     :param output_path: 输出路径
+    :param title: 文本标题（可选）
     :return: 输出文件路径
     """
     if title is None:
@@ -212,7 +212,7 @@ def text_to_one_image(txt: str, title: str | None = None, output_path: str = "..
     return output_file_path
 
 
-def text_to_image(txt: str, output_style: str, title: str | None = None, output_path: str = "../../out") -> str:
+def text_to_img_or_pdf(txt: str, output_style: str, output_path: str, title: str | None = None) -> str:
     """
     将文本转换为图片或PDF
     :param txt: 文本内容
@@ -226,6 +226,6 @@ def text_to_image(txt: str, output_style: str, title: str | None = None, output_
     elif output_style == 'pdf only':
         return text_to_pdf(txt, with_img=False, title=title, output_dir=output_path)
     elif output_style == 'img only':
-        return text_to_one_image(txt, title, output_path=output_path)
+        return text_to_one_image(txt, output_path=output_path, title=title)
     else:
         raise ValueError(f"Unsupported output style: {output_style}")

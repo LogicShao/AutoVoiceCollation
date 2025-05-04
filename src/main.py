@@ -1,28 +1,27 @@
-from .load_api_key import load_api_keys
+from src.load_api_key import load_api_keys
 
 load_api_keys()
-import os
+from src.Timer import Timer
+from src.config import *
+from src.extract_audio_text import extract_audio_text
+from src.get_audio import download_bilibili_audio
+from src.scripts import copy_output_files
+from src.text_arrangement.polish_by_llm import polish_text
+from src.text_arrangement.text2img import text_to_img_or_pdf
+from src.text_arrangement.summary_by_llm import summarize_text
 
-from .Timer import Timer
-from .config import *
-from .extract_audio_text import extract_audio_text
-from .get_audio import download_bilibili_audio
-from .scripts import copy_output_files
-from .text_arrangement.polish_by_llm.polish_by_llm import polish_text
-from .text_arrangement.text2img import text_to_image
 
-
-def main(prev_audio_path: str = None):
+def main(local_audio_path: str = None):
     timer = Timer()
 
-    if prev_audio_path is None:
+    if local_audio_path is None:
         video_url = input("请输入B站视频链接（例如：https://www.bilibili.com/video/BV1...）：\n")
         timer.start()
         print("正在下载音频...")
         audio_path = download_bilibili_audio(video_url, output_format='mp3', output_dir=DOWNLOAD_DIR)
         print(f"音频已下载到：{audio_path}", "用时：", timer.stop(), "秒")
     else:
-        audio_path = prev_audio_path
+        audio_path = local_audio_path
         print(f"使用已有音频：{audio_path}")
 
     audio_file_name = os.path.basename(audio_path).split(".")[0]
@@ -41,7 +40,7 @@ def main(prev_audio_path: str = None):
         timer.start()
         print("正在润色文本...")
         polished_text = polish_text(audio_text, api_service=LLM_SERVER, temperature=LLM_TEMPERATURE,
-                                    max_tokens=SPLIT_LIMIT, debug_flag=DEBUG_FLAG)
+                                    split_len=SPLIT_LIMIT, max_tokens=LLM_MAX_TOKENS, debug_flag=DEBUG_FLAG)
         print("文本润色完成，用时：", timer.stop(), "秒")
 
         polish_text_file_path = os.path.join(OUTPUT_DIR, "polish_text.txt")
@@ -52,13 +51,19 @@ def main(prev_audio_path: str = None):
         polished_text = audio_text
         print("文本润色已跳过。")
 
-    text_to_image(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR)
+    text_to_img_or_pdf(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR)
 
-    copy_output_files(audio_file_name)
-    print("所有操作完成。")
+    if not DISABLE_LLM_SUMMARY:
+        print("正在生成 Summary...")
+        summary_text = summarize_text(txt=polished_text, api_server=LLM_SERVER, temperature=LLM_TEMPERATURE,
+                                      max_tokens=LLM_MAX_TOKENS)
+        with open(os.path.join(OUTPUT_DIR, "summary_text.txt"), "w", encoding="utf-8") as f:
+            f.write(summary_text)
+        print(f"文本摘要已保存到：{os.path.join(OUTPUT_DIR, 'summary_text.txt')}")
+
+        copy_output_files(audio_file_name)
+        print("所有操作完成。")
 
 
 if __name__ == "__main__":
-    prev_audio_path = "./download/［计划］本账号视频总目标与计划.mp3"
-
-    main(prev_audio_path)
+    main()

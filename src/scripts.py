@@ -3,22 +3,7 @@ import glob
 import os
 import shutil
 
-from .config import OUTPUT_DIR, DOWNLOAD_DIR
-
-
-def display_api_key(api_key: str, front_display_num: int = 6, back_display_num: int = 4) -> str:
-    """
-    显示 API 密钥的部分内容，前后各显示指定数量的字符。
-    :param api_key: API 密钥
-    :param front_display_num: 前面显示的字符数
-    :param back_display_num: 后面显示的字符数
-    :return: 显示的 API 密钥
-    """
-    if len(api_key) <= front_display_num + back_display_num:
-        return api_key
-    else:
-        return api_key[:front_display_num] + '*' * (len(api_key) - front_display_num -
-                                                    back_display_num) + api_key[-back_display_num:]
+from src.config import (OUTPUT_DIR, DOWNLOAD_DIR)
 
 
 def copy_output_files(audio_name: str):
@@ -90,3 +75,8 @@ def main():
         print("未指定清理选项。")
 
     print("--- 清理完成 ---")
+
+
+if __name__ == "__main__":
+    clean_directory(OUTPUT_DIR)
+    clean_directory(DOWNLOAD_DIR)

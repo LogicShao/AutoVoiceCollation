@@ -2,7 +2,20 @@ import os
 
 from dotenv import load_dotenv
 
-from .scripts import display_api_key
+
+def display_api_key(api_key: str, front_display_num: int = 6, back_display_num: int = 4) -> str:
+    """
+    显示 API 密钥的部分内容，前后各显示指定数量的字符。
+    :param api_key: API 密钥
+    :param front_display_num: 前面显示的字符数
+    :param back_display_num: 后面显示的字符数
+    :return: 显示的 API 密钥
+    """
+    if len(api_key) <= front_display_num + back_display_num:
+        return api_key
+    else:
+        return api_key[:front_display_num] + '*' * (len(api_key) - front_display_num -
+                                                    back_display_num) + api_key[-back_display_num:]
 
 
 def load_api_keys():
