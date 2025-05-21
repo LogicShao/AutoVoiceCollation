@@ -65,3 +65,6 @@ GEMINI_API_KEY=your_gemini_api_key
 - [ ] TODO: 增加b站cookies的支持
 - [ ] TODO: 增加AI Summary
 - [ ] TODO: 修复pdf中英文混合的排版问题
+- [ ] TODO: 增加字幕生成
+- [ ] TODO: 对于模型的优化
+- [ ] TODO: 使用更好的模型

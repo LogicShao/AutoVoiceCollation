@@ -18,17 +18,17 @@ def display_api_key(api_key: str, front_display_num: int = 6, back_display_num: 
                                                     back_display_num) + api_key[-back_display_num:]
 
 
-def load_api_keys():
+def load_api_keys(dotenv_file: str = '.env'):
     """
     从环境变量中加载 API 密钥，并显示部分内容。
     :return: None
     """
     # 加载 .env 文件中的环境变量
-    if os.path.exists('.env'):
-        load_dotenv('.env')
-        print('检测到 .env 文件，已加载环境变量。')
+    if os.path.exists(dotenv_file):
+        load_dotenv(dotenv_file)
+        print('检测到 dotenv 文件 {}，已加载环境变量。'.format(dotenv_file))
     else:
-        print('未检测到 .env 文件，从系统环境变量加载。')
+        print('未检测到 dotenv 文件 {}，从系统环境变量加载。'.format(dotenv_file))
 
     try:
         _deepseek_api_key = os.getenv('DEEPSEEK_API_KEY')

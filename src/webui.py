@@ -80,6 +80,29 @@ def bilibili_download(video_url, language, llm_api, temperature, max_tokens):
     return output_dir, extract_time + download_time, polish_time, zip_file
 
 
+def process_multiple_urls(urls: str, language="auto", llm_api=LLM_SERVER, temperature=LLM_TEMPERATURE,
+                          max_tokens=LLM_MAX_TOKENS):
+    url_list = urls.strip().split("\n")
+    all_output_dirs = []
+    total_extract_time = 0
+    total_polish_time = 0
+    for url in url_list:
+        if url.startswith("http"):
+            timer = Timer()
+            timer.start()
+            audio_path = download_bilibili_audio(url, output_format='mp3', output_dir=DOWNLOAD_DIR)
+            download_time = timer.stop()
+            output_dir, extract_time, polish_time, zip_file = process_audio(
+                audio_path, language, llm_api, temperature, max_tokens
+            )
+            all_output_dirs.append(zip_file)
+            total_extract_time += extract_time + download_time
+            total_polish_time += polish_time
+        else:
+            return f"无效的URL: {url}", None
+    return "\n".join(all_output_dirs), total_extract_time, total_polish_time
+
+
 with gr.Blocks(title="音频识别与文本整理工具") as app:
     gr.Markdown("# 🎧 音频识别与文本整理系统")
     gr.Markdown("上传音频文件或输入B站视频链接，一键提取文本并生成图文版。")
@@ -124,6 +147,26 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
             fn=bilibili_download,
             inputs=[bilibili_input, language_dropdown2, llm_api_dropdown2, temp_slider2, token_slider2],
             outputs=[bilibili_output, bilibili_time, bilibili_time, download_zip2]
+        )
+
+    # New tab for processing multiple URLs
+    with gr.Tab("批量处理B站链接"):
+        with gr.Row():
+            url_input = gr.Textbox(label="请输入B站视频链接，每个URL换行分隔")
+            language_dropdown3 = gr.Dropdown(choices=LANGUAGES, value="auto", label="识别语言")
+        with gr.Row():
+            llm_api_dropdown3 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
+            temp_slider3 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
+            token_slider3 = gr.Slider(100, 8000, step=100, value=LLM_MAX_TOKENS, label="Max Tokens")
+        batch_button = gr.Button("批量下载并处理")
+        batch_output = gr.Textbox(label="输出文件", interactive=False)
+        batch_time = gr.Textbox(label="总下载+识别+润色用时（秒）", interactive=False)
+        download_zip_batch = gr.File(label="下载打包结果（ZIP）", interactive=False)
+
+        batch_button.click(
+            fn=process_multiple_urls,
+            inputs=[url_input, language_dropdown3, llm_api_dropdown3, temp_slider3, token_slider3],
+            outputs=[batch_output, batch_time, batch_time, download_zip_batch]
         )
 
     gr.Markdown("---")
