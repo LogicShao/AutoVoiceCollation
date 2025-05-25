@@ -66,4 +66,4 @@ def main(local_audio_path: str = None):
 
 
 if __name__ == "__main__":
-    main()
+    main("")
