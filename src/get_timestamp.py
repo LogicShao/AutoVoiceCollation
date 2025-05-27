@@ -53,7 +53,7 @@ def run_asr_on_slices(audio_path, batch_size_s):
                     data_in=temp_path,
                     language="auto",
                     use_itn=False,
-                    ban_emo_unk=False,
+                    ban_emo_unk=True,
                     output_timestamp=True,
                     **kwargs,
                 )
@@ -91,7 +91,13 @@ def run_asr_on_slices(audio_path, batch_size_s):
 
 def seconds_to_timestamp(seconds):
     td = timedelta(seconds=seconds)
-    return str(td)[:11] + '0' * (12 - len(str(td)[:11]))  # 保证毫秒格式完整 00:00:00.000
+    total_seconds = int(td.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+    milliseconds = int((td.total_seconds() - total_seconds) * 1000)
+
+    return f"{hours:02}:{minutes:02}:{secs:02}.{milliseconds:04}"
 
 
 def generate_webvtt_cc(sub_dict, max_chars_per_line=12):
@@ -128,7 +134,7 @@ def save_dot_cc_file(sub_dict, filename="output.cc"):
     :param sub_dict: 包含文本和时间戳的字典
     :param filename: 输出文件名
     """
-    with open(filename, "w", encoding="utf-8") as f:
+    with open(filename, "w", encoding="utf-8-sig") as f:
         f.write(generate_webvtt_cc(sub_dict))
 
 
@@ -147,32 +153,70 @@ def gen_dot_cc_file(audio_path: str, batch_size_s: int = 5, output_file: str = N
     print(f"字幕文件已保存到：{output_file}")
 
 
-# 示例输入字典
-_test_dict = {
-    "text": "好的现在是北京时间二零二五年五月",
-    "timestamp": [
-        ["好", 0.0, 1.41],
-        ["的", 1.41, 1.83],
-        ["现", 1.83, 2.07],
-        ["在", 2.07, 2.31],
-        ["是", 2.31, 2.67],
-        ["北", 2.67, 2.79],
-        ["京", 2.79, 2.97],
-        ["时", 2.97, 3.15],
-        ["间", 3.15, 3.33],
-        ["二", 3.33, 3.51],
-        ["零", 3.51, 3.87],
-        ["二", 3.87, 4.11],
-        ["五", 4.11, 4.23],
-        ["年", 4.23, 4.47],
-        ["五", 4.47, 4.65],
-        ["月", 4.65, 4.95]
-    ]
-}
+def seconds_to_srt_timestamp(seconds: float) -> str:
+    td = timedelta(seconds=seconds)
+    total_seconds = int(td.total_seconds())
+    hours = total_seconds // 3600
+    minutes = (total_seconds % 3600) // 60
+    secs = total_seconds % 60
+    milliseconds = int((td.total_seconds() - total_seconds) * 1000)
+
+    return f"{hours:02}:{minutes:02}:{secs:02},{milliseconds:03}"
+
+
+def save_dot_srt_file(res_dict, filename):
+    """
+    保存为 .srt 字幕文件
+    :param res_dict: 包含 "text" 和 "timestamp" 的识别结果字典
+    :param filename: 输出文件名
+    """
+    lines = []
+    index = 1
+    buffer = ""
+    start_time = None
+    end_time = None
+    max_chars_per_line = 12  # 每条字幕最多字符数，可根据需要调整
+
+    for i, (char, start, end) in enumerate(res_dict["timestamp"]):
+        if start_time is None:
+            start_time = start
+        buffer += char
+        end_time = end
+
+        # 生成一条字幕
+        if len(buffer) >= max_chars_per_line or i == len(res_dict["timestamp"]) - 1:
+            start_str = seconds_to_srt_timestamp(start_time)
+            end_str = seconds_to_srt_timestamp(end_time)
+            lines.append(f"{index}")
+            lines.append(f"{start_str} --> {end_str}")
+            lines.append(buffer)
+            lines.append("")
+            index += 1
+            buffer = ""
+            start_time = None
+
+    with open(filename, "w", encoding="utf-8-sig") as f:
+        f.write("\n".join(lines))
+
+
+def gen_dot_srt_file(audio_path: str, batch_size_s: int = 5, output_file: str = None):
+    """
+    生成 .srt 字幕文件
+    :param audio_path: 音频文件路径
+    :param batch_size_s: 每个切片的时长（秒）
+    :param output_file: 输出的 .srt 文件名
+    """
+    if output_file is None:
+        output_file = os.path.splitext(audio_path)[0] + ".srt"
+
+    res_dict = run_asr_on_slices(audio_path, batch_size_s)
+    save_dot_srt_file(res_dict, filename=output_file)
+    print(f"字幕文件已保存到：{output_file}")
+
 
 # 用法示例
 if __name__ == "__main__":
-    audio_path = "download/test_audio.mp3"
+    audio_path = ""
     batch_size_s = 5
 
     gen_dot_cc_file(audio_path, batch_size_s)
