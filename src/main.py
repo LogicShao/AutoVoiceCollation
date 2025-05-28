@@ -4,7 +4,7 @@ load_api_keys()
 from src.Timer import Timer
 from src.config import *
 from src.extract_audio_text import extract_audio_text
-from src.get_audio import download_bilibili_audio
+from src.get_video_or_audio import download_bilibili_audio
 from src.scripts import copy_output_files
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.text2img import text_to_img_or_pdf

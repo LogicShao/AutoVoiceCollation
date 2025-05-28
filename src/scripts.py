@@ -57,9 +57,6 @@ def main():
     parser.add_argument("--clean-download", action="store_true", help="清理DOWNLOAD_DIR")
     parser.add_argument("--all", action="store_true", help="清理所有目录 (默认)")
 
-    # 对于初步功能，我们不需要额外的参数，直接执行清理操作
-    # 如果需要基于参数进行有条件的清理，可以在这里解析args，并在下面判断
-
     args = parser.parse_args()
 
     print("\n--- 开始清理 ---")

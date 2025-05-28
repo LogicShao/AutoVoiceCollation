@@ -5,6 +5,7 @@ sys.path.append("./SenseVoice")
 
 import soundfile as sf
 import torch
+import subprocess
 import torchaudio
 from funasr.utils.postprocess_utils import rich_transcription_postprocess
 from SenseVoice.model import SenseVoiceSmall
@@ -138,7 +139,7 @@ def save_dot_cc_file(sub_dict, filename="output.cc"):
         f.write(generate_webvtt_cc(sub_dict))
 
 
-def gen_dot_cc_file(audio_path: str, batch_size_s: int = 5, output_file: str = None):
+def gen_dot_cc_file(audio_path: str, batch_size_s: int = 5, output_file: str = None) -> str:
     """
     生成 .cc 字幕文件
     :param audio_path: 音频文件路径
@@ -151,6 +152,8 @@ def gen_dot_cc_file(audio_path: str, batch_size_s: int = 5, output_file: str = N
     res_dict = run_asr_on_slices(audio_path, batch_size_s)
     save_dot_cc_file(res_dict, filename=output_file)
     print(f"字幕文件已保存到：{output_file}")
+
+    return output_file
 
 
 def seconds_to_srt_timestamp(seconds: float) -> str:
@@ -199,7 +202,7 @@ def save_dot_srt_file(res_dict, filename):
         f.write("\n".join(lines))
 
 
-def gen_dot_srt_file(audio_path: str, batch_size_s: int = 5, output_file: str = None):
+def gen_dot_srt_file(audio_path: str, batch_size_s: int = 5, output_file: str = None) -> str:
     """
     生成 .srt 字幕文件
     :param audio_path: 音频文件路径
@@ -213,10 +216,62 @@ def gen_dot_srt_file(audio_path: str, batch_size_s: int = 5, output_file: str = 
     save_dot_srt_file(res_dict, filename=output_file)
     print(f"字幕文件已保存到：{output_file}")
 
+    return output_file
 
-# 用法示例
+
+def hard_encode_dot_srt_file(input_video_path: str, input_srt_path: str, output_video_path: str) -> str:
+    """
+    将 .srt 字幕文件硬编码到视频中。
+
+    :param input_video_path: 输入视频路径
+    :param input_srt_path: 输入 .srt 字幕文件路径
+    :param output_video_path: 输出视频路径（硬编码字幕后）
+    :return: 输出视频路径
+    """
+    if not os.path.isfile(input_video_path):
+        raise FileNotFoundError(f"未找到视频文件：{input_video_path}")
+    if not os.path.isfile(input_srt_path):
+        raise FileNotFoundError(f"未找到字幕文件：{input_srt_path}")
+
+
+
+    # Windows 上如果路径包含中文或空格，ffmpeg 要求路径用 full path 并加引号，且编码使用 UTF-8
+    command = [
+        'ffmpeg',
+        '-i', input_video_path.replace("\\", "/"),
+        '-vf', 'subtitles={}'.format(input_srt_path.replace("\\", "/")),
+        '-c:a', 'copy',  # 保留原始音频
+        '-y',  # 自动覆盖已有文件
+        output_video_path.replace("\\", "/")
+    ]
+
+    print(f"开始硬编码字幕到视频：{output_video_path}")
+    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
+
+    if result.returncode != 0:
+        raise RuntimeError(f"字幕硬编码失败：\n{result.stderr}")
+
+    return output_video_path
+
+
 if __name__ == "__main__":
-    audio_path = ""
-    batch_size_s = 5
+    from src.get_video_or_audio import download_bilibili_video, extract_audio_from_video
+    from src.config import DOWNLOAD_DIR
 
-    gen_dot_cc_file(audio_path, batch_size_s)
+    video_url = input("请输入B站视频链接（例如：https://www.bilibili.com/video/BV1...）：\n")
+    video_path = download_bilibili_video(video_url, output_format='mp4', output_dir=DOWNLOAD_DIR)
+
+    audio_path = extract_audio_from_video(video_path, output_format='mp3', output_dir=DOWNLOAD_DIR)
+
+    gen_file_type = input("请输入生成的字幕文件类型（cc/srt）[默认为srt]：\n").strip().lower()
+    if gen_file_type == "cc":
+        gen_dot_cc_file(audio_path, batch_size_s=5)
+    else:
+        file_path = gen_dot_srt_file(audio_path, batch_size_s=5)
+        hard_encode_flag = input("是否将字幕硬编码到视频中？(y/n)：\n").strip().lower()
+        if hard_encode_flag == "y":
+            output_video_path = os.path.splitext(video_path)[0] + "-subtitled.mp4"
+            hard_encode_dot_srt_file(video_path, file_path, output_video_path)
+            print(f"硬编码字幕后的视频已保存到：{output_video_path}")
+        else:
+            print("字幕文件已生成，但未进行硬编码。")
