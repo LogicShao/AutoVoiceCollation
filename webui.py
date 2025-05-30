@@ -1,17 +1,15 @@
-from src.load_api_key import load_api_keys
-
-load_api_keys()
-
 import shutil
+
 import gradio as gr
+
 from src.Timer import Timer
 from src.config import *
 from src.extract_audio_text import extract_audio_text
 from src.get_video_or_audio import download_bilibili_audio
 from src.scripts import copy_output_files
 from src.text_arrangement.polish_by_llm import polish_text
-from src.text_arrangement.text2img import text_to_img_or_pdf
 from src.text_arrangement.summary_by_llm import summarize_text
+from src.text_arrangement.text2img import text_to_img_or_pdf
 
 
 def zip_output_dir(output_dir: str) -> str:
@@ -168,6 +166,33 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
             fn=process_multiple_urls,
             inputs=[url_input, language_dropdown3, llm_api_dropdown3, temp_slider3, token_slider3],
             outputs=[batch_output, batch_time, batch_time, download_zip_batch]
+        )
+
+    with gr.Tab("自动添加字幕"):
+        gr.Markdown("### 硬编码字幕到视频")
+        gr.Markdown("请确保已上传视频文件和字幕文件（.srt格式）。")
+        video_input = gr.File(label="选择本地视频文件（支持mp4格式）")
+        srt_input = gr.File(label="选择字幕文件（.srt格式）")
+        output_video_path = gr.Textbox(label="输出视频路径", value="output_video.mp4", interactive=True)
+        hard_encode_button = gr.Button("开始硬编码字幕")
+        hard_encode_output = gr.Textbox(label="输出视频路径", interactive=False)
+
+
+        def hard_encode(video_file, srt_file, output_path):
+            if not video_file or not srt_file:
+                return "请上传视频和字幕文件。", None
+            try:
+                from src.get_timestamp import hard_encode_dot_srt_file
+                output_video = hard_encode_dot_srt_file(video_file.name, srt_file.name, output_path)
+                return "字幕硬编码成功！", output_video
+            except Exception as e:
+                return f"处理失败：{str(e)}", None
+
+
+        hard_encode_button.click(
+            fn=hard_encode,
+            inputs=[video_input, srt_input, output_video_path],
+            outputs=[hard_encode_output, hard_encode_output]
         )
 
     gr.Markdown("---")

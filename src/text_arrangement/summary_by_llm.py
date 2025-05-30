@@ -1,4 +1,4 @@
-from src.text_arrangement.llm_query import LLMQueryParams, query_deepseek, query_gemini
+from src.text_arrangement.query_llm import LLMQueryParams, query_llm
 
 system_instruction = (
     "你是一个专业的内容分析助手，请根据用户提供的文本内容，"
@@ -28,16 +28,10 @@ def summarize_text(txt: str, api_server: str, temperature: float, max_tokens: in
     """
     prompt = prompt_template.format(text=txt)
 
-    if api_server == 'deepseek':
-        query_llm = query_deepseek
-    elif api_server == 'gemini':
-        query_llm = query_gemini
-    else:
-        raise ValueError(f"Unsupported API server: {api_server}")
-
     return query_llm(LLMQueryParams(
         content=prompt,
         system_instruction=system_instruction,
         temperature=temperature,
-        max_tokens=max_tokens
+        max_tokens=max_tokens,
+        api_server=api_server
     ))

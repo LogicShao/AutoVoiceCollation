@@ -1,16 +1,18 @@
 import os
+from dataclasses import dataclass
 
 import requests
 from google import genai
 from google.genai import types
 
 
+@dataclass
 class LLMQueryParams:
-    def __init__(self, content: str, system_instruction: str = None, temperature: float = 0.7, max_tokens: int = 100):
-        self.content = content
-        self.system_instruction = system_instruction or "You are a helpful assistant."  # Default system instruction
-        self.temperature = temperature
-        self.max_tokens = max_tokens
+    content: str
+    system_instruction: str = "You are a helpful assistant."
+    temperature: float = 0.7
+    max_tokens: int = 1000
+    api_server: str = "gemini"  # Default to Gemini, can be overridden
 
 
 def query_deepseek(params: LLMQueryParams) -> str:
@@ -57,3 +59,13 @@ def query_gemini(params: LLMQueryParams) -> str:
         ),
     )
     return response.text
+
+
+def query_llm(params: LLMQueryParams) -> str:
+    """Query the LLM based on the specified API server."""
+    if params.api_server.lower() == 'deepseek':
+        return query_deepseek(params)
+    elif params.api_server.lower() == 'gemini':
+        return query_gemini(params)
+    else:
+        raise ValueError(f"Unsupported API server: {params.api_server}")

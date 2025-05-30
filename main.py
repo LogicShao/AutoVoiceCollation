@@ -1,6 +1,3 @@
-from src.load_api_key import load_api_keys
-
-load_api_keys()
 from src.Timer import Timer
 from src.config import *
 from src.extract_audio_text import extract_audio_text
@@ -66,4 +63,4 @@ def main(local_audio_path: str = None):
 
 
 if __name__ == "__main__":
-    main("")
+    main()

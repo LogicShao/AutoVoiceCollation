@@ -6,7 +6,7 @@ import time
 from collections import deque
 
 from src.config import OUTPUT_DIR
-from src.text_arrangement.llm_query import LLMQueryParams, query_deepseek, query_gemini
+from src.text_arrangement.query_llm import LLMQueryParams, query_llm
 from src.text_arrangement.split_text import split_text_by_sentences
 
 MAX_RETRIES = 3
@@ -37,18 +37,12 @@ def polish_each_text(txt: str, api_server: str, temperature: float, max_tokens: 
               f"请你仅仅输出整理后的文本，不要增加多余的文字，"
               f"也不要使用任何markdown形式的文字，只使用plain text的形式。")
 
-    if api_server == 'deepseek':
-        query_llm = query_deepseek
-    elif api_server == 'gemini':
-        query_llm = query_gemini
-    else:
-        raise ValueError(f"Unsupported API server: {api_server}")
-
     return query_llm(LLMQueryParams(
         content=prompt,
         system_instruction=system_prompt,
         temperature=temperature,
-        max_tokens=max_tokens
+        max_tokens=max_tokens,
+        api_server=api_server
     ))
 
 
