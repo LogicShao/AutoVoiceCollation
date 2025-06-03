@@ -65,8 +65,9 @@ GEMINI_API_KEY=your_gemini_api_key
 ## TODO
 - [ ] TODO: 增加对于emoji的支持（情绪识别）
 - [ ] TODO: 增加b站cookies的支持
-- [ ] TODO: 增加AI Summary
 - [ ] TODO: 修复pdf中英文混合的排版问题
-- [ ] TODO: 增加字幕生成
 - [ ] TODO: 对于模型的优化
-- [ ] TODO: 使用更好的模型
+- [ ] TODO: 尝试使用其他asr模型
+- [ ] TODO: 接入Qwen、ChatGPT等模型
+- [ ] TODO: 修复LLM分割的Bug
+- [ ] TODO: 改进异步调用

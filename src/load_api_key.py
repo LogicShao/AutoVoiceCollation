@@ -12,7 +12,7 @@ def display_api_key(api_key: str, front_display_num: int = 6, back_display_num: 
     :return: 显示的 API 密钥
     """
     if len(api_key) <= front_display_num + back_display_num:
-        return api_key
+        return '*' * (len(api_key))  # 如果密钥长度小于等于前后显示字符数之和，则全部隐藏
     else:
         return api_key[:front_display_num] + '*' * (len(api_key) - front_display_num -
                                                     back_display_num) + api_key[-back_display_num:]
@@ -33,7 +33,9 @@ def load_api_keys(dotenv_file: str = '.env'):
     try:
         _deepseek_api_key = os.getenv('DEEPSEEK_API_KEY')
         _gemini_api_key = os.getenv('GEMINI_API_KEY')
-        print('检测到deepseek api密钥:', display_api_key(_deepseek_api_key))
-        print('检测到gemini api密钥:', display_api_key(_gemini_api_key))
+        print('检测到 deepseek api 密钥:', display_api_key(_deepseek_api_key))
+        print('检测到 gemini api 密钥:', display_api_key(_gemini_api_key))
     except Exception as e:
         print(f"读取环境变量时发生错误: {e}")
+        print("请确保 .env 文件中包含 DEEPSEEK_API_KEY 和 GEMINI_API_KEY 变量。")
+        print("或者直接在系统环境变量中设置这些变量。")

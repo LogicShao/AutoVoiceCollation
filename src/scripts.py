@@ -6,7 +6,7 @@ import shutil
 from src.config import (OUTPUT_DIR, DOWNLOAD_DIR)
 
 
-def copy_output_files(audio_name: str):
+def move_output_files(audio_name: str):
     """
     将输出文件整理到子目录
     """
@@ -17,9 +17,9 @@ def copy_output_files(audio_name: str):
     pdf_file = os.path.join(OUTPUT_DIR, "output.pdf")
 
     for file in txt_files:
-        shutil.copy2(file, destination_dir)
+        shutil.move(file, destination_dir)
     if os.path.exists(pdf_file):
-        shutil.copy2(pdf_file, destination_dir)
+        shutil.move(pdf_file, destination_dir)
 
     return destination_dir
 
@@ -45,6 +45,24 @@ def clean_directory(directory_path: str):
             print(f"清理目录 '{directory_path}' 时发生未知错误: {e}")
     else:
         print(f"目录 '{directory_path}' 不存在，无需清理。")
+
+
+def remove_files(file_paths: list):
+    """
+    删除指定的文件列表。
+    如果文件不存在，则不执行任何操作。
+    """
+    for file_path in file_paths:
+        if os.path.exists(file_path):
+            try:
+                os.remove(file_path)
+                print(f"成功删除文件: {file_path}")
+            except OSError as e:
+                print(f"错误：删除文件 '{file_path}' 失败: {e}")
+            except Exception as e:
+                print(f"删除文件 '{file_path}' 时发生未知错误: {e}")
+        else:
+            print(f"文件 '{file_path}' 不存在，无需删除。")
 
 
 def main():
@@ -77,3 +95,4 @@ def main():
 if __name__ == "__main__":
     clean_directory(OUTPUT_DIR)
     clean_directory(DOWNLOAD_DIR)
+    remove_files(['output.txt'])

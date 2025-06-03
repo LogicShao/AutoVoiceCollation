@@ -10,7 +10,7 @@ from src.text_arrangement.query_llm import LLMQueryParams, query_llm
 from src.text_arrangement.split_text import split_text_by_sentences
 
 MAX_RETRIES = 3
-RETRY_BACKOFF = 2
+RETRY_BACKOFF = 30
 MAX_CONCURRENT_REQUESTS = 5
 MAX_REQUESTS_PER_MINUTE = 10
 
@@ -67,7 +67,7 @@ class RateLimiter:
 
 
 def polish_text(txt: str, api_service: str, temperature: float, split_len: int, max_tokens: int,
-                debug_flag: bool) -> str:
+                debug_flag: bool, async_flag: bool = True) -> str:
     """
     异步润色函数，支持每分钟请求限制 + 最大并发数控制 + 异常重试。
     :param txt: 要润色的文本
@@ -76,12 +76,19 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     :param split_len: 分段长度
     :param max_tokens: 最大令牌数
     :param debug_flag: 是否开启调试模式
+    :param async_flag: 是否使用异步方式
     :return: 润色后的文本
     """
     print(f"Using {api_service} API for polishing text.")
     print(f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}")
     split_text = split_text_by_sentences(txt, split_len=split_len)
     print(f"Splitting text into {len(split_text)} chunks for processing.")
+
+    if not async_flag:
+        # 如果不使用异步方式，直接调用同步函数
+        return "\n\n".join(
+            [polish_each_text(chunk, api_service, temperature, max_tokens) for chunk in split_text]).strip()
+
     rate_limiter = RateLimiter(MAX_REQUESTS_PER_MINUTE)
 
     async def safe_polish(chunk: str):

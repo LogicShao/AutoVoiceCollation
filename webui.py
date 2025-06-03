@@ -6,7 +6,7 @@ from src.Timer import Timer
 from src.config import *
 from src.extract_audio_text import extract_audio_text
 from src.get_video_or_audio import download_bilibili_audio
-from src.scripts import copy_output_files
+from src.scripts import move_output_files
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.text_arrangement.text2img import text_to_img_or_pdf
@@ -40,7 +40,8 @@ def process_audio(audio_path: str, language="auto", llm_api=LLM_SERVER,
     if not DISABLE_LLM_POLISH:
         timer.start()
         polished_text = polish_text(audio_text, api_service=llm_api, split_len=round(max_tokens * 0.7),
-                                    temperature=temperature, max_tokens=max_tokens, debug_flag=DEBUG_FLAG)
+                                    temperature=temperature, max_tokens=max_tokens, debug_flag=DEBUG_FLAG,
+                                    async_flag=ASYNC_FLAG)
         polish_text_file_path = os.path.join(OUTPUT_DIR, "polish_text.txt")
         with open(polish_text_file_path, "w", encoding="utf-8") as f:
             f.write(polished_text)
@@ -55,7 +56,7 @@ def process_audio(audio_path: str, language="auto", llm_api=LLM_SERVER,
                                   max_tokens=max_tokens)
     with open(os.path.join(OUTPUT_DIR, "summary_text.txt"), "w", encoding="utf-8") as f:
         f.write(summary_text)
-    output_dir = copy_output_files(audio_file_name)
+    output_dir = move_output_files(audio_file_name)
     zip_file = zip_output_dir(output_dir)
     return output_dir, extract_time, polish_time, zip_file
 
