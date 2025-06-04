@@ -5,7 +5,8 @@ import gradio as gr
 from src.Timer import Timer
 from src.config import *
 from src.extract_audio_text import extract_audio_text
-from src.get_video_or_audio import download_bilibili_audio
+from src.get_timestamp import hard_encode_dot_srt_file, gen_timestamped_text_file
+from src.get_video_or_audio import download_bilibili_audio, extract_audio_from_video
 from src.scripts import move_output_files
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
@@ -103,6 +104,18 @@ def process_multiple_urls(urls: str, language="auto", llm_api=LLM_SERVER, temper
     return "\n".join(all_output_dirs), total_extract_time, total_polish_time
 
 
+def process_subtitles(video_file: str):
+    """
+    硬编码字幕到视频文件
+    :param video_file: 视频文件路径
+    :return: 输出视频路径
+    """
+    audio_file = extract_audio_from_video(video_file)
+    srt_file = gen_timestamped_text_file(audio_file)
+    output_file = hard_encode_dot_srt_file(video_file, srt_file)
+    return output_file
+
+
 with gr.Blocks(title="音频识别与文本整理工具") as app:
     gr.Markdown("# 🎧 音频识别与文本整理系统")
     gr.Markdown("上传音频文件或输入B站视频链接，一键提取文本并生成图文版。")
@@ -170,30 +183,16 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
         )
 
     with gr.Tab("自动添加字幕"):
-        gr.Markdown("### 硬编码字幕到视频")
-        gr.Markdown("请确保已上传视频文件和字幕文件（.srt格式）。")
-        video_input = gr.File(label="选择本地视频文件（支持mp4格式）")
-        srt_input = gr.File(label="选择字幕文件（.srt格式）")
-        output_video_path = gr.Textbox(label="输出视频路径", value="output_video.mp4", interactive=True)
-        hard_encode_button = gr.Button("开始硬编码字幕")
-        hard_encode_output = gr.Textbox(label="输出视频路径", interactive=False)
+        video_input = gr.Textbox(label="输入本地视频路径（如 D:/video/abc.mp4）",
+                                 placeholder="请输入完整的本地 .mp4 文件路径")
+        subtitle_button = gr.Button("添加字幕并下载")
+        subtitle_output = gr.Textbox(label="输出视频路径", interactive=False)
+        subtitle_download = gr.File(label="下载带字幕的视频", interactive=False)
 
-
-        def hard_encode(video_file, srt_file, output_path):
-            if not video_file or not srt_file:
-                return "请上传视频和字幕文件。", None
-            try:
-                from src.get_timestamp import hard_encode_dot_srt_file
-                output_video = hard_encode_dot_srt_file(video_file.name, srt_file.name, output_path)
-                return "字幕硬编码成功！", output_video
-            except Exception as e:
-                return f"处理失败：{str(e)}", None
-
-
-        hard_encode_button.click(
-            fn=hard_encode,
-            inputs=[video_input, srt_input, output_video_path],
-            outputs=[hard_encode_output, hard_encode_output]
+        subtitle_button.click(
+            fn=process_subtitles,
+            inputs=video_input,
+            outputs=[subtitle_output, subtitle_download]
         )
 
     gr.Markdown("---")

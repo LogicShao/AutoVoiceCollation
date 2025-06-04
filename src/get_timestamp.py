@@ -289,7 +289,7 @@ def gen_timestamped_text_file(audio_path: str, file_type: str = 'srt', batch_siz
     return output_file
 
 
-def hard_encode_dot_srt_file(input_video_path: str, input_srt_path: str, output_video_path: str) -> str:
+def hard_encode_dot_srt_file(input_video_path: str, input_srt_path: str, output_video_path: str = None) -> str:
     """
     将 .srt 字幕文件硬编码到视频中。
 
@@ -302,8 +302,9 @@ def hard_encode_dot_srt_file(input_video_path: str, input_srt_path: str, output_
         raise FileNotFoundError(f"未找到视频文件：{input_video_path}")
     if not os.path.isfile(input_srt_path):
         raise FileNotFoundError(f"未找到字幕文件：{input_srt_path}")
+    if output_video_path is None:
+        output_video_path = os.path.splitext(input_video_path)[0] + "-with-subtitles.mp4"
 
-    # Windows 上如果路径包含中文或空格，ffmpeg 要求路径用 full path 并加引号，且编码使用 UTF-8
     command = [
         'ffmpeg',
         '-i', input_video_path.replace("\\", "/"),
@@ -314,6 +315,10 @@ def hard_encode_dot_srt_file(input_video_path: str, input_srt_path: str, output_
     ]
 
     print(f"开始硬编码字幕到视频：{output_video_path}")
+    print(f"输入视频路径：{input_video_path}")
+    print(f"输入字幕路径：{input_srt_path}")
+    print("ffmpeg 命令：", " ".join(command))
+
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
 
     if result.returncode != 0:

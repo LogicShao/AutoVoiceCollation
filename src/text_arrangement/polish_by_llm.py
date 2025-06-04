@@ -86,34 +86,37 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
 
     if not async_flag:
         # 如果不使用异步方式，直接调用同步函数
+        print("Running in synchronous mode.")
         return "\n\n".join(
             [polish_each_text(chunk, api_service, temperature, max_tokens) for chunk in split_text]).strip()
 
+    print("Running in asynchronous mode.")
     rate_limiter = RateLimiter(MAX_REQUESTS_PER_MINUTE)
 
-    async def safe_polish(chunk: str):
+    async def safe_polish(chunk: str, task_id: int):
+        print(f"Processing chunk {task_id + 1}/{len(split_text)}")
         for attempt in range(1, MAX_RETRIES + 1):
             try:
                 await rate_limiter.wait_for_slot()  # ⏳ 等待速率许可
-                return await loop.run_in_executor(executor, polish_each_text, chunk, api_service, temperature,
-                                                  max_tokens)
+                ret = await loop.run_in_executor(executor, polish_each_text, chunk, api_service, temperature,
+                                                 max_tokens)
+                print(f"Chunk {task_id + 1} polished successfully.")
+                return ret
             except Exception as e:
                 logging.warning(f"Error polishing chunk (attempt {attempt}): {e}")
                 if attempt < MAX_RETRIES:
                     await asyncio.sleep(RETRY_BACKOFF * attempt)
-                else:
-                    logging.error(f"Failed to process chunk after {MAX_RETRIES} attempts.")
-                    return chunk  # fallback: return original
+        logging.error(f"Failed to process chunk after {MAX_RETRIES} attempts.")
         return chunk
 
     async def polish_all():
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
-        async def sem_safe_polish(chunk):
+        async def sem_safe_polish(chunk, task_id):
             async with semaphore:
-                return await safe_polish(chunk)
+                return await safe_polish(chunk, task_id)
 
-        tasks = [sem_safe_polish(chunk) for chunk in split_text]
+        tasks = [sem_safe_polish(chunk, task_id) for task_id, chunk in enumerate(split_text)]
         results = await asyncio.gather(*tasks)
         return results
 

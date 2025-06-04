@@ -3,7 +3,25 @@ import glob
 import os
 import shutil
 
-from src.config import (OUTPUT_DIR, DOWNLOAD_DIR)
+from src.config import OUTPUT_DIR, DOWNLOAD_DIR, TEMP_DIR
+
+
+def copy_output_files(audio_name: str):
+    """
+    将输出文件复制到子目录
+    """
+    destination_dir = os.path.join(OUTPUT_DIR, audio_name)
+    os.makedirs(destination_dir, exist_ok=True)
+
+    txt_files = glob.glob(os.path.join(OUTPUT_DIR, "*.txt"))
+    pdf_file = os.path.join(OUTPUT_DIR, "output.pdf")
+
+    for file in txt_files:
+        shutil.copy(file, destination_dir)
+    if os.path.exists(pdf_file):
+        shutil.copy(pdf_file, destination_dir)
+
+    return destination_dir
 
 
 def move_output_files(audio_name: str):
@@ -11,7 +29,12 @@ def move_output_files(audio_name: str):
     将输出文件整理到子目录
     """
     destination_dir = os.path.join(OUTPUT_DIR, audio_name)
-    os.makedirs(destination_dir, exist_ok=True)
+    if os.path.exists(destination_dir):
+        index = 1
+        while os.path.exists(destination_dir + f"_{index}"):
+            index += 1
+        destination_dir = destination_dir + f"_{index}"
+    os.makedirs(destination_dir)
 
     txt_files = glob.glob(os.path.join(OUTPUT_DIR, "*.txt"))
     pdf_file = os.path.join(OUTPUT_DIR, "output.pdf")
@@ -95,4 +118,5 @@ def main():
 if __name__ == "__main__":
     clean_directory(OUTPUT_DIR)
     clean_directory(DOWNLOAD_DIR)
+    clean_directory(TEMP_DIR)
     remove_files(['output.txt'])

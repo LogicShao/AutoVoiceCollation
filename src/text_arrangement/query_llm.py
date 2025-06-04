@@ -12,6 +12,8 @@ class LLMQueryParams:
     system_instruction: str = "You are a helpful assistant."
     temperature: float = 0.7
     max_tokens: int = 1000
+    top_k: int = 100
+    top_p: float = 0.9
     api_server: str = "gemini"  # Default to Gemini, can be overridden
 
 
@@ -58,7 +60,7 @@ def query_gemini(params: LLMQueryParams) -> str:
             system_instruction=params.system_instruction,
         ),
     )
-    return response.text
+    return response.text.strip()
 
 
 def query_llm(params: LLMQueryParams) -> str:

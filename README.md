@@ -71,3 +71,6 @@ GEMINI_API_KEY=your_gemini_api_key
 - [ ] TODO: 接入Qwen、ChatGPT等模型
 - [ ] TODO: 修复LLM分割的Bug
 - [ ] TODO: 改进异步调用
+- [ ] TODO: 支持参数top_p，top_k
+- [ ] TODO: 改进UI
+- [ ] TODO: 修复ffmpeg处理绝对路径的问题
