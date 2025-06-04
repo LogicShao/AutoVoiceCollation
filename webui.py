@@ -113,7 +113,7 @@ def process_subtitles(video_file: str):
     audio_file = extract_audio_from_video(video_file)
     srt_file = gen_timestamped_text_file(audio_file)
     output_file = hard_encode_dot_srt_file(video_file, srt_file)
-    return output_file
+    return srt_file, output_file
 
 
 with gr.Blocks(title="音频识别与文本整理工具") as app:
@@ -183,16 +183,15 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
         )
 
     with gr.Tab("自动添加字幕"):
-        video_input = gr.Textbox(label="输入本地视频路径（如 D:/video/abc.mp4）",
-                                 placeholder="请输入完整的本地 .mp4 文件路径")
+        video_input = gr.File(label="选择视频文件（支持mp4格式）")
         subtitle_button = gr.Button("添加字幕并下载")
-        subtitle_output = gr.Textbox(label="输出视频路径", interactive=False)
+        dot_srt_file = gr.File(label="下载输出字幕文件（.srt）", interactive=False)
         subtitle_download = gr.File(label="下载带字幕的视频", interactive=False)
 
         subtitle_button.click(
             fn=process_subtitles,
             inputs=video_input,
-            outputs=[subtitle_output, subtitle_download]
+            outputs=[dot_srt_file, subtitle_download]
         )
 
     gr.Markdown("---")

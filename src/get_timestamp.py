@@ -305,25 +305,32 @@ def hard_encode_dot_srt_file(input_video_path: str, input_srt_path: str, output_
     if output_video_path is None:
         output_video_path = os.path.splitext(input_video_path)[0] + "-with-subtitles.mp4"
 
+    # Windows 下 ffmpeg 要求路径中的 ":" 进行转义，斜杠统一用 /
+    def escape_path(path: str) -> str:
+        return path.replace("\\", "/").replace(":", "\\\\:")
+
+    input_video_ffmpeg = input_video_path.replace("\\", "/")
+    input_srt_ffmpeg = escape_path(input_srt_path)
+    output_video_ffmpeg = output_video_path.replace("\\", "/")
+
     command = [
         'ffmpeg',
-        '-i', input_video_path.replace("\\", "/"),
-        '-vf', 'subtitles={}'.format(input_srt_path.replace("\\", "/")),
-        '-c:a', 'copy',  # 保留原始音频
-        '-y',  # 自动覆盖已有文件
-        output_video_path.replace("\\", "/")
+        '-i', input_video_ffmpeg,
+        '-vf', f'subtitles={input_srt_ffmpeg}',
+        '-c:a', 'copy',
+        '-y',
+        output_video_ffmpeg
     ]
 
     print(f"开始硬编码字幕到视频：{output_video_path}")
-    print(f"输入视频路径：{input_video_path}")
-    print(f"输入字幕路径：{input_srt_path}")
-    print("ffmpeg 命令：", " ".join(command))
+    print(f"ffmpeg 命令：{' '.join(command)}")
 
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
 
     if result.returncode != 0:
         raise RuntimeError(f"字幕硬编码失败：\n{result.stderr}")
 
+    print(f"字幕硬编码成功，输出视频路径：{output_video_path}")
     return output_video_path
 
 
