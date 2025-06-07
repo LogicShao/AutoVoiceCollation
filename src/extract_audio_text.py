@@ -1,5 +1,6 @@
 from funasr import AutoModel
-from funasr.utils.postprocess_utils import rich_transcription_postprocess
+
+from src.text_arrangement.split_text import clean_asr_text
 
 model_dir = "iic/SenseVoiceSmall"
 support_languages = ["auto", "zh", "en", "yue", "ja", "ko", "nospeech"]
@@ -37,5 +38,5 @@ def extract_audio_text(input_audio_path: str, language: str = "auto") -> str:
     )
 
     # Post-process the transcription
-    text = rich_transcription_postprocess(res[0]["text"])
+    text = clean_asr_text(res[0]["text"])
     return text

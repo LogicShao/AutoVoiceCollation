@@ -1,4 +1,5 @@
 import os
+import re
 import sys
 
 sys.path.append("./SenseVoice")
@@ -11,6 +12,7 @@ from SenseVoice.model import SenseVoiceSmall
 from datetime import timedelta
 import jieba
 from src.text_arrangement.query_llm import query_llm, LLMQueryParams
+from src.text_arrangement.split_text import clean_asr_text
 from typing import List, Dict
 from textwrap import wrap
 
@@ -34,101 +36,24 @@ def slice_audio(audio_path, batch_size_s, sample_rate=16000):
     return slices
 
 
-def split_by_llm(timestamp_data, max_char_per_seg=16, split_len=600, max_tokens=1000, api_server="gemini",
-                 temperature=0.0) -> List[Dict]:
-    """
-    使用 LLM 对时间戳数据进行分段
-    :param timestamp_data: 包含时间戳的字典，格式为 {"text": str, "timestamp": [[char, start_time, end_time], ...]}
-    :param max_char_per_seg: 每段的最大字符数
-    :param split_len: 每段的最大长度（字符数），如果处理的文本过多需要对于文本进行分割
-    :param max_tokens: LLM 的最大令牌数
-    :param api_server: 使用的 LLM API 服务器（默认 "gemini"）
-    :param temperature: LLM 的温度参数
-    :return: 分段后的时间戳数据列表
-    例如：
-    [
-        {"text": "第一段文本", "start_time": 0.0, "end_time": 5.0},
-        {"text": "第二段文本", "start_time": 5.0, "end_time": 10.0}
-    ]
-    """
-    if not timestamp_data["timestamp"]:
-        return []
-
-    assert (split_len <= max_tokens), "分段长度不能超过max_tokens，这可能导致部分文字丢失。请调整参数。"
-
-    full_text = timestamp_data["text"]
-    char_time_list = timestamp_data["timestamp"]
-    segments = []
-
-    # 将全文切片（如果太长）
-    text_chunks = wrap(full_text, split_len)
-
-    # 时间游标（用于和 timestamp 匹配）
-    time_cursor = 0
-
-    for chunk in text_chunks:
-        system_instruction = (
-            "你是一个字幕切分助手，请根据中文自然语言的语义逻辑，将以下文本切分为适合显示在屏幕上的多行字幕。"
-            f"每行字幕最长不要超过{max_char_per_seg}个字符。请在每个切分点用英文符号“|”表示，不要换行，不要添加其他文字。"
-        )
-
-        llm_input = LLMQueryParams(
-            content=chunk,
-            system_instruction=system_instruction,
-            temperature=temperature,
-            max_tokens=max_tokens,
-            api_server=api_server
-        )
-
-        response = query_llm(llm_input)
-        # 清洗返回内容（去除空格等）
-        response_text = response.replace(" ", "").replace("\n", "")
-        split_parts = response_text.split("|")
-
-        for part in split_parts:
-            if not part.strip():
-                continue
-
-            # 用 part 的字符数去匹配 timestamp（注意可能为多段）
-            part_len = len(part)
-            sub_chars = char_time_list[time_cursor: time_cursor + part_len]
-
-            # 回补错误匹配的边界
-            while len(sub_chars) < part_len and time_cursor + part_len < len(char_time_list):
-                part_len += 1
-                sub_chars = char_time_list[time_cursor: time_cursor + part_len]
-
-            start_time = sub_chars[0][1]
-            end_time = sub_chars[-1][2]
-            segments.append({
-                "text": part,
-                "start_time": start_time,
-                "end_time": end_time
-            })
-            time_cursor += len(sub_chars)
-
-    return segments
-
-
-def split_by_pause_and_semantics(timestamp_data, pause_threshold=0.6, max_chars=15) -> List[Dict]:
+def split_by_pause_and_semantics(char_time_list, pause_threshold=0.6, max_chars=15) -> List[Dict]:
     """
     结合语音停顿和语义边界进行字幕切分
     """
-    words = timestamp_data["timestamp"]
     segments = []
     current = []
     current_text = ""
-    current_start = words[0][1]
+    current_start = char_time_list[0][1]
 
-    for i in range(len(words)):
-        char, start, end = words[i]
+    for i in range(len(char_time_list)):
+        char, start, end = char_time_list[i]
         if not current:
             current_start = start
         current.append((char, start, end))
         current_text += char
 
         # 判断是否满足分段条件
-        pause = (words[i + 1][1] - end) if i + 1 < len(words) else 0
+        pause = (char_time_list[i + 1][1] - end) if i + 1 < len(char_time_list) else 0
         over_length = len(current_text) >= max_chars
         is_pause = pause > pause_threshold
 
@@ -153,6 +78,104 @@ def split_by_pause_and_semantics(timestamp_data, pause_threshold=0.6, max_chars=
             "start_time": current_start,
             "end_time": current[-1][2]
         })
+
+    return segments
+
+
+def split_by_llm(timestamp_data, max_char_per_seg=16, split_len=600, max_tokens=1000, api_server="gemini",
+                 temperature=0.0, llm_retry=3) -> List[Dict]:
+    """
+    使用 LLM 对时间戳数据进行分段
+    :param timestamp_data: 包含时间戳的字典，格式为 {"text": str, "timestamp": [[char, start_time, end_time], ...]}
+    :param max_char_per_seg: 每段的最大字符数
+    :param split_len: 每段的最大长度（字符数），如果处理的文本过多需要对于文本进行分割
+    :param max_tokens: LLM 的最大令牌数
+    :param api_server: 使用的 LLM API 服务器（默认 "gemini"）
+    :param temperature: LLM 的温度参数
+    :param llm_retry: LLM 查询失败时的重试次数
+    :return: 分段后的时间戳数据列表
+    例如：
+    [
+        {"text": "第一段文本", "start_time": 0.0, "end_time": 5.0},
+        {"text": "第二段文本", "start_time": 5.0, "end_time": 10.0}
+    ]
+    """
+    if not timestamp_data["timestamp"]:
+        return []
+
+    assert (split_len <= max_tokens), "分段长度不能超过max_tokens，这可能导致部分文字丢失。请调整参数。"
+
+    full_text = timestamp_data["text"]
+    full_text_without_spaces = full_text.replace(" ", "")
+    char_time_list = timestamp_data["timestamp"]
+    segments = []
+
+    # 将全文切片（如果太长）
+    text_chunks = wrap(full_text, split_len)
+
+    # 时间游标（用于和 timestamp 匹配）
+    time_cursor = 0
+
+    for chunk in text_chunks:
+        system_instruction = (
+            "你是一个字幕切分助手，请根据中文自然语言的语义逻辑，将以下文本切分为适合显示在屏幕上的多行字幕。"
+            f"每行字幕最长不要超过{max_char_per_seg}个字符。请在每个切分点用英文符号“|”表示，不要换行，不要添加其他文字，也不要缺少文字。"
+        )
+
+        llm_input = LLMQueryParams(
+            content=chunk,
+            system_instruction=system_instruction,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_server=api_server
+        )
+
+        for try_count in range(llm_retry):
+            print(f"正在查询 LLM，尝试次数：{try_count + 1}/{llm_retry}，内容长度：{len(chunk)}")
+
+            response = query_llm(llm_input)
+            response_text = response.replace(" ", "").replace("\n", "")
+            split_parts = response_text.split("|")
+
+            if ''.join(split_parts) == chunk.replace(" ", "").replace("\n", ""):
+                print(f"LLM 查询成功。")
+
+                for part in split_parts:
+                    sub_chars = []
+                    match_part = ""
+
+                    while match_part != part:
+                        sub_chars.append(char_time_list[time_cursor])
+                        match_part += char_time_list[time_cursor][0]
+                        time_cursor += 1
+
+                    start_time = sub_chars[0][1]
+                    end_time = sub_chars[-1][2]
+                    segments.append({
+                        "text": part,
+                        "start_time": start_time,
+                        "end_time": end_time
+                    })
+
+                break
+        else:
+            print(f"LLM 查询失败，重试 {llm_retry} 次后仍未成功，使用语音停顿和语义边界进行切分。")
+
+            chunk_without_spaces = chunk.replace(" ", "")
+            match_result = re.search(chunk_without_spaces, full_text_without_spaces)
+
+            assert match_result, "匹配不到原始文本中的内容，请检查切分逻辑。"
+
+            start_index = match_result.start()
+            end_index = match_result.end()
+
+            chunk_segments = split_by_pause_and_semantics(
+                char_time_list=char_time_list[start_index:end_index],
+                pause_threshold=0.6,
+                max_chars=max_char_per_seg
+            )
+
+            segments.extend(chunk_segments)
 
     return segments
 
@@ -189,7 +212,7 @@ def run_asr_on_slices(audio_path, batch_size_s):
             print("Skipping this slice.")
             continue
 
-        fix_str = lambda s: s.replace("_", " ").replace("▁", " ")
+        fix_str = lambda s: s.replace("_", "").replace("▁", "")
 
         for item in res[0]:
             # 修正时间戳为全局时间
@@ -197,7 +220,7 @@ def run_asr_on_slices(audio_path, batch_size_s):
                 "text": fix_str(item["text"]),
                 "timestamp": [
                     [fix_str(lst[0]), round(lst[1] + t_start, 2), round(lst[2] + t_start, 2)]
-                    for lst in item["timestamp"] if fix_str(item["text"]) != ""
+                    for lst in item["timestamp"] if fix_str(lst[0]) != ""
                 ]
             }
             all_results.append(new_item)
@@ -209,7 +232,7 @@ def run_asr_on_slices(audio_path, batch_size_s):
             os.remove(temp_path)
 
     zipped_results = {
-        "text": "".join(item["text"] for item in all_results),
+        "text": clean_asr_text("".join(item["text"] for item in all_results)),
         "timestamp": sum([item["timestamp"] for item in all_results], start=[])
     }
 
@@ -280,7 +303,7 @@ def gen_timestamped_text_file(audio_path: str, file_type: str = 'srt', batch_siz
     if not timestamp_data["timestamp"]:
         raise ValueError("未能从音频中提取到任何字幕信息。")
 
-    timestamp_data = split_by_pause_and_semantics(timestamp_data)
+    timestamp_data = split_by_llm(timestamp_data)
     output_text = gen_timestamped_text_from_data(timestamp_data, file_type=file_type)
     output_file = f"{os.path.splitext(audio_path)[0]}.{file_type}"
     with open(output_file, 'w', encoding='utf-8-sig') as f:
@@ -323,7 +346,7 @@ def hard_encode_dot_srt_file(input_video_path: str, input_srt_path: str, output_
     ]
 
     print(f"开始硬编码字幕到视频：{output_video_path}")
-    print(f"ffmpeg 命令：{' '.join(command)}")
+    print(f"{' '.join(command)}")
 
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
 

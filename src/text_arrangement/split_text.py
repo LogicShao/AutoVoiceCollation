@@ -34,3 +34,9 @@ def split_text_by_sentences(txt: str, split_len: int) -> list[str]:
         split_texts.append(current_chunk.strip())
 
     return split_texts
+
+
+def clean_asr_text(asr_result_text: str):
+    # 移除所有 <|...|> 标签
+    no_tags = re.sub(r"<\|.*?\|>", "", asr_result_text)
+    return no_tags
