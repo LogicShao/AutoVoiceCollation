@@ -116,7 +116,7 @@ def process_subtitles(video_file: str):
     return srt_file, output_file
 
 
-with gr.Blocks(title="音频识别与文本整理工具") as app:
+with gr.Blocks(title="音频识别与文本整理工具") as app:  # TODO: 改进UI
     gr.Markdown("# 🎧 音频识别与文本整理系统")
     gr.Markdown("上传音频文件或输入B站视频链接，一键提取文本并生成图文版。")
 

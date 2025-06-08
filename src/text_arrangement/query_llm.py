@@ -6,8 +6,10 @@ from google import genai
 from google.genai import types
 
 
+# TODO: 接入Qwen、ChatGPT等模型
+
 @dataclass
-class LLMQueryParams:
+class LLMQueryParams:  # TODO: 支持参数top_p，top_k
     content: str
     system_instruction: str = "You are a helpful assistant."
     temperature: float = 0.7
@@ -58,6 +60,8 @@ def query_gemini(params: LLMQueryParams) -> str:
             temperature=params.temperature,
             max_output_tokens=params.max_tokens,
             system_instruction=params.system_instruction,
+            top_k=params.top_k,
+            top_p=params.top_p,
         ),
     )
     return response.text.strip()

@@ -79,6 +79,7 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     :param async_flag: 是否使用异步方式
     :return: 润色后的文本
     """
+    # TODO: 改进异步调用
     print(f"Using {api_service} API for polishing text.")
     print(f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}")
     split_text = split_text_by_sentences(txt, split_len=split_len)

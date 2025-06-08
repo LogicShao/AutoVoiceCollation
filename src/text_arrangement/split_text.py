@@ -40,3 +40,53 @@ def clean_asr_text(asr_result_text: str):
     # 移除所有 <|...|> 标签
     no_tags = re.sub(r"<\|.*?\|>", "", asr_result_text)
     return no_tags
+
+
+def is_chinese(char: str) -> bool:
+    return '\u4e00' <= char <= '\u9fff'
+
+
+def smart_split(txt: str, split_len: int) -> list[str]:
+    result = []
+    current = ""
+
+    # 遍历每一个字符
+    i = 0
+    while i < len(txt):
+        current += txt[i]
+
+        # 达到分段长度限制
+        if len(current) >= split_len:
+            # 倒着寻找一个合适的断点（空格 或 两个中文之间）
+            j = len(current) - 1
+            while j > 0:
+                if current[j].isspace():
+                    break
+                # 判断两个中文之间
+                elif is_chinese(current[j]) and is_chinese(current[j - 1]):
+                    break
+                j -= 1
+
+            # 如果找到了合适的断点
+            if j > 0:
+                result.append(current[:j + 1].strip())
+                txt = current[j + 1:] + txt[i + 1:]
+                current = ""
+                i = -1  # 从头开始处理剩下的 txt
+            else:
+                # 没找到合适断点，只能硬切
+                result.append(current.strip())
+                current = ""
+        i += 1
+
+    if current:
+        result.append(current.strip())
+
+    return result
+
+
+if __name__ == '__main__':
+    text = "这是一个用于测试的文本，包含一些English words like voice recognition and speech processing。"
+    splits = smart_split(text, 20)
+    for i, part in enumerate(splits):
+        print(f"[{i}:len={len(part)}] {part}")

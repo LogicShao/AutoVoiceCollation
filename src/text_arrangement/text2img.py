@@ -32,6 +32,7 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str) -> str:
     :param output_dir: 输出目录
     :return: 输出文件路径
     """
+    # TODO: 修复pdf中英文混合的排版问题
     os.makedirs(output_dir, exist_ok=True)
     img_dir = os.path.join(output_dir, "output_img")
     os.makedirs(img_dir, exist_ok=True)
