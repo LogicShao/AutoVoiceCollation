@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 from PIL import Image, ImageDraw, ImageFont
 from pdf2image import convert_from_path
@@ -12,10 +13,10 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 
-pre_text = (
-    "本项目使用SenseVoice+LLM进行音频文本提取和润色，"
+_pre_text = (
+    "本项目使用SenseVoice+LLM{}进行音频文本提取和润色，"
     "AI提取的文本可能存在错误和不准确之处，"
-    "以及润色之后的文本可能会与原意有所偏差，请仔细辨别。\n\n"
+    "以及润色之后的文本可能会与原意有所偏差，请仔细辨别。"
 )
 # 设置字体路径
 font_ttf_path = './ttf/simfang.ttf'
@@ -23,7 +24,7 @@ pdfmetrics.registerFont(TTFont('FangSong', font_ttf_path))
 addMapping('FangSong', 0, 0, 'FangSong')  # 正常字体
 
 
-def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str) -> str:
+def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, LLM_info: Optional[str] = None) -> str:
     """
     将文本转换为 PDF，并将每页转换为图片
     :param txt: 文本内容
@@ -82,7 +83,11 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str) -> str:
     if title:
         story.append(Paragraph(title.strip(), title_style))
 
-    story.append(Paragraph(pre_text.strip(), pre_style))
+    if LLM_info is not None:
+        pre_text = _pre_text.format(LLM_info)
+    else:
+        pre_text = _pre_text.format("")
+    story.append(Paragraph(pre_text, pre_style))
 
     # 正文处理
     paragraphs = [
@@ -162,7 +167,7 @@ def wrap_text_by_display_width(txt: str, max_width: int) -> list:
     return lines
 
 
-def text_to_one_image(txt: str, output_path: str, title: str | None = None) -> str:
+def text_to_one_image(txt: str, output_path: str, title: Optional[str] = None) -> str:
     """
     将文本转换为单张图片
     :param txt: 文本内容
@@ -170,6 +175,7 @@ def text_to_one_image(txt: str, output_path: str, title: str | None = None) -> s
     :param title: 文本标题（可选）
     :return: 输出文件路径
     """
+    pre_text = _pre_text.format("")
     if title is None:
         txt = pre_text + txt
     else:
@@ -213,19 +219,21 @@ def text_to_one_image(txt: str, output_path: str, title: str | None = None) -> s
     return output_file_path
 
 
-def text_to_img_or_pdf(txt: str, output_style: str, output_path: str, title: str | None = None) -> str:
+def text_to_img_or_pdf(txt: str, output_style: str, output_path: str, title: Optional[str] = None,
+                       LLM_info: Optional[str] = None) -> str:
     """
     将文本转换为图片或PDF
     :param txt: 文本内容
     :param output_style: 输出样式（'pdf with img', 'img only', 'text only', 'pdf only'）
     :param title: 文本标题（可选）
     :param output_path: 输出路径
+    :param LLM_info: LLM信息（可选）
     :return: 输出文件路径
     """
     if output_style == 'pdf with img':
-        return text_to_pdf(txt, with_img=True, title=title, output_dir=output_path)
+        return text_to_pdf(txt, with_img=True, title=title, output_dir=output_path, LLM_info=LLM_info)
     elif output_style == 'pdf only':
-        return text_to_pdf(txt, with_img=False, title=title, output_dir=output_path)
+        return text_to_pdf(txt, with_img=False, title=title, output_dir=output_path, LLM_info=LLM_info)
     elif output_style == 'img only':
         return text_to_one_image(txt, output_path=output_path, title=title)
     else:

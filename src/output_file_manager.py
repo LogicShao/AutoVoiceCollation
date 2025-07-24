@@ -59,9 +59,6 @@ def clean_directory(directory_path: str):
             # 移除整个目录树，包括目录本身和其中的所有文件/子目录
             shutil.rmtree(directory_path)
             print(f"成功清理目录: {directory_path}")
-            # 清理后重新创建空目录，保持目录结构存在（可选）
-            # os.makedirs(directory_path)
-            # print(f"重新创建了空目录: {directory_path}")
         except OSError as e:
             print(f"错误：清理目录 '{directory_path}' 失败: {e}")
         except Exception as e:

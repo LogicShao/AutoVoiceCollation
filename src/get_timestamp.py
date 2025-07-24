@@ -426,32 +426,25 @@ def hard_encode_dot_srt_file(input_video_path: str, input_srt_path: str, output_
 
 
 if __name__ == "__main__":
-    split_list = ['西皮尔啊', '西皮亚或者西皮尔sepss']
-    original_text = '西皮尔啊西皮亚或者西皮尔斯epss'
-
-    print(fix_split_list(split_list, original_text))
-    # 输出：['西皮尔啊', '西皮亚或者西皮尔斯epss']
-
-    from src.get_video_or_audio import extract_audio_from_video
+    from src.get_video_or_audio import extract_audio_from_video, download_bilibili_video
     from src.config import DOWNLOAD_DIR
 
-    # using_local_video = input("是否使用本地视频文件？(y/n)：\n").strip().lower()
-    #
-    # if using_local_video == "y":
-    #     video_path = input("请输入本地视频文件路径：\n").strip()
-    #     if not os.path.isfile(video_path):
-    #         print(f"未找到视频文件：{video_path}")
-    #         sys.exit(1)
-    # else:
-    #     video_url = input("请输入B站视频链接（例如：https://www.bilibili.com/video/BV1...）：\n")
-    #     video_path = download_bilibili_video(video_url, output_format='mp4', output_dir=DOWNLOAD_DIR)
+    using_local_video = input("是否使用本地视频文件？(y/n)：\n").strip().lower()
+
+    if using_local_video == "y":
+        video_path = input("请输入本地视频文件路径：\n").strip()
+        if not os.path.isfile(video_path):
+            print(f"未找到视频文件：{video_path}")
+            sys.exit(1)
+    else:
+        video_url = input("请输入B站视频链接（例如：https://www.bilibili.com/video/BV1...）：\n")
+        video_path = download_bilibili_video(video_url, output_format='mp4', output_dir=DOWNLOAD_DIR)
 
     video_path = "temp/test_video.mp4"
 
     audio_path = extract_audio_from_video(video_path, output_format='mp3', output_dir=DOWNLOAD_DIR)
 
-    # gen_file_type = input("请输入生成的字幕文件类型（cc/srt）[默认为srt]：\n").strip().lower()
-    gen_file_type = "srt"
+    gen_file_type = input("请输入生成的字幕文件类型（cc/srt）[默认为srt]：\n").strip().lower()
     if gen_file_type not in ["cc", "srt"]:
         gen_file_type = "srt"
 

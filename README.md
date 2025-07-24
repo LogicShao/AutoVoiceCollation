@@ -22,7 +22,7 @@ cd AutoVoiceCollation
 * 创建虚拟环境
 
 ```bash
-python -m venv venv
+python -m venv .venv
 ```
 
 * 激活虚拟环境
@@ -30,13 +30,13 @@ python -m venv venv
 Windows:
 
 ```bash
-venv\Scripts\activate
+.venv\Scripts\activate
 ```
 
 Linux:
 
 ```bash
-source venv/bin/activate
+source .venv/bin/activate
 ```
 
 * 安装依赖

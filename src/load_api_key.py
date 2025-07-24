@@ -33,8 +33,10 @@ def load_api_keys(dotenv_file: str = '.env'):
     try:
         _deepseek_api_key = os.getenv('DEEPSEEK_API_KEY')
         _gemini_api_key = os.getenv('GEMINI_API_KEY')
+        _dashscope_api_key = os.getenv('DASHSCOPE_API_KEY')
         print('检测到 deepseek api 密钥:', display_api_key(_deepseek_api_key))
         print('检测到 gemini api 密钥:', display_api_key(_gemini_api_key))
+        print('检测到 dashscope api 密钥:', display_api_key(_dashscope_api_key))
     except Exception as e:
         print(f"读取环境变量时发生错误: {e}")
         print("请确保 .env 文件中包含 DEEPSEEK_API_KEY 和 GEMINI_API_KEY 变量。")

@@ -79,6 +79,8 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     :param async_flag: 是否使用异步方式
     :return: 润色后的文本
     """
+    assert split_len <= max_tokens * 0.7, "分段长度不能超过最大令牌数的70%，可能导致输出不完整。"
+
     # TODO: 改进异步调用
     print(f"Using {api_service} API for polishing text.")
     print(f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}")

@@ -7,13 +7,16 @@ from src.config import *
 from src.extract_audio_text import extract_audio_text
 from src.get_timestamp import hard_encode_dot_srt_file, gen_timestamped_text_file
 from src.get_video_or_audio import download_bilibili_audio, extract_audio_from_video
-from src.scripts import move_output_files
+from src.output_file_manager import move_output_files
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
-from src.text_arrangement.text2img import text_to_img_or_pdf
+from src.text_arrangement.text2imgOrPDF import text_to_img_or_pdf
 
 
 def zip_output_dir(output_dir: str) -> str:
+    """
+    压缩输出目录为ZIP文件
+    """
     print(f"正在压缩输出目录：{output_dir}")
     zip_path = f"{output_dir}.zip"
     shutil.make_archive(base_name=output_dir, format="zip", root_dir=output_dir)
@@ -21,8 +24,10 @@ def zip_output_dir(output_dir: str) -> str:
     return zip_path
 
 
-def process_audio(audio_path: str, language="auto", llm_api=LLM_SERVER,
-                  temperature=LLM_TEMPERATURE, max_tokens=LLM_MAX_TOKENS):
+def process_audio(audio_path: str, language: str, llm_api: str, temperature: float, max_tokens: int):
+    """
+    处理音频文件，提取文本并生成图文版
+    """
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
@@ -51,11 +56,11 @@ def process_audio(audio_path: str, language="auto", llm_api=LLM_SERVER,
         polished_text = audio_text
         polish_time = 0
 
-    text_to_img_or_pdf(polished_text, title=audio_file_name,
-                       output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR)
+    text_to_img_or_pdf(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR,
+                       LLM_info='({},温度:{})'.format(llm_api, temperature))
     summary_text = summarize_text(txt=polished_text, api_server=llm_api, temperature=temperature,
                                   max_tokens=max_tokens)
-    with open(os.path.join(OUTPUT_DIR, "summary_text.txt"), "w", encoding="utf-8") as f:
+    with open(os.path.join(OUTPUT_DIR, "summary_text.md"), "w", encoding="utf-8") as f:
         f.write(summary_text)
     output_dir = move_output_files(audio_file_name)
     zip_file = zip_output_dir(output_dir)
@@ -122,26 +127,6 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:  # TODO: 改�
 
     LANGUAGES = ["auto", "zh", "en", "yue", "ja", "ko", "nospeech"]
 
-    with gr.Tab("上传音频文件"):
-        with gr.Row():
-            audio_input = gr.File(label="选择本地音频文件（支持mp3/wav格式）")
-            language_dropdown1 = gr.Dropdown(choices=LANGUAGES, value="auto", label="识别语言")
-        # noinspection DuplicatedCode
-        with gr.Row():
-            llm_api_dropdown1 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
-            temp_slider1 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
-            token_slider1 = gr.Slider(100, 8000, step=100, value=LLM_MAX_TOKENS, label="Max Tokens")
-        upload_button = gr.Button("开始处理")
-        upload_output = gr.Textbox(label="输出目录", interactive=False)
-        upload_time = gr.Textbox(label="识别+润色用时（秒）", interactive=False)
-        download_zip1 = gr.File(label="下载打包结果（ZIP）", interactive=False)
-
-        upload_button.click(
-            fn=upload_audio,
-            inputs=[audio_input, language_dropdown1, llm_api_dropdown1, temp_slider1, token_slider1],
-            outputs=[upload_output, upload_time, upload_time, download_zip1]
-        )
-
     with gr.Tab("输入B站链接"):
         with gr.Row():
             bilibili_input = gr.Textbox(label="请输入B站视频链接")
@@ -182,6 +167,26 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:  # TODO: 改�
             outputs=[batch_output, batch_time, batch_time, download_zip_batch]
         )
 
+    with gr.Tab("上传音频文件"):
+        with gr.Row():
+            audio_input = gr.File(label="选择本地音频文件（支持mp3/wav格式）")
+            language_dropdown1 = gr.Dropdown(choices=LANGUAGES, value="auto", label="识别语言")
+        # noinspection DuplicatedCode
+        with gr.Row():
+            llm_api_dropdown1 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
+            temp_slider1 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
+            token_slider1 = gr.Slider(100, 8000, step=100, value=LLM_MAX_TOKENS, label="Max Tokens")
+        upload_button = gr.Button("开始处理")
+        upload_output = gr.Textbox(label="输出目录", interactive=False)
+        upload_time = gr.Textbox(label="识别+润色用时（秒）", interactive=False)
+        download_zip1 = gr.File(label="下载打包结果（ZIP）", interactive=False)
+
+        upload_button.click(
+            fn=upload_audio,
+            inputs=[audio_input, language_dropdown1, llm_api_dropdown1, temp_slider1, token_slider1],
+            outputs=[upload_output, upload_time, upload_time, download_zip1]
+        )
+
     with gr.Tab("自动添加字幕"):
         video_input = gr.File(label="选择视频文件（支持mp4格式）")
         subtitle_button = gr.Button("添加字幕并下载")
@@ -198,4 +203,4 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:  # TODO: 改�
     gr.Markdown("处理完成后，可点击上方下载按钮获取完整输出。")
 
 if __name__ == "__main__":
-    app.launch(server_name="localhost", server_port=7860)
+    app.launch(server_name="localhost", server_port=7860, inbrowser=True)

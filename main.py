@@ -2,10 +2,10 @@ from src.Timer import Timer
 from src.config import *
 from src.extract_audio_text import extract_audio_text
 from src.get_video_or_audio import download_bilibili_audio
-from src.scripts import move_output_files
+from src.output_file_manager import move_output_files
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
-from src.text_arrangement.text2img import text_to_img_or_pdf
+from src.text_arrangement.text2imgOrPDF import text_to_img_or_pdf
 
 
 def main(local_audio_path: str = None):
@@ -55,9 +55,9 @@ def main(local_audio_path: str = None):
         print("正在生成 Summary...")
         summary_text = summarize_text(txt=polished_text, api_server=LLM_SERVER, temperature=LLM_TEMPERATURE,
                                       max_tokens=LLM_MAX_TOKENS)
-        with open(os.path.join(OUTPUT_DIR, "summary_text.txt"), "w", encoding="utf-8") as f:
+        with open(os.path.join(OUTPUT_DIR, "summary_text.md"), "w", encoding="utf-8") as f:
             f.write(summary_text)
-        print(f"文本摘要已保存到：{os.path.join(OUTPUT_DIR, 'summary_text.txt')}")
+        print(f"文本摘要已保存到：{os.path.join(OUTPUT_DIR, 'summary_text.md')}")
 
         move_output_files(audio_file_name)
         print("所有操作完成。")
