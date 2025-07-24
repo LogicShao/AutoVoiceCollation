@@ -10,7 +10,7 @@ from src.get_video_or_audio import download_bilibili_audio, extract_audio_from_v
 from src.output_file_manager import move_output_files
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
-from src.text_arrangement.text2imgOrPDF import text_to_img_or_pdf
+from src.text_arrangement.text_exporter import text_to_img_or_pdf
 
 
 def zip_output_dir(output_dir: str) -> str:
@@ -58,8 +58,8 @@ def process_audio(audio_path: str, language: str, llm_api: str, temperature: flo
 
     text_to_img_or_pdf(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR,
                        LLM_info='({},温度:{})'.format(llm_api, temperature))
-    summary_text = summarize_text(txt=polished_text, api_server=llm_api, temperature=temperature,
-                                  max_tokens=max_tokens)
+    summary_text = summarize_text(txt=polished_text, api_server=llm_api, temperature=SUMMARY_LLM_TEMPERATURE,
+                                  max_tokens=SUMMARY_LLM_MAX_TOKENS, title=audio_file_name)
     with open(os.path.join(OUTPUT_DIR, "summary_text.md"), "w", encoding="utf-8") as f:
         f.write(summary_text)
     output_dir = move_output_files(audio_file_name)

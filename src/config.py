@@ -1,7 +1,7 @@
 import os
 
 PROJECT_NAME = 'AutoVoiceCollation'
-DEBUG_FLAG = True  # 是否开启调试模式
+DEBUG_FLAG = False
 
 OUTPUT_DIR = './out'  # 输出目录
 DOWNLOAD_DIR = './download'  # 音频下载目录
@@ -20,6 +20,9 @@ LLM_TOP_P = 0.95
 LLM_TOP_K = 64
 SPLIT_LIMIT = 1000  # 每段文本的最大字符数
 ASYNC_FLAG = True  # 是否使用异步处理
+
+SUMMARY_LLM_TEMPERATURE = 1
+SUMMARY_LLM_MAX_TOKENS = 16384
 
 assert LLM_SERVER in LLM_SERVER_SUPPORTED
 assert OUTPUT_STYLE in OUTPUT_STYLE_SUPPORTED

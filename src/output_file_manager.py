@@ -1,5 +1,4 @@
 import argparse
-import glob
 import os
 import shutil
 
@@ -13,13 +12,15 @@ def copy_output_files(audio_name: str):
     destination_dir = os.path.join(OUTPUT_DIR, audio_name)
     os.makedirs(destination_dir, exist_ok=True)
 
-    txt_files = glob.glob(os.path.join(OUTPUT_DIR, "*.txt"))
-    pdf_file = os.path.join(OUTPUT_DIR, "output.pdf")
+    file_names = ['audio_transcription.txt', 'polish_text.txt', 'summary_text.md', 'output.pdf',
+                  'debug_polished_text.txt']
 
-    for file in txt_files:
-        shutil.copy(file, destination_dir)
-    if os.path.exists(pdf_file):
-        shutil.copy(pdf_file, destination_dir)
+    for file_name in file_names:
+        source_file = os.path.join(OUTPUT_DIR, file_name)
+        if os.path.exists(source_file):
+            shutil.copy(source_file, destination_dir)
+        else:
+            print(f"警告：文件 {source_file} 不存在，无法复制。")
 
     return destination_dir
 
@@ -36,13 +37,15 @@ def move_output_files(audio_name: str):
         destination_dir = destination_dir + f"_{index}"
     os.makedirs(destination_dir)
 
-    txt_files = glob.glob(os.path.join(OUTPUT_DIR, "*.txt"))
-    pdf_file = os.path.join(OUTPUT_DIR, "output.pdf")
+    file_names = ['audio_transcription.txt', 'polish_text.txt', 'summary_text.md', 'output.pdf',
+                  'debug_polished_text.txt']
 
-    for file in txt_files:
-        shutil.move(file, destination_dir)
-    if os.path.exists(pdf_file):
-        shutil.move(pdf_file, destination_dir)
+    for file_name in file_names:
+        source_file = os.path.join(OUTPUT_DIR, file_name)
+        if os.path.exists(source_file):
+            shutil.move(source_file, destination_dir)
+        else:
+            print(f"警告：文件 {source_file} 不存在，无法移动。")
 
     return destination_dir
 

@@ -1,34 +1,36 @@
 from src.text_arrangement.query_llm import LLMQueryParams, query_llm
 
 system_instruction = (
-    "你是一个专业的文本结构分析与摘要助手。"
-    "你的任务是从用户提供的文本中，客观地提炼出其结构与要点，"
-    "不进行主观创造、改写、优化语言，仅做结构化总结与信息抽取。"
-    "请尊重原始语言风格，包括其中的口语、重复和语气，不做润色。"
+    "你是一名资深学术研究助手，擅长将素材转化为小论文形式的深度分析。"
+    "当前任务是针对用户提供的长视频 ASR 转写文本（仅经换行和少量错误修正）撰写一篇小论文。"
+    "首先为论文拟定一个简洁而准确的标题，能够概括全文核心议题。"
+    "论文应包括引言、主体和结论三部分，以连贯的段落形式呈现，不使用项目符号或编号列表。"
+    "在正文中，你要明确区分“原文要点”“批判性分析”和“研究性建议”三个层面，并以自然过渡的方式融入批判与展望，"
+    "请你不要在正文中使用“ASR转写文本”指代我给你的文本，而是使用文本的标题。"
+    "避免任何面向用户的元提示或建议语句。"
 )
 
-prompt_template = """请你对以下文本进行结构与内容分析，仅提取信息，不进行语言优化：
+prompt_template = """请基于以下 ASR 转写文本（仅作换行和少量错误修正），首先为论文拟定一个精准的标题（用一行呈现），然后以小论文的形式撰写深度研究文章。正文需分为引言、主体与结论三大段落，每段保持连贯完整，不使用任何列表或编号。
+{title}
 
 {text}
 
-请从以下四个方面进行客观说明（不添加主观判断）：
-1. **核心主题**：该文本集中表达的核心话题或主旨是什么？
-2. **结构逻辑**：文本是否存在明显的段落结构？如：引入、展开、转折、总结等。
-3. **语言特征**：是否包含明显的口语表达、重复句式、语气词或情绪性用语？
-4. **文体风格**：该文本整体风格更接近哪种类型？如：正式文体、口语叙述、说明类文本等。
-"""
+在引言中简要交代文本的背景与核心议题；在主体中结合原文要点展开批判性分析，并自然融入对论证逻辑、隐含假设和跨学科延展的讨论；在结论中总结主要发现，提出研究性建议或未来拓展方向。请保持学术写作风格，用词严谨、论述深刻。"""
 
 
-def summarize_text(txt: str, api_server: str, temperature: float, max_tokens: int) -> str:
+def summarize_text(txt: str, api_server: str, temperature: float, max_tokens: int, title: str = '') -> str:
     """
     根据API服务选择对应的总结函数
     :param txt: 要总结的文本
     :param api_server: 使用的API服务（deepseek 或 gemini）
     :param temperature: 温度参数
     :param max_tokens: 最大令牌数
+    :param title: 文本标题（可选）
     :return: 总结后的文本
     """
-    prompt = prompt_template.format(text=txt)
+    prompt = prompt_template.format(text=txt, title=f"标题:{title}")
+
+    print(f"Summarizing text with API server: {api_server}, temperature: {temperature}, max_tokens: {max_tokens}")
 
     return query_llm(LLMQueryParams(
         content=prompt,

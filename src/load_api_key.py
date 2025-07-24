@@ -28,7 +28,7 @@ def load_api_keys(dotenv_file: str = '.env'):
         load_dotenv(dotenv_file)
         print('检测到 dotenv 文件 {}，已加载环境变量。'.format(dotenv_file))
     else:
-        print('未检测到 dotenv 文件 {}，从系统环境变量加载。'.format(dotenv_file))
+        print('未检测到 dotenv 文件，直接从系统环境变量加载。')
 
     try:
         _deepseek_api_key = os.getenv('DEEPSEEK_API_KEY')
@@ -39,5 +39,5 @@ def load_api_keys(dotenv_file: str = '.env'):
         print('检测到 dashscope api 密钥:', display_api_key(_dashscope_api_key))
     except Exception as e:
         print(f"读取环境变量时发生错误: {e}")
-        print("请确保 .env 文件中包含 DEEPSEEK_API_KEY 和 GEMINI_API_KEY 变量。")
+        print("请确保 .env 文件中包含 DEEPSEEK_API_KEY, GEMINI_API_KEY 和 DASHSCOPE_API_KEY 变量，")
         print("或者直接在系统环境变量中设置这些变量。")

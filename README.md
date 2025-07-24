@@ -6,7 +6,7 @@ AutoVoiceCollation是一个基于SenseVoice的自动语音识别（ASR）和文�
 
 - b站视频语音识别
 - 本地音频文件语音识别
-- LLM自动润色（目前支持deepseek与gemini）
+- LLM自动润色（目前支持deepseek、qwen3与gemini）
 - 自动导出文本文件、PDF或图片
 - 一键生成字幕文件（.cc/.srt）并支持视频硬编码
 
@@ -69,4 +69,5 @@ pdf output demo:
 ```dotenv
 DEEPSEEK_API_KEY=your_deepseek_api_key
 GEMINI_API_KEY=your_gemini_api_key
+DASHSCOPE_API_KEY=your_dashscope_api_key
 ```

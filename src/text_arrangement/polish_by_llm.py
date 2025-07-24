@@ -90,8 +90,12 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     if not async_flag:
         # 如果不使用异步方式，直接调用同步函数
         print("Running in synchronous mode.")
-        return "\n\n".join(
-            [polish_each_text(chunk, api_service, temperature, max_tokens) for chunk in split_text]).strip()
+        polish_chunks = []
+        for i, chunk in enumerate(split_text):
+            print(f"processing chunk {i + 1}/{len(split_text)}")
+            polish_chunks.append(polish_each_text(chunk, api_service, temperature, max_tokens))
+            print(f"Chunk {i + 1} polished successfully.")
+        return "\n\n".join(polish_chunks).strip()
 
     print("Running in asynchronous mode.")
     rate_limiter = RateLimiter(MAX_REQUESTS_PER_MINUTE)
