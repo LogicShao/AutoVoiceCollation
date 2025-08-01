@@ -35,8 +35,6 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, LLM_info:
     """
     # TODO: 修复pdf中英文混合的排版问题
     os.makedirs(output_dir, exist_ok=True)
-    img_dir = os.path.join(output_dir, "output_img")
-    os.makedirs(img_dir, exist_ok=True)
 
     # PDF 保存路径
     pdf_path = os.path.join(output_dir, "output.pdf")
@@ -111,6 +109,9 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, LLM_info:
 
     if not with_img:
         return pdf_path
+
+    img_dir = os.path.join(output_dir, "output_img")
+    os.makedirs(img_dir, exist_ok=True)
 
     # PDF 转为图片
     images = convert_from_path(pdf_path, dpi=300)

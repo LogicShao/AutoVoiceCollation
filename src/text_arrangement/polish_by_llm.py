@@ -87,7 +87,7 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     split_text = split_text_by_sentences(txt, split_len=split_len)
     print(f"Splitting text into {len(split_text)} chunks for processing.")
 
-    if not async_flag:
+    if not async_flag or api_service == 'gemini':
         # 如果不使用异步方式，直接调用同步函数
         print("Running in synchronous mode.")
         polish_chunks = []
