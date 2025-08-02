@@ -1,20 +1,19 @@
+import difflib
 import os
 import re
+import subprocess
 import sys
+from datetime import timedelta
+from typing import List, Dict
 
-sys.path.append("./SenseVoice")
-
+import jieba
 import soundfile as sf
 import torch
-import subprocess
 import torchaudio
-from SenseVoice.model import SenseVoiceSmall
-from datetime import timedelta
-import jieba
+
+from src.SenseVoiceSmall.model import SenseVoiceSmall
 from src.text_arrangement.query_llm import query_llm, LLMQueryParams
 from src.text_arrangement.split_text import clean_asr_text, smart_split
-from typing import List, Dict
-import difflib
 
 
 def slice_audio(audio_path, batch_size_s, sample_rate=16000):

@@ -7,7 +7,7 @@ import markdown
 
 from src.Timer import Timer
 from src.config import *
-from src.extract_audio_text import extract_audio_text
+from src.extract_audio_text import extract_audio_text_by_sense_voice
 from src.subtitle_generator import hard_encode_dot_srt_file, gen_timestamped_text_file
 from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_video
 from src.text_arrangement.polish_by_llm import polish_text
@@ -93,7 +93,7 @@ def process_audio(audio_path: str, language: str, llm_api: str, temperature: flo
 
     # 提取文本
     timer.start()
-    audio_text = extract_audio_text(audio_path, language=language)
+    audio_text = extract_audio_text_by_sense_voice(audio_path, language=language)
     text_file_path = os.path.join(output_dir, "audio_transcription.txt")
     with open(text_file_path, "w", encoding="utf-8") as f:
         f.write(audio_text)

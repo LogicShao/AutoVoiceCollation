@@ -1,6 +1,6 @@
 from src.Timer import Timer
 from src.config import *
-from src.extract_audio_text import extract_audio_text
+from src.extract_audio_text import extract_audio_text_by_sense_voice
 from src.bilibili_downloader import download_bilibili_audio
 from src.output_file_manager import move_output_files
 from src.text_arrangement.polish_by_llm import polish_text
@@ -25,7 +25,7 @@ def main(local_audio_path: str = None):
 
     timer.start()
     print("正在提取音频文本...")
-    audio_text = extract_audio_text(audio_path, language="auto")
+    audio_text = extract_audio_text_by_sense_voice(audio_path, language="auto")
     print("音频文本提取完成，用时：", timer.stop(), "秒")
 
     text_file_path = os.path.join(OUTPUT_DIR, "audio_transcription.txt")

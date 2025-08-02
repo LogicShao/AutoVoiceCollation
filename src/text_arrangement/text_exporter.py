@@ -19,7 +19,7 @@ _pre_text = (
     "以及润色之后的文本可能会与原意有所偏差，请仔细辨别。"
 )
 # 设置字体路径
-font_ttf_path = './ttf/simfang.ttf'
+font_ttf_path = 'C:\Windows\Fonts\simfang.ttf'
 pdfmetrics.registerFont(TTFont('FangSong', font_ttf_path))
 addMapping('FangSong', 0, 0, 'FangSong')  # 正常字体
 
