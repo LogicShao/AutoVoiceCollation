@@ -10,6 +10,9 @@ TEMP_DIR = './temp'
 OUTPUT_STYLE = 'pdf only'
 OUTPUT_STYLE_SUPPORTED = ['pdf with img', 'img only', 'text only', 'pdf only']
 
+ASR_MODEL = 'paraformer'  # ASR 模型
+ASR_MODEL_SUPPORTED = ['sense_voice', 'paraformer']
+
 DISABLE_LLM_POLISH = False  # 是否禁用 LLM 润色
 DISABLE_LLM_SUMMARY = False  # 是否禁用 LLM 摘要
 LLM_SERVER = 'deepseek'
@@ -28,6 +31,7 @@ SUMMARY_LLM_SERVER = 'deepseek-reasoner'
 assert LLM_SERVER in LLM_SERVER_SUPPORTED
 assert OUTPUT_STYLE in OUTPUT_STYLE_SUPPORTED
 assert SUMMARY_LLM_SERVER in LLM_SERVER_SUPPORTED
+assert ASR_MODEL in ASR_MODEL_SUPPORTED
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)

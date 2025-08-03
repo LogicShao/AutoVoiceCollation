@@ -14,8 +14,8 @@ from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 
 _pre_text = (
-    "本项目使用SenseVoice+LLM{}进行音频文本提取和润色，"
-    "AI提取的文本可能存在错误和不准确之处，"
+    "本项目使用{}+LLM{}进行音频文本提取和润色，"
+    "ASR模型提取的文本可能存在错误和不准确之处，"
     "以及润色之后的文本可能会与原意有所偏差，请仔细辨别。"
 )
 # 设置字体路径
@@ -24,14 +24,9 @@ pdfmetrics.registerFont(TTFont('FangSong', font_ttf_path))
 addMapping('FangSong', 0, 0, 'FangSong')  # 正常字体
 
 
-def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, LLM_info: Optional[str] = None) -> str:
+def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model: str, LLM_info: str = "") -> str:
     """
     将文本转换为 PDF，并将每页转换为图片
-    :param txt: 文本内容
-    :param with_img: 是否将 PDF 转为图片
-    :param title: 文本标题（可选）
-    :param output_dir: 输出目录
-    :return: 输出文件路径
     """
     # TODO: 修复pdf中英文混合的排版问题
     os.makedirs(output_dir, exist_ok=True)
@@ -81,10 +76,7 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, LLM_info:
     if title:
         story.append(Paragraph(title.strip(), title_style))
 
-    if LLM_info is not None:
-        pre_text = _pre_text.format(LLM_info)
-    else:
-        pre_text = _pre_text.format("")
+    pre_text = _pre_text.format(ASR_model, LLM_info)
     story.append(Paragraph(pre_text, pre_style))
 
     # 正文处理
@@ -220,8 +212,8 @@ def text_to_one_image(txt: str, output_path: str, title: Optional[str] = None) -
     return output_file_path
 
 
-def text_to_img_or_pdf(txt: str, output_style: str, output_path: str, title: Optional[str] = None,
-                       LLM_info: Optional[str] = None) -> str:
+def text_to_img_or_pdf(txt: str, output_style: str, output_path: str, ASR_model: str, title: Optional[str] = None,
+                       LLM_info: str = "") -> str:
     """
     将文本转换为图片或PDF
     :param txt: 文本内容
@@ -232,9 +224,11 @@ def text_to_img_or_pdf(txt: str, output_style: str, output_path: str, title: Opt
     :return: 输出文件路径
     """
     if output_style == 'pdf with img':
-        return text_to_pdf(txt, with_img=True, title=title, output_dir=output_path, LLM_info=LLM_info)
+        return text_to_pdf(txt, with_img=True, title=title, output_dir=output_path, LLM_info=LLM_info,
+                           ASR_model=ASR_model)
     elif output_style == 'pdf only':
-        return text_to_pdf(txt, with_img=False, title=title, output_dir=output_path, LLM_info=LLM_info)
+        return text_to_pdf(txt, with_img=False, title=title, output_dir=output_path, LLM_info=LLM_info,
+                           ASR_model=ASR_model)
     elif output_style == 'img only':
         return text_to_one_image(txt, output_path=output_path, title=title)
     else:

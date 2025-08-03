@@ -15,23 +15,17 @@ model_sense_voice_small = AutoModel(
 )
 
 
-def extract_audio_text_by_sense_voice(input_audio_path: str, language: str = "auto") -> str:
+def extract_audio_text_by_sense_voice(input_audio_path: str) -> str:
     """
     提取音频文本
     :param input_audio_path: 输入音频文件路径
-    :param language: 语言类型，支持 "auto", "zh", "en", "yue", "ja", "ko", "nospeech"
     :return: 提取的文本
     """
-    support_languages = ["auto", "zh", "en", "yue", "ja", "ko", "nospeech"]
-
-    if language not in support_languages:
-        raise ValueError(f"Language '{language}' is not supported. Supported languages are: {support_languages}")
-
     # Generate transcription
     res = model_sense_voice_small.generate(
         input=input_audio_path,
         cache={},
-        language=language,  # "zh", "en", "yue", "ja", "ko", "nospeech"
+        language="auto",  # "zh", "en", "yue", "ja", "ko", "nospeech"
         use_itn=True,
         batch_size_s=60,
         merge_vad=True,
@@ -47,11 +41,29 @@ model_paraformer = AutoModel(model="paraformer-zh", model_revision="v2.0.4",
                              vad_model="fsmn-vad", vad_model_revision="v2.0.4",
                              punc_model="ct-punc-c", punc_model_revision="v2.0.4",
                              # spk_model="cam++", spk_model_revision="v2.0.2",
+                             device="cuda:0", disable_update=True
                              )
 
 
-def extract_audio_text_by_paraformer(input_audio_path: str, language: str = "auto") -> str:
+def extract_audio_text_by_paraformer(input_audio_path: str) -> str:
     return model_paraformer.generate(
         input=input_audio_path,
-        batch_size_s=300,
-    )
+        batch_size_s=900,
+    )[0]["text"]
+
+
+def extract_audio_text(input_audio_path: str, model_type: str = "paraformer") -> str:
+    """
+    提取音频文本
+    :param input_audio_path: 输入音频文件路径
+    :param model_type: 使用的模型类型，默认为 "sense_voice"
+    :return: 提取的文本
+    """
+    print(f"Extracting text from audio: {input_audio_path} using model: {model_type}")
+
+    if model_type == "sense_voice":
+        return extract_audio_text_by_sense_voice(input_audio_path)
+    elif model_type == "paraformer":
+        return extract_audio_text_by_paraformer(input_audio_path)
+    else:
+        raise ValueError(f"Unsupported model type: {model_type}")

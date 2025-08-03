@@ -2,8 +2,9 @@
 
 ## 介绍
 
-AutoVoiceCollation是一个基于SenseVoice的自动语音识别（ASR）和文本处理工具，旨在帮助用户快速整理和润色语音转录文本。支持：
+AutoVoiceCollation是一个自动语音识别（ASR）和文本处理工具，旨在帮助用户快速整理和润色语音转录文本。支持：
 
+- 使用SenseVoiceSmall或者paraformer完成语音转文本
 - b站视频语音识别
 - 本地音频文件语音识别
 - LLM自动润色（目前支持deepseek、qwen3与gemini）

@@ -1,7 +1,7 @@
 from src.Timer import Timer
-from src.config import *
-from src.extract_audio_text import extract_audio_text_by_sense_voice
 from src.bilibili_downloader import download_bilibili_audio
+from src.config import *
+from src.extract_audio_text import extract_audio_text
 from src.output_file_manager import move_output_files
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
@@ -25,7 +25,7 @@ def main(local_audio_path: str = None):
 
     timer.start()
     print("正在提取音频文本...")
-    audio_text = extract_audio_text_by_sense_voice(audio_path, language="auto")
+    audio_text = extract_audio_text(input_audio_path=audio_path, model_type=ASR_MODEL)
     print("音频文本提取完成，用时：", timer.stop(), "秒")
 
     text_file_path = os.path.join(OUTPUT_DIR, "audio_transcription.txt")
@@ -50,7 +50,7 @@ def main(local_audio_path: str = None):
         print("文本润色已跳过。")
 
     text_to_img_or_pdf(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=OUTPUT_DIR,
-                       LLM_info=f'({LLM_SERVER}, 温度: {LLM_TEMPERATURE})')
+                       LLM_info=f'({LLM_SERVER}, 温度: {LLM_TEMPERATURE})', ASR_model=ASR_MODEL)
 
     if not DISABLE_LLM_SUMMARY:
         print("正在生成 Summary...")

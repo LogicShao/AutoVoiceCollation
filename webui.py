@@ -1,66 +1,15 @@
-import base64
 import shutil
-from pathlib import Path
 
 import gradio as gr
-import markdown
 
 from src.Timer import Timer
-from src.config import *
-from src.extract_audio_text import extract_audio_text_by_sense_voice
-from src.subtitle_generator import hard_encode_dot_srt_file, gen_timestamped_text_file
 from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_video
+from src.config import *
+from src.extract_audio_text import extract_audio_text
+from src.subtitle_generator import hard_encode_dot_srt_file, gen_timestamped_text_file
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.text_arrangement.text_exporter import text_to_img_or_pdf
-
-
-def read_file_content(file_path):
-    """读取文件内容"""
-    if not file_path or not Path(file_path).exists():
-        return None
-    with open(file_path, 'rb') as f:
-        return f.read()
-
-
-def display_pdf(pdf_path):
-    """在HTML中嵌入PDF预览"""
-    pdf_data = read_file_content(pdf_path)
-    if not pdf_data:
-        return None
-
-    # 将PDF转换为base64编码
-    pdf_base64 = base64.b64encode(pdf_data).decode('utf-8')
-    pdf_display = f"""
-    <embed src="data:application/pdf;base64,{pdf_base64}" 
-           type="application/pdf" 
-           width="100%" 
-           height="600px" 
-           internalinstanceid="pdf-viewer">
-    """
-    return gr.HTML(pdf_display)
-
-
-def display_markdown(md_path):
-    """渲染Markdown为HTML"""
-    md_data = read_file_content(md_path)
-    if not md_data:
-        return None
-
-    # 将Markdown转换为HTML
-    html = markdown.markdown(md_data.decode('utf-8'))
-    return gr.HTML(f"""
-    <div style="
-        border: 1px solid #e0e0e0;
-        border-radius: 4px;
-        padding: 15px;
-        background: white;
-        height: 600px;
-        overflow-y: auto;
-    ">
-        {html}
-    </div>
-    """)
 
 
 def zip_output_dir(output_dir: str) -> str:
@@ -74,7 +23,7 @@ def zip_output_dir(output_dir: str) -> str:
     return zip_path
 
 
-def process_audio(audio_path: str, language: str, llm_api: str, temperature: float, max_tokens: int):
+def process_audio(audio_path: str, llm_api: str, temperature: float, max_tokens: int):
     """
     处理音频文件，提取文本并生成图文版
     """
@@ -93,7 +42,7 @@ def process_audio(audio_path: str, language: str, llm_api: str, temperature: flo
 
     # 提取文本
     timer.start()
-    audio_text = extract_audio_text_by_sense_voice(audio_path, language=language)
+    audio_text = extract_audio_text(input_audio_path=audio_path, model_type=ASR_MODEL)
     text_file_path = os.path.join(output_dir, "audio_transcription.txt")
     with open(text_file_path, "w", encoding="utf-8") as f:
         f.write(audio_text)
@@ -112,12 +61,11 @@ def process_audio(audio_path: str, language: str, llm_api: str, temperature: flo
     else:
         polished_text = audio_text
         polish_time = 0
-        polish_text_file_path = text_file_path
         print("文本润色已跳过。")
 
     # 生成PDF和MD文件
     text_to_img_or_pdf(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=output_dir,
-                       LLM_info='({},温度:{})'.format(llm_api, temperature))
+                       LLM_info='({},温度:{})'.format(llm_api, temperature), ASR_model=ASR_MODEL)
     summary_text = summarize_text(txt=polished_text, api_server=SUMMARY_LLM_SERVER, temperature=SUMMARY_LLM_TEMPERATURE,
                                   max_tokens=SUMMARY_LLM_MAX_TOKENS, title=audio_file_name)
 
@@ -127,16 +75,16 @@ def process_audio(audio_path: str, language: str, llm_api: str, temperature: flo
 
     zip_file = zip_output_dir(output_dir)
 
-    return output_dir, extract_time, polish_time, zip_file, polish_text_file_path, md_file_path
+    return output_dir, extract_time, polish_time, zip_file
 
 
-def upload_audio(audio_file, language, llm_api, temperature, max_tokens):
+def upload_audio(audio_file, llm_api, temperature, max_tokens):
     if audio_file is None:
         return "请上传一个音频文件。", None, None, None, None, None
-    return process_audio(audio_file, language, llm_api, temperature, max_tokens)
+    return process_audio(audio_file, llm_api, temperature, max_tokens)
 
 
-def bilibili_video_download_process(video_url, language, llm_api, temperature, max_tokens):
+def bilibili_video_download_process(video_url, llm_api, temperature, max_tokens):
     """
     处理B站视频链接，下载音频并提取文本
     """
@@ -146,13 +94,13 @@ def bilibili_video_download_process(video_url, language, llm_api, temperature, m
     timer.start()
     audio_path = download_bilibili_audio(video_url, output_format='mp3', output_dir=DOWNLOAD_DIR)
     download_time = timer.stop()
-    output_dir, extract_time, polish_time, zip_file, polish_text_file_path, md_file = process_audio(
-        audio_path, language, llm_api, temperature, max_tokens
+    output_dir, extract_time, polish_time, zip_file = process_audio(
+        audio_path, llm_api, temperature, max_tokens
     )
-    return output_dir, extract_time + download_time, polish_time, zip_file, polish_text_file_path, md_file
+    return output_dir, extract_time + download_time, polish_time, zip_file
 
 
-def process_multiple_urls(urls: str, language="auto", llm_api=LLM_SERVER, temperature=LLM_TEMPERATURE,
+def process_multiple_urls(urls: str, llm_api=LLM_SERVER, temperature=LLM_TEMPERATURE,
                           max_tokens=LLM_MAX_TOKENS):
     url_list = urls.strip().split("\n")
     all_output_dirs = []
@@ -164,8 +112,8 @@ def process_multiple_urls(urls: str, language="auto", llm_api=LLM_SERVER, temper
             timer.start()
             audio_path = download_bilibili_audio(url, output_format='mp3', output_dir=DOWNLOAD_DIR)
             download_time = timer.stop()
-            output_dir, extract_time, polish_time, zip_file, polish_text_file, md_file = process_audio(
-                audio_path, language, llm_api, temperature, max_tokens
+            output_dir, extract_time, polish_time, zip_file = process_audio(
+                audio_path, llm_api, temperature, max_tokens
             )
             all_output_dirs.append(zip_file)
             total_extract_time += extract_time + download_time
@@ -191,12 +139,9 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
     gr.Markdown("# 🎧 音频识别与文本整理系统")
     gr.Markdown("上传音频文件或输入B站视频链接，一键提取文本并生成图文版。")
 
-    LANGUAGES = ["auto", "zh", "en", "yue", "ja", "ko", "nospeech"]
-
     with gr.Tab("输入B站链接"):
         with gr.Row():
             bilibili_input = gr.Textbox(label="请输入B站视频链接")
-            language_dropdown2 = gr.Dropdown(choices=LANGUAGES, value="auto", label="识别语言")
         with gr.Row():
             llm_api_dropdown2 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
             temp_slider2 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
@@ -208,22 +153,15 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
         with gr.Row():
             download_zip2 = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
-        with gr.Tabs():
-            with gr.Tab("PDF预览"):
-                pdf_preview2 = gr.HTML(label="PDF预览")
-            with gr.Tab("Markdown预览"):
-                md_preview2 = gr.HTML(label="Markdown预览")
-
         bilibili_button.click(
             fn=bilibili_video_download_process,
-            inputs=[bilibili_input, language_dropdown2, llm_api_dropdown2, temp_slider2, token_slider2],
-            outputs=[bilibili_output, bilibili_time, bilibili_time, download_zip2, pdf_preview2, md_preview2]
+            inputs=[bilibili_input, llm_api_dropdown2, temp_slider2, token_slider2],
+            outputs=[bilibili_output, bilibili_time, bilibili_time, download_zip2]
         )
 
     with gr.Tab("批量处理B站链接"):
         with gr.Row():
             url_input = gr.Textbox(label="请输入B站视频链接，每个URL换行分隔")
-            language_dropdown3 = gr.Dropdown(choices=LANGUAGES, value="auto", label="识别语言")
         with gr.Row():
             llm_api_dropdown3 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
             temp_slider3 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
@@ -233,19 +171,16 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
         batch_time = gr.Textbox(label="总下载+识别+润色用时（秒）", interactive=False)
         with gr.Row():
             download_zip_batch = gr.File(label="下载打包结果（ZIP）", interactive=False)
-            pdf_preview_batch = gr.File(label="PDF预览", interactive=False)
-            md_preview_batch = gr.File(label="MD预览", interactive=False)
 
         batch_button.click(
             fn=process_multiple_urls,
-            inputs=[url_input, language_dropdown3, llm_api_dropdown3, temp_slider3, token_slider3],
-            outputs=[batch_output, batch_time, batch_time, download_zip_batch, pdf_preview_batch, md_preview_batch]
+            inputs=[url_input, llm_api_dropdown3, temp_slider3, token_slider3],
+            outputs=[batch_output, batch_time, batch_time, download_zip_batch]
         )
 
     with gr.Tab("上传音频文件"):
         with gr.Row():
             audio_input = gr.File(label="选择本地音频文件（支持mp3/wav格式）")
-            language_dropdown1 = gr.Dropdown(choices=LANGUAGES, value="auto", label="识别语言")
         with gr.Row():
             llm_api_dropdown1 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
             temp_slider1 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
@@ -257,16 +192,10 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
         with gr.Row():
             download_zip1 = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
-        with gr.Tabs():
-            with gr.Tab("PDF预览"):
-                pdf_preview1 = gr.HTML(label="PDF预览")
-            with gr.Tab("Markdown预览"):
-                md_preview1 = gr.HTML(label="Markdown预览")
-
         upload_button.click(
             fn=upload_audio,
-            inputs=[audio_input, language_dropdown1, llm_api_dropdown1, temp_slider1, token_slider1],
-            outputs=[upload_output, upload_time, upload_time, download_zip1, pdf_preview1, md_preview1]
+            inputs=[audio_input, llm_api_dropdown1, temp_slider1, token_slider1],
+            outputs=[upload_output, upload_time, upload_time, download_zip1]
         )
 
     with gr.Tab("自动添加字幕"):
