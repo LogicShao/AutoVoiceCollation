@@ -4,12 +4,15 @@
 
 AutoVoiceCollation是一个自动语音识别（ASR）和文本处理工具，旨在帮助用户快速整理和润色语音转录文本。支持：
 
-- 使用SenseVoiceSmall或者paraformer完成语音转文本
+- 使用SenseVoiceSmall或paraformer完成语音转文本
 - b站视频语音识别
 - 本地音频文件语音识别
-- LLM自动润色（目前支持deepseek、qwen3与gemini）
+- LLM自动润色（支持deepseek、qwen3与gemini）
 - 自动导出文本文件、PDF或图片
 - 一键生成字幕文件（.cc/.srt）并支持视频硬编码
+- LLM文本总结（支持deepseek、qwen3与gemini）
+
+推荐使用带有cuda的GPU运行本项目，如果爆显存或者想提高性能请自行修改`src/extract_audio_text.py`中的`batch_size_s`参数。
 
 ## Quick Start
 
@@ -56,11 +59,14 @@ python main.py # 命令行调用
 
 ## Demo 展示
 
-webui demo:
+webui:
 ![](img/webui_demo.png)
 
-pdf output demo:
+pdf output:
 ![](img/pdf_output_demo.png)
+
+summary:
+![](img/summary_demo.png)
 
 ## 配置
 
