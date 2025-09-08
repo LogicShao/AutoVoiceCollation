@@ -17,11 +17,8 @@ model_sense_voice_small = AutoModel(
 
 def extract_audio_text_by_sense_voice(input_audio_path: str) -> str:
     """
-    提取音频文本
-    :param input_audio_path: 输入音频文件路径
-    :return: 提取的文本
+    提取音频文本 (SenseVoiceSmall)
     """
-    # Generate transcription
     res = model_sense_voice_small.generate(
         input=input_audio_path,
         cache={},
@@ -32,32 +29,37 @@ def extract_audio_text_by_sense_voice(input_audio_path: str) -> str:
         merge_length_s=15,
     )
 
-    # Post-process the transcription
     text = clean_asr_text(res[0]["text"])
     return text
 
 
-model_paraformer = AutoModel(model="paraformer-zh", model_revision="v2.0.4",
-                             vad_model="fsmn-vad", vad_model_revision="v2.0.4",
-                             punc_model="ct-punc-c", punc_model_revision="v2.0.4",
-                             # spk_model="cam++", spk_model_revision="v2.0.2",
-                             device="cuda:0", disable_update=True
-                             )
+model_paraformer = AutoModel(
+    model="paraformer-zh",
+    model_revision="v2.0.4",
+    vad_model="fsmn-vad",
+    vad_model_revision="v2.0.4",
+    punc_model="ct-punc-c",
+    punc_model_revision="v2.0.4",
+    # spk_model="cam++", spk_model_revision="v2.0.2",
+    device="cuda:0",
+    disable_update=True,
+)
 
 
 def extract_audio_text_by_paraformer(input_audio_path: str) -> str:
-    return model_paraformer.generate(
+    """
+    提取音频文本 (Paraformer)
+    """
+    res = model_paraformer.generate(
         input=input_audio_path,
         batch_size_s=900,
-    )[0]["text"]
+    )
+    return res[0]["text"]
 
 
 def extract_audio_text(input_audio_path: str, model_type: str = "paraformer") -> str:
     """
     提取音频文本
-    :param input_audio_path: 输入音频文件路径
-    :param model_type: 使用的模型类型，默认为 "sense_voice"
-    :return: 提取的文本
     """
     print(f"Extracting text from audio: {input_audio_path} using model: {model_type}")
 

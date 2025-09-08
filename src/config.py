@@ -1,4 +1,5 @@
 import os
+from typing import Optional
 
 PROJECT_NAME = 'AutoVoiceCollation'
 DEBUG_FLAG = False
@@ -27,6 +28,8 @@ ASYNC_FLAG = True  # 是否使用异步处理
 SUMMARY_LLM_TEMPERATURE = 1
 SUMMARY_LLM_MAX_TOKENS = 8192
 SUMMARY_LLM_SERVER = 'deepseek-reasoner'
+
+WEB_SEVER_PORT: Optional[int] = None
 
 assert LLM_SERVER in LLM_SERVER_SUPPORTED
 assert OUTPUT_STYLE in OUTPUT_STYLE_SUPPORTED

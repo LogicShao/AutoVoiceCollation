@@ -3,10 +3,11 @@ import shutil
 import gradio as gr
 
 from src.Timer import Timer
-from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_video
+from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_video, BiliVideoFile, \
+    new_local_bili_file
 from src.config import *
 from src.extract_audio_text import extract_audio_text
-from src.subtitle_generator import hard_encode_dot_srt_file, gen_timestamped_text_file
+from src.subtitle_generator_by_sense_voice import hard_encode_dot_srt_file, gen_timestamped_text_file
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.text_arrangement.text_exporter import text_to_img_or_pdf
@@ -23,7 +24,7 @@ def zip_output_dir(output_dir: str) -> str:
     return zip_path
 
 
-def process_audio(audio_path: str, llm_api: str, temperature: float, max_tokens: int):
+def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, max_tokens: int):
     """
     处理音频文件，提取文本并生成图文版
     """
@@ -31,7 +32,7 @@ def process_audio(audio_path: str, llm_api: str, temperature: float, max_tokens:
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
 
     timer = Timer()
-    audio_file_name = os.path.basename(audio_path).split(".")[0]
+    audio_file_name = os.path.basename(audio_file.path).split(".")[0]
     output_dir = os.path.join(OUTPUT_DIR, audio_file_name)
     if os.path.exists(output_dir):
         suffix_id = 1
@@ -40,9 +41,14 @@ def process_audio(audio_path: str, llm_api: str, temperature: float, max_tokens:
         output_dir = f"{output_dir}_{suffix_id}"
     os.makedirs(output_dir)
 
+    # 保存视频信息
+    info_file_path = os.path.join(output_dir, "video_info.txt")
+    with open(info_file_path, "w", encoding="utf-8") as f:
+        f.write(repr(audio_file))
+
     # 提取文本
     timer.start()
-    audio_text = extract_audio_text(input_audio_path=audio_path, model_type=ASR_MODEL)
+    audio_text = extract_audio_text(input_audio_path=audio_file.path, model_type=ASR_MODEL)
     text_file_path = os.path.join(output_dir, "audio_transcription.txt")
     with open(text_file_path, "w", encoding="utf-8") as f:
         f.write(audio_text)
@@ -64,10 +70,10 @@ def process_audio(audio_path: str, llm_api: str, temperature: float, max_tokens:
         print("文本润色已跳过。")
 
     # 生成PDF和MD文件
-    text_to_img_or_pdf(polished_text, title=audio_file_name, output_style=OUTPUT_STYLE, output_path=output_dir,
+    text_to_img_or_pdf(polished_text, title=audio_file.title, output_style=OUTPUT_STYLE, output_path=output_dir,
                        LLM_info='({},温度:{})'.format(llm_api, temperature), ASR_model=ASR_MODEL)
     summary_text = summarize_text(txt=polished_text, api_server=SUMMARY_LLM_SERVER, temperature=SUMMARY_LLM_TEMPERATURE,
-                                  max_tokens=SUMMARY_LLM_MAX_TOKENS, title=audio_file_name)
+                                  max_tokens=SUMMARY_LLM_MAX_TOKENS, title=audio_file.title)
 
     md_file_path = os.path.join(output_dir, "summary_text.md")
     with open(md_file_path, "w", encoding="utf-8") as f:
@@ -78,9 +84,10 @@ def process_audio(audio_path: str, llm_api: str, temperature: float, max_tokens:
     return output_dir, extract_time, polish_time, zip_file
 
 
-def upload_audio(audio_file, llm_api, temperature, max_tokens):
-    if audio_file is None:
+def upload_audio(audio_path, llm_api, temperature, max_tokens):
+    if audio_path is None:
         return "请上传一个音频文件。", None, None, None, None, None
+    audio_file = new_local_bili_file(audio_path)
     return process_audio(audio_file, llm_api, temperature, max_tokens)
 
 
@@ -92,10 +99,10 @@ def bilibili_video_download_process(video_url, llm_api, temperature, max_tokens)
         return "请输入正确的B站链接。", None, None, None, None, None
     timer = Timer()
     timer.start()
-    audio_path = download_bilibili_audio(video_url, output_format='mp3', output_dir=DOWNLOAD_DIR)
+    audio_file: BiliVideoFile = download_bilibili_audio(video_url, output_format='mp3', output_dir=DOWNLOAD_DIR)
     download_time = timer.stop()
     output_dir, extract_time, polish_time, zip_file = process_audio(
-        audio_path, llm_api, temperature, max_tokens
+        audio_file, llm_api, temperature, max_tokens
     )
     return output_dir, extract_time + download_time, polish_time, zip_file
 
@@ -110,10 +117,10 @@ def process_multiple_urls(urls: str, llm_api=LLM_SERVER, temperature=LLM_TEMPERA
         if url.startswith("http"):
             timer = Timer()
             timer.start()
-            audio_path = download_bilibili_audio(url, output_format='mp3', output_dir=DOWNLOAD_DIR)
+            audio_file = download_bilibili_audio(url, output_format='mp3', output_dir=DOWNLOAD_DIR)
             download_time = timer.stop()
             output_dir, extract_time, polish_time, zip_file = process_audio(
-                audio_path, llm_api, temperature, max_tokens
+                audio_file, llm_api, temperature, max_tokens
             )
             all_output_dirs.append(zip_file)
             total_extract_time += extract_time + download_time
@@ -178,7 +185,7 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
             outputs=[batch_output, batch_time, batch_time, download_zip_batch]
         )
 
-    with gr.Tab("上传音频文件"):
+    with gr.Tab("上传本地音频文件"):
         with gr.Row():
             audio_input = gr.File(label="选择本地音频文件（支持mp3/wav格式）")
         with gr.Row():
@@ -198,6 +205,24 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
             outputs=[upload_output, upload_time, upload_time, download_zip1]
         )
 
+    with gr.Tab("上传本地视频文件"):
+        with gr.Row():
+            video_input2 = gr.File(label="选择本地视频文件（支持mp4格式）")
+        video_button = gr.Button("提取音频并处理")
+        video_output = gr.Textbox(label="输出目录", interactive=False)
+        video_time = gr.Textbox(label="提取+识别+润色用时（秒）", interactive=False)
+
+        with gr.Row():
+            download_zip_video = gr.File(label="下载打包结果（ZIP）", interactive=False)
+
+        video_button.click(
+            fn=lambda vf, api, temp, tokens: upload_audio(
+                extract_audio_from_video(vf), api, temp, tokens
+            ) if vf else ("请上传一个视频文件。", None, None, None),
+            inputs=[video_input2, llm_api_dropdown1, temp_slider1, token_slider1],
+            outputs=[video_output, video_time, video_time, download_zip_video]
+        )
+
     with gr.Tab("自动添加字幕"):
         video_input = gr.File(label="选择视频文件（支持mp4格式）")
         subtitle_button = gr.Button("添加字幕并下载")
@@ -214,4 +239,4 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
     gr.Markdown("处理完成后，可点击上方下载按钮获取完整输出。")
 
 if __name__ == "__main__":
-    app.launch(server_name="localhost", server_port=7860, inbrowser=True)
+    app.launch(server_name="localhost", inbrowser=True, server_port=WEB_SEVER_PORT)
