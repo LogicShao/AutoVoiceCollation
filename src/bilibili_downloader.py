@@ -1,5 +1,6 @@
 import enum
 import glob
+import json
 import os
 import re
 import subprocess
@@ -8,6 +9,12 @@ from dataclasses import dataclass
 from typing import Optional
 
 from yt_dlp import YoutubeDL
+
+_pre_text = (
+    "本项目使用{ASR_model}+LLM({LLM_api},温度:{temperature})进行音频文本提取和润色，"
+    "ASR模型提取的文本可能存在错误和不准确之处，"
+    "以及润色之后的文本可能会与原意有所偏差，请仔细辨别。"
+)
 
 
 class FileType(enum.Enum):
@@ -37,6 +44,25 @@ class BiliVideoFile:
 
     def __str__(self) -> str:
         return f"{self.title} ({self.url}) -> {self.path}"
+
+    def save_in_json(self, json_file_path):
+        data = {
+            "url": self.url,
+            "path": self.path,
+            "title": self.title,
+            "file_type": self.file_type.value,
+        }
+        with open(json_file_path, 'w', encoding='utf-8') as f:
+            json.dump(data, f, ensure_ascii=False, indent=4)
+
+    def save_in_text(self, polish_text: str, llm_api_server: str, temperature: float, asr_model: str,
+                     text_file_path: str):
+        pre_text = _pre_text.format(ASR_model=asr_model, LLM_api=llm_api_server, temperature=temperature)
+        with open(text_file_path, 'w', encoding='utf-8') as f:
+            if self.title:
+                f.write(f"{self.title}\n\n")
+            f.write(f"{pre_text}\n\n")
+            f.write(polish_text)
 
 
 def new_local_bili_file(path: str, title: str | None = None) -> BiliVideoFile:

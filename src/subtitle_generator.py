@@ -12,6 +12,7 @@ import torch
 import torchaudio
 
 from src.SenseVoiceSmall.model import SenseVoiceSmall
+from src.extract_audio_text import model_paraformer
 from src.text_arrangement.query_llm import query_llm, LLMQueryParams
 from src.text_arrangement.split_text import clean_asr_text, smart_split
 
@@ -247,7 +248,7 @@ def split_by_llm(timestamp_data, max_char_per_seg=16, split_len=600, max_tokens=
     return segments
 
 
-def run_asr_on_slices(audio_path, batch_size_s):
+def run_asr_on_slices_by_sense_voice(audio_path, batch_size_s):
     model_dir = "iic/SenseVoiceSmall"
     m, kwargs = SenseVoiceSmall.from_pretrained(model=model_dir, device="cuda:0")
     m.eval()
@@ -306,6 +307,23 @@ def run_asr_on_slices(audio_path, batch_size_s):
     return zipped_results
 
 
+def run_asr_by_paraformer(audio_path):
+    res = model_paraformer.generate(
+        input=audio_path,
+        batch_size_s=900,
+    )
+
+    text = res[0]["text"]
+    timestamp = []
+    for begin, end in res[0]["timestamp"]:
+        timestamp.append([begin / 1000, end / 1000])  # 转为秒
+
+    return {
+        "text": text,
+        "timestamp": timestamp
+    }
+
+
 def seconds_to_timestamp(seconds, file_type='srt'):
     """
     将秒转换为 SRT 或 CC 格式的时间戳字符串
@@ -354,19 +372,27 @@ def gen_timestamped_text_from_data(segments_data, file_type='srt') -> str:
     return "\n".join(lines)
 
 
-def gen_timestamped_text_file(audio_path: str, file_type: str = 'srt', batch_size_s: int = 5) -> str:
+def gen_timestamped_text_file(audio_path: str, file_type: str = 'srt', batch_size_s: int = 5,
+                              model: str = 'paraformer') -> str:
     """
     生成带时间戳的字幕文件（.srt 或 .cc）。
 
     :param audio_path: 输入音频文件路径
     :param file_type: 输出文件类型，'srt' 或 'cc'
     :param batch_size_s: 每个批次处理的音频长度（秒）
+    :param model: 使用的 ASR 模型，'paraformer' 或 'sense_voice'
     :return: 生成的字幕文件路径
     """
     if not os.path.isfile(audio_path):
         raise FileNotFoundError(f"未找到音频文件：{audio_path}")
 
-    timestamp_data = run_asr_on_slices(audio_path, batch_size_s=batch_size_s)
+    if model == 'sense_voice':
+        timestamp_data = run_asr_on_slices_by_sense_voice(audio_path, batch_size_s=batch_size_s)
+    elif model == 'paraformer':
+        timestamp_data = run_asr_by_paraformer(audio_path)
+    else:
+        raise ValueError(f"不支持的模型类型：{model}")
+
     if not timestamp_data["timestamp"]:
         raise ValueError("未能从音频中提取到任何字幕信息。")
 

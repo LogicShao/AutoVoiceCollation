@@ -1,8 +1,7 @@
-import argparse
 import os
 import shutil
 
-from src.config import OUTPUT_DIR, DOWNLOAD_DIR, TEMP_DIR
+from src.config import OUTPUT_DIR
 
 
 def copy_output_files(audio_name: str):
@@ -86,37 +85,3 @@ def remove_files(file_paths: list):
                 print(f"删除文件 '{file_path}' 时发生未知错误: {e}")
         else:
             print(f"文件 '{file_path}' 不存在，无需删除。")
-
-
-def main():
-    """
-    解析命令行参数并执行清理操作。
-    """
-    parser = argparse.ArgumentParser(description="清理指定目录下的文件。")
-
-    parser.add_argument("--clean-output", action="store_true", help="清理OUTPUT_DIR")
-    parser.add_argument("--clean-download", action="store_true", help="清理DOWNLOAD_DIR")
-    parser.add_argument("--all", action="store_true", help="清理所有目录 (默认)")
-
-    args = parser.parse_args()
-
-    print("\n--- 开始清理 ---")
-
-    if args.clean_output:
-        clean_directory(OUTPUT_DIR)
-    elif args.clean_download:
-        clean_directory(DOWNLOAD_DIR)
-    elif args.all:
-        clean_directory(OUTPUT_DIR)
-        clean_directory(DOWNLOAD_DIR)
-    else:
-        print("未指定清理选项。")
-
-    print("--- 清理完成 ---")
-
-
-if __name__ == "__main__":
-    clean_directory(OUTPUT_DIR)
-    clean_directory(DOWNLOAD_DIR)
-    clean_directory(TEMP_DIR)
-    remove_files(['output.txt'])

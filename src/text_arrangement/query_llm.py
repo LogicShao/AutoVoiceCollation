@@ -8,6 +8,10 @@ from google import genai
 from google.genai import types
 from openai import OpenAI
 
+from src.load_api_key import load_api_keys
+
+load_api_keys()
+
 
 # TODO: 接入ChatGPT等模型
 

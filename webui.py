@@ -7,7 +7,7 @@ from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_
     new_local_bili_file
 from src.config import *
 from src.extract_audio_text import extract_audio_text
-from src.subtitle_generator_by_sense_voice import hard_encode_dot_srt_file, gen_timestamped_text_file
+from src.subtitle_generator import hard_encode_dot_srt_file, gen_timestamped_text_file
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.text_arrangement.text_exporter import text_to_img_or_pdf
@@ -43,8 +43,7 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
 
     # 保存视频信息
     info_file_path = os.path.join(output_dir, "video_info.txt")
-    with open(info_file_path, "w", encoding="utf-8") as f:
-        f.write(repr(audio_file))
+    audio_file.save_in_json(info_file_path)
 
     # 提取文本
     timer.start()
@@ -61,8 +60,7 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
                                     temperature=temperature, max_tokens=max_tokens, debug_flag=DEBUG_FLAG,
                                     async_flag=ASYNC_FLAG)
         polish_text_file_path = os.path.join(output_dir, "polish_text.txt")
-        with open(polish_text_file_path, "w", encoding="utf-8") as f:
-            f.write(polished_text)
+        audio_file.save_in_text(polished_text, llm_api, temperature, ASR_MODEL, polish_text_file_path)
         polish_time = timer.stop()
     else:
         polished_text = audio_text

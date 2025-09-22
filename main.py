@@ -42,8 +42,7 @@ def main(local_audio_path: str = None):
         print("文本润色完成，用时：", timer.stop(), "秒")
 
         polish_text_file_path = os.path.join(output_dir, "polish_text.txt")
-        with open(polish_text_file_path, "w", encoding="utf-8") as f:
-            f.write(polished_text)
+        audio_file.save_in_text(polished_text, LLM_SERVER, LLM_TEMPERATURE, ASR_MODEL, polish_text_file_path)
         print(f"润色后的文本已保存到：{polish_text_file_path}")
     else:
         polished_text = audio_text
