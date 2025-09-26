@@ -7,13 +7,13 @@ import requests
 from google import genai
 from google.genai import types
 from openai import OpenAI
+from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
+from src.config import LOCAL_LLM_ENABLED
 from src.load_api_key import load_api_keys
 
 load_api_keys()
 
-
-# TODO: 接入ChatGPT等模型
 
 class LLMApiSupported(StrEnum):
     GEMINI = "gemini"
@@ -23,6 +23,11 @@ class LLMApiSupported(StrEnum):
     QWEN3 = "qwen3"  # 默认使用 qwen3-plus 模型
     QWEN3_PLUS = "qwen3-plus"
     QWEN3_MAX = "qwen3-max"
+    LOCAL_QWEN2_5 = "local:Qwen/Qwen2.5-1.5B-Instruct"
+
+
+def is_local_llm(api_name: str) -> bool:
+    return api_name.startswith("local:")
 
 
 @dataclass
@@ -148,6 +153,29 @@ _support_LLM_api_query_func = {
     "qwen3-plus": query_qwen3_plus,
     "qwen3-max": query_qwen3_max,
 }
+
+if LOCAL_LLM_ENABLED:
+    local_qwen2_5_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
+    print(f"Loading local model: {local_qwen2_5_model_name} ... This may take a while.")
+    local_qwen2_5tokenizer = AutoTokenizer.from_pretrained(local_qwen2_5_model_name)
+    local_qwen2_5model = AutoModelForCausalLM.from_pretrained(
+        local_qwen2_5_model_name,
+        device_map="auto",
+        dtype="auto"
+    )
+
+
+    def query_local_qwen2_5(params: LLMQueryParams) -> str:
+        pipe = pipeline("text-generation", model=local_qwen2_5model, tokenizer=local_qwen2_5tokenizer)
+        messages = [
+            {"role": "system", "content": params.system_instruction},
+            {"role": "user", "content": params.content},
+        ]
+        out = pipe(messages, temperature=params.temperature, max_new_tokens=params.max_tokens, do_sample=True)
+        return out[0]['generated_text'][-1]['content'].strip()
+
+
+    _support_LLM_api_query_func["local:Qwen/Qwen2.5-1.5B-Instruct"] = query_local_qwen2_5
 
 
 def query_llm(params: LLMQueryParams) -> str:

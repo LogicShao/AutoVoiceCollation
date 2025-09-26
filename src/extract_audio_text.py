@@ -52,7 +52,7 @@ def extract_audio_text_by_paraformer(input_audio_path: str) -> str:
     """
     res = model_paraformer.generate(
         input=input_audio_path,
-        batch_size_s=900,
+        batch_size_s=600,
     )
     return res[0]["text"]
 

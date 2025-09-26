@@ -18,12 +18,16 @@ DISABLE_LLM_POLISH = False  # 是否禁用 LLM 润色
 DISABLE_LLM_SUMMARY = False  # 是否禁用 LLM 摘要
 LLM_SERVER = 'deepseek'
 LLM_SERVER_SUPPORTED = ['gemini', 'qwen3', 'deepseek-chat', 'deepseek-reasoner', 'qwen3-max', 'qwen3-plus', 'deepseek']
+LOCAL_LLM_ENABLED = True  # 是否启用本地 LLM
+LOCAL_LLM_SERVER_SUPPORTED = ['local:Qwen/Qwen2.5-1.5B-Instruct']
 LLM_TEMPERATURE = 0.1
 LLM_MAX_TOKENS = 6000
 LLM_TOP_P = 0.95
 LLM_TOP_K = 64
 SPLIT_LIMIT = 1000  # 每段文本的最大字符数
 ASYNC_FLAG = True  # 是否使用异步处理
+if LOCAL_LLM_ENABLED:
+    LLM_SERVER_SUPPORTED.extend(LOCAL_LLM_SERVER_SUPPORTED)
 
 SUMMARY_LLM_TEMPERATURE = 1
 SUMMARY_LLM_MAX_TOKENS = 8192

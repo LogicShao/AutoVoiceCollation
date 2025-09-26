@@ -6,7 +6,7 @@ import time
 from collections import deque
 
 from src.config import OUTPUT_DIR
-from src.text_arrangement.query_llm import LLMQueryParams, query_llm
+from src.text_arrangement.query_llm import LLMQueryParams, query_llm, is_local_llm
 from src.text_arrangement.split_text import split_text_by_sentences
 
 MAX_RETRIES = 3
@@ -87,7 +87,7 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     split_text = split_text_by_sentences(txt, split_len=split_len)
     print(f"Splitting text into {len(split_text)} chunks for processing.")
 
-    if not async_flag or api_service == 'gemini':
+    if not async_flag or api_service == 'gemini' or is_local_llm(api_service):
         # 如果不使用异步方式，直接调用同步函数
         print("Running in synchronous mode.")
         polish_chunks = []
