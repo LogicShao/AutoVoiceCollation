@@ -6,11 +6,10 @@ from src.Timer import Timer
 from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_video, BiliVideoFile, \
     new_local_bili_file
 from src.config import *
-from src.extract_audio_text import extract_audio_text
+from src.core_process import (
+    process_audio, upload_audio
+)
 from src.subtitle_generator import hard_encode_dot_srt_file, gen_timestamped_text_file
-from src.text_arrangement.polish_by_llm import polish_text
-from src.text_arrangement.summary_by_llm import summarize_text
-from src.text_arrangement.text_exporter import text_to_img_or_pdf
 
 
 def zip_output_dir(output_dir: str) -> str:
@@ -22,64 +21,6 @@ def zip_output_dir(output_dir: str) -> str:
     shutil.make_archive(base_name=output_dir, format="zip", root_dir=output_dir)
     print(f"压缩文件已保存到：{zip_path}")
     return zip_path
-
-
-def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, max_tokens: int):
-    """
-    处理音频文件，提取文本并生成图文版
-    """
-    os.makedirs(OUTPUT_DIR, exist_ok=True)
-    os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-
-    timer = Timer()
-    audio_file_name = os.path.basename(audio_file.path).split(".")[0]
-    output_dir = os.path.join(OUTPUT_DIR, audio_file_name)
-    if os.path.exists(output_dir):
-        suffix_id = 1
-        while os.path.exists(f"{output_dir}_{suffix_id}"):
-            suffix_id += 1
-        output_dir = f"{output_dir}_{suffix_id}"
-    os.makedirs(output_dir)
-
-    # 保存视频信息
-    info_file_path = os.path.join(output_dir, "video_info.txt")
-    audio_file.save_in_json(info_file_path)
-
-    # 提取文本
-    timer.start()
-    audio_text = extract_audio_text(input_audio_path=audio_file.path, model_type=ASR_MODEL)
-    text_file_path = os.path.join(output_dir, "audio_transcription.txt")
-    with open(text_file_path, "w", encoding="utf-8") as f:
-        f.write(audio_text)
-    extract_time = timer.stop()
-
-    # 文本润色
-    if not DISABLE_LLM_POLISH:
-        timer.start()
-        polished_text = polish_text(audio_text, api_service=llm_api, split_len=round(max_tokens * 0.7),
-                                    temperature=temperature, max_tokens=max_tokens, debug_flag=DEBUG_FLAG,
-                                    async_flag=ASYNC_FLAG)
-        polish_text_file_path = os.path.join(output_dir, "polish_text.txt")
-        audio_file.save_in_text(polished_text, llm_api, temperature, ASR_MODEL, polish_text_file_path)
-        polish_time = timer.stop()
-    else:
-        polished_text = audio_text
-        polish_time = 0
-        print("文本润色已跳过。")
-
-    # 生成PDF和MD文件
-    text_to_img_or_pdf(polished_text, title=audio_file.title, output_style=OUTPUT_STYLE, output_path=output_dir,
-                       LLM_info='({},温度:{})'.format(llm_api, temperature), ASR_model=ASR_MODEL)
-    summary_text = summarize_text(txt=polished_text, api_server=SUMMARY_LLM_SERVER, temperature=SUMMARY_LLM_TEMPERATURE,
-                                  max_tokens=SUMMARY_LLM_MAX_TOKENS, title=audio_file.title)
-
-    md_file_path = os.path.join(output_dir, "summary_text.md")
-    with open(md_file_path, "w", encoding="utf-8") as f:
-        f.write(summary_text)
-
-    zip_file = zip_output_dir(output_dir)
-
-    return output_dir, extract_time, polish_time, zip_file
 
 
 def upload_audio(audio_path, llm_api, temperature, max_tokens):

@@ -58,6 +58,7 @@ class BiliVideoFile:
     def save_in_text(self, polish_text: str, llm_api_server: str, temperature: float, asr_model: str,
                      text_file_path: str):
         pre_text = _pre_text.format(ASR_model=asr_model, LLM_api=llm_api_server, temperature=temperature)
+        pre_text += "\n\n{}".format(self.url)
         with open(text_file_path, 'w', encoding='utf-8') as f:
             if self.title:
                 f.write(f"{self.title}\n\n")

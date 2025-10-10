@@ -18,7 +18,7 @@ DISABLE_LLM_POLISH = False  # 是否禁用 LLM 润色
 DISABLE_LLM_SUMMARY = False  # 是否禁用 LLM 摘要
 LLM_SERVER = 'deepseek'
 LLM_SERVER_SUPPORTED = ['gemini', 'qwen3', 'deepseek-chat', 'deepseek-reasoner', 'qwen3-max', 'qwen3-plus', 'deepseek']
-LOCAL_LLM_ENABLED = True  # 是否启用本地 LLM
+LOCAL_LLM_ENABLED = False  # 是否启用本地 LLM
 LOCAL_LLM_SERVER_SUPPORTED = ['local:Qwen/Qwen2.5-1.5B-Instruct']
 LLM_TEMPERATURE = 0.1
 LLM_MAX_TOKENS = 6000
@@ -34,6 +34,8 @@ SUMMARY_LLM_MAX_TOKENS = 8192
 SUMMARY_LLM_SERVER = 'deepseek-reasoner'
 
 WEB_SEVER_PORT: Optional[int] = None
+
+ZIP_OUTPUT_ENABLED = False  # 是否输出zip压缩包，默认False
 
 assert LLM_SERVER in LLM_SERVER_SUPPORTED
 assert OUTPUT_STYLE in OUTPUT_STYLE_SUPPORTED
