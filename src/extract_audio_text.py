@@ -1,65 +1,110 @@
+from typing import Optional
 from funasr import AutoModel
 
+from src.config import MODEL_DIR
 from src.text_arrangement.split_text import clean_asr_text
 
-model_dir_sense_voice_small = "iic/SenseVoiceSmall"
+# 模型缓存
+_model_sense_voice_small: Optional[AutoModel] = None
+_model_paraformer: Optional[AutoModel] = None
 
-model_sense_voice_small = AutoModel(
-    model=model_dir_sense_voice_small,
-    trust_remote_code=True,
-    remote_code="./src/SenseVoiceSmall/model.py",
-    vad_model="fsmn-vad",
-    vad_kwargs={"max_single_segment_time": 30000},
-    device="cuda:0",
-    disable_update=True,
-)
+
+def get_sense_voice_model() -> AutoModel:
+    """
+    延迟加载 SenseVoiceSmall 模型
+    """
+    global _model_sense_voice_small
+    if _model_sense_voice_small is None:
+        try:
+            print("Loading SenseVoiceSmall model...")
+            model_dir_sense_voice_small = "iic/SenseVoiceSmall"
+            _model_sense_voice_small = AutoModel(
+                model=model_dir_sense_voice_small,
+                trust_remote_code=True,
+                remote_code="./src/SenseVoiceSmall/model.py",
+                vad_model="fsmn-vad",
+                vad_kwargs={"max_single_segment_time": 30000},
+                device="cuda:0",
+                disable_update=True,
+                model_hub="huggingface",
+                cache_dir=MODEL_DIR,
+            )
+            print("SenseVoiceSmall model loaded successfully.")
+        except Exception as e:
+            raise RuntimeError(f"Failed to load SenseVoiceSmall model: {e}")
+    return _model_sense_voice_small
+
+
+def get_paraformer_model() -> AutoModel:
+    """
+    延迟加载 Paraformer 模型
+    """
+    global _model_paraformer
+    if _model_paraformer is None:
+        try:
+            print("Loading Paraformer model...")
+            _model_paraformer = AutoModel(
+                model="paraformer-zh",
+                model_revision="v2.0.4",
+                vad_model="fsmn-vad",
+                vad_model_revision="v2.0.4",
+                punc_model="ct-punc-c",
+                punc_model_revision="v2.0.4",
+                device="cuda:0",
+                disable_update=True,
+                model_hub="huggingface",
+                cache_dir=MODEL_DIR,
+            )
+            print("Paraformer model loaded successfully.")
+        except Exception as e:
+            raise RuntimeError(f"Failed to load Paraformer model: {e}")
+    return _model_paraformer
 
 
 def extract_audio_text_by_sense_voice(input_audio_path: str) -> str:
     """
     提取音频文本 (SenseVoiceSmall)
     """
-    res = model_sense_voice_small.generate(
-        input=input_audio_path,
-        cache={},
-        language="auto",  # "zh", "en", "yue", "ja", "ko", "nospeech"
-        use_itn=True,
-        batch_size_s=60,
-        merge_vad=True,
-        merge_length_s=15,
-    )
-
-    text = clean_asr_text(res[0]["text"])
-    return text
-
-
-model_paraformer = AutoModel(
-    model="paraformer-zh",
-    model_revision="v2.0.4",
-    vad_model="fsmn-vad",
-    vad_model_revision="v2.0.4",
-    punc_model="ct-punc-c",
-    punc_model_revision="v2.0.4",
-    # spk_model="cam++", spk_model_revision="v2.0.2",
-    device="cuda:0",
-    disable_update=True,
-)
+    model = get_sense_voice_model()
+    try:
+        res = model.generate(
+            input=input_audio_path,
+            cache={},
+            language="auto",  # "zh", "en", "yue", "ja", "ko", "nospeech"
+            use_itn=True,
+            batch_size_s=60,
+            merge_vad=True,
+            merge_length_s=15,
+        )
+        text = clean_asr_text(res[0]["text"])
+        return text
+    except Exception as e:
+        raise RuntimeError(f"Failed to extract audio text with SenseVoice: {e}")
 
 
 def extract_audio_text_by_paraformer(input_audio_path: str) -> str:
     """
     提取音频文本 (Paraformer)
     """
-    res = model_paraformer.generate(
-        input=input_audio_path,
-        batch_size_s=600,
-    )
-    return res[0]["text"]
+    model = get_paraformer_model()
+    try:
+        res = model.generate(
+            input=input_audio_path,
+            batch_size_s=600,
+        )
+        return res[0]["text"]
+    except Exception as e:
+        raise RuntimeError(f"Failed to extract audio text with Paraformer: {e}")
 
 
 def extract_audio_text(input_audio_path: str, model_type: str = "paraformer") -> str:
     """
     提取音频文本
+    :param input_audio_path: 输入音频文件路径
+    :param model_type: 模型类型 ("sense_voice" 或 "paraformer")
+    :return: 提取的文本
+    :raises ValueError: 不支持的模型类型
+    :raises RuntimeError: 模型加载或推理失败
     """
     print(f"Extracting text from audio: {input_audio_path} using model: {model_type}")
 
@@ -68,4 +113,4 @@ def extract_audio_text(input_audio_path: str, model_type: str = "paraformer") ->
     elif model_type == "paraformer":
         return extract_audio_text_by_paraformer(input_audio_path)
     else:
-        raise ValueError(f"Unsupported model type: {model_type}")
+        raise ValueError(f"Unsupported model type: {model_type}. Supported types: 'sense_voice', 'paraformer'")

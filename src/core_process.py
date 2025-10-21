@@ -23,6 +23,24 @@ def zip_output_dir(output_dir: str) -> str:
 
 
 def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, max_tokens: int):
+    """
+    处理音频文件，提取文本并润色
+    :param audio_file: 音频文件对象
+    :param llm_api: LLM API服务
+    :param temperature: 温度参数
+    :param max_tokens: 最大token数
+    :return: 输出目录, 提取时间, 润色时间, zip文件路径
+    """
+    # 输入验证
+    if not os.path.exists(audio_file.path):
+        raise FileNotFoundError(f"Audio file not found: {audio_file.path}")
+    if not 0 <= temperature <= 2:
+        raise ValueError(f"Temperature must be between 0 and 2, got {temperature}")
+    if max_tokens <= 0:
+        raise ValueError(f"max_tokens must be positive, got {max_tokens}")
+    if llm_api not in LLM_SERVER_SUPPORTED:
+        raise ValueError(f"Unsupported LLM API: {llm_api}. Supported: {LLM_SERVER_SUPPORTED}")
+
     os.makedirs(OUTPUT_DIR, exist_ok=True)
     os.makedirs(DOWNLOAD_DIR, exist_ok=True)
     timer = Timer()
@@ -65,11 +83,26 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
 
 
 def process_multiple_urls(urls: str, llm_api=LLM_SERVER, temperature=LLM_TEMPERATURE, max_tokens=LLM_MAX_TOKENS):
+    """
+    批量处理B站视频链接
+    :param urls: 多个URL，用换行符分隔
+    :param llm_api: LLM API服务
+    :param temperature: 温度参数
+    :param max_tokens: 最大token数
+    :return: 输出结果
+    """
+    # 输入验证
+    if not urls or not urls.strip():
+        raise ValueError("URLs cannot be empty")
+
     url_list = urls.strip().split("\n")
     all_output_dirs = []
     total_extract_time = 0
     total_polish_time = 0
     for url in url_list:
+        url = url.strip()
+        if not url:
+            continue
         if url.startswith("http"):
             timer = Timer()
             timer.start()
@@ -85,14 +118,19 @@ def process_multiple_urls(urls: str, llm_api=LLM_SERVER, temperature=LLM_TEMPERA
             total_extract_time += extract_time + download_time
             total_polish_time += polish_time
         else:
-            return f"无效的URL: {url}", None, None, None, None, None
-    if ZIP_OUTPUT_ENABLED:
-        return "\n".join(all_output_dirs), total_extract_time, total_polish_time, None, None, None
-    else:
-        return "\n".join(all_output_dirs), total_extract_time, total_polish_time, None, None, None
+            raise ValueError(f"Invalid URL: {url}")
+    return "\n".join(all_output_dirs), total_extract_time, total_polish_time, None, None, None
 
 
 def process_subtitles(video_file: str):
+    """
+    生成视频字幕并硬编码到视频
+    :param video_file: 视频文件路径
+    :return: 字幕文件路径, 输出视频路径
+    """
+    if not video_file or not os.path.exists(video_file):
+        raise FileNotFoundError(f"Video file not found: {video_file}")
+
     audio_file = extract_audio_from_video(video_file)
     srt_file = gen_timestamped_text_file(audio_file)
     output_file = hard_encode_dot_srt_file(video_file, srt_file)
@@ -100,6 +138,14 @@ def process_subtitles(video_file: str):
 
 
 def upload_audio(audio_path, llm_api, temperature, max_tokens):
+    """
+    上传并处理音频文件
+    :param audio_path: 音频文件路径
+    :param llm_api: LLM API服务
+    :param temperature: 温度参数
+    :param max_tokens: 最大token数
+    :return: 处理结果
+    """
     if audio_path is None:
         return "请上传一个音频文件。", None, None, None, None, None
     audio_file = new_local_bili_file(audio_path)
@@ -107,7 +153,15 @@ def upload_audio(audio_path, llm_api, temperature, max_tokens):
 
 
 def bilibili_video_download_process(video_url, llm_api, temperature, max_tokens):
-    if not video_url.startswith("http"):
+    """
+    下载并处理B站视频
+    :param video_url: B站视频URL
+    :param llm_api: LLM API服务
+    :param temperature: 温度参数
+    :param max_tokens: 最大token数
+    :return: 处理结果
+    """
+    if not video_url or not video_url.startswith("http"):
         return "请输入正确的B站链接。", None, None, None, None, None
     timer = Timer()
     timer.start()

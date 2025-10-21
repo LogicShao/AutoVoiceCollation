@@ -1,84 +1,11 @@
-import shutil
-
 import gradio as gr
 
-from src.Timer import Timer
-from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_video, BiliVideoFile, \
-    new_local_bili_file
+from src.bilibili_downloader import extract_audio_from_video
 from src.config import *
 from src.core_process import (
-    process_audio, upload_audio
+    upload_audio, bilibili_video_download_process,
+    process_multiple_urls, process_subtitles
 )
-from src.subtitle_generator import hard_encode_dot_srt_file, gen_timestamped_text_file
-
-
-def zip_output_dir(output_dir: str) -> str:
-    """
-    压缩输出目录为ZIP文件
-    """
-    print(f"正在压缩输出目录：{output_dir}")
-    zip_path = f"{output_dir}.zip"
-    shutil.make_archive(base_name=output_dir, format="zip", root_dir=output_dir)
-    print(f"压缩文件已保存到：{zip_path}")
-    return zip_path
-
-
-def upload_audio(audio_path, llm_api, temperature, max_tokens):
-    if audio_path is None:
-        return "请上传一个音频文件。", None, None, None, None, None
-    audio_file = new_local_bili_file(audio_path)
-    return process_audio(audio_file, llm_api, temperature, max_tokens)
-
-
-def bilibili_video_download_process(video_url, llm_api, temperature, max_tokens):
-    """
-    处理B站视频链接，下载音频并提取文本
-    """
-    if not video_url.startswith("http"):
-        return "请输入正确的B站链接。", None, None, None, None, None
-    timer = Timer()
-    timer.start()
-    audio_file: BiliVideoFile = download_bilibili_audio(video_url, output_format='mp3', output_dir=DOWNLOAD_DIR)
-    download_time = timer.stop()
-    output_dir, extract_time, polish_time, zip_file = process_audio(
-        audio_file, llm_api, temperature, max_tokens
-    )
-    return output_dir, extract_time + download_time, polish_time, zip_file
-
-
-def process_multiple_urls(urls: str, llm_api=LLM_SERVER, temperature=LLM_TEMPERATURE,
-                          max_tokens=LLM_MAX_TOKENS):
-    url_list = urls.strip().split("\n")
-    all_output_dirs = []
-    total_extract_time = 0
-    total_polish_time = 0
-    for url in url_list:
-        if url.startswith("http"):
-            timer = Timer()
-            timer.start()
-            audio_file = download_bilibili_audio(url, output_format='mp3', output_dir=DOWNLOAD_DIR)
-            download_time = timer.stop()
-            output_dir, extract_time, polish_time, zip_file = process_audio(
-                audio_file, llm_api, temperature, max_tokens
-            )
-            all_output_dirs.append(zip_file)
-            total_extract_time += extract_time + download_time
-            total_polish_time += polish_time
-        else:
-            return f"无效的URL: {url}", None, None, None, None, None
-    return "\n".join(all_output_dirs), total_extract_time, total_polish_time, None, None, None
-
-
-def process_subtitles(video_file: str):
-    """
-    硬编码字幕到视频文件
-    :param video_file: 视频文件路径
-    :return: 输出视频路径
-    """
-    audio_file = extract_audio_from_video(video_file)
-    srt_file = gen_timestamped_text_file(audio_file)
-    output_file = hard_encode_dot_srt_file(video_file, srt_file)
-    return srt_file, output_file
 
 
 with gr.Blocks(title="音频识别与文本整理工具") as app:

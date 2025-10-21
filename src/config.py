@@ -7,6 +7,7 @@ DEBUG_FLAG = False
 OUTPUT_DIR = './out'  # 输出目录
 DOWNLOAD_DIR = './download'  # 音频下载目录
 TEMP_DIR = './temp'
+MODEL_DIR = './models'  # 模型缓存目录
 
 OUTPUT_STYLE = 'pdf only'
 OUTPUT_STYLE_SUPPORTED = ['pdf with img', 'img only', 'text only', 'pdf only']
@@ -44,4 +45,5 @@ assert ASR_MODEL in ASR_MODEL_SUPPORTED
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
+os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)

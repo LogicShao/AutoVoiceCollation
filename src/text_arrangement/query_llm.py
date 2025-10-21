@@ -9,10 +9,10 @@ from google.genai import types
 from openai import OpenAI
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
-from src.config import LOCAL_LLM_ENABLED
+from src.config import LOCAL_LLM_ENABLED, DEBUG_FLAG
 from src.load_api_key import load_api_keys
 
-load_api_keys()
+load_api_keys(debug=DEBUG_FLAG)
 
 
 class LLMApiSupported(StrEnum):
@@ -61,7 +61,7 @@ def query_deepseek_chat(params: LLMQueryParams) -> str:
         "model": "deepseek-chat",
         "messages": messages,
         "temperature": params.temperature,
-        "split_len": params.max_tokens,
+        "max_tokens": params.max_tokens,
         "stream": False
     }
 

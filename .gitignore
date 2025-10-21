@@ -12,3 +12,5 @@ venv/
 *.env
 temp/
 output.txt
+.venv/
+.claude/
