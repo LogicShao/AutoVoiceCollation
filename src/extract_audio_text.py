@@ -1,8 +1,12 @@
 from typing import Optional
+
 from funasr import AutoModel
 
 from src.config import MODEL_DIR
+from src.logger import get_logger
 from src.text_arrangement.split_text import clean_asr_text
+
+logger = get_logger(__name__)
 
 # 模型缓存
 _model_sense_voice_small: Optional[AutoModel] = None
@@ -16,7 +20,7 @@ def get_sense_voice_model() -> AutoModel:
     global _model_sense_voice_small
     if _model_sense_voice_small is None:
         try:
-            print("Loading SenseVoiceSmall model...")
+            logger.info("Loading SenseVoiceSmall model...")
             model_dir_sense_voice_small = "iic/SenseVoiceSmall"
             _model_sense_voice_small = AutoModel(
                 model=model_dir_sense_voice_small,
@@ -29,7 +33,7 @@ def get_sense_voice_model() -> AutoModel:
                 model_hub="huggingface",
                 cache_dir=MODEL_DIR,
             )
-            print("SenseVoiceSmall model loaded successfully.")
+            logger.info("SenseVoiceSmall model loaded successfully.")
         except Exception as e:
             raise RuntimeError(f"Failed to load SenseVoiceSmall model: {e}")
     return _model_sense_voice_small
@@ -42,7 +46,7 @@ def get_paraformer_model() -> AutoModel:
     global _model_paraformer
     if _model_paraformer is None:
         try:
-            print("Loading Paraformer model...")
+            logger.info("Loading Paraformer model...")
             _model_paraformer = AutoModel(
                 model="paraformer-zh",
                 model_revision="v2.0.4",
@@ -55,7 +59,7 @@ def get_paraformer_model() -> AutoModel:
                 model_hub="huggingface",
                 cache_dir=MODEL_DIR,
             )
-            print("Paraformer model loaded successfully.")
+            logger.info("Paraformer model loaded successfully.")
         except Exception as e:
             raise RuntimeError(f"Failed to load Paraformer model: {e}")
     return _model_paraformer
@@ -106,7 +110,7 @@ def extract_audio_text(input_audio_path: str, model_type: str = "paraformer") ->
     :raises ValueError: 不支持的模型类型
     :raises RuntimeError: 模型加载或推理失败
     """
-    print(f"Extracting text from audio: {input_audio_path} using model: {model_type}")
+    logger.info(f"Extracting text from audio: {input_audio_path} using model: {model_type}")
 
     if model_type == "sense_voice":
         return extract_audio_text_by_sense_voice(input_audio_path)

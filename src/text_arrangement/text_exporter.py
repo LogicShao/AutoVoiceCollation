@@ -1,5 +1,6 @@
 import os
-from typing import Optional
+import platform
+from typing import Optional, List
 
 from PIL import Image, ImageDraw, ImageFont
 from pdf2image import convert_from_path
@@ -13,15 +14,158 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import SimpleDocTemplate, Paragraph
 
+from src.logger import get_logger
+
+logger = get_logger(__name__)
+
 _pre_text = (
     "本项目使用{}+LLM{}进行音频文本提取和润色，"
     "ASR模型提取的文本可能存在错误和不准确之处，"
     "以及润色之后的文本可能会与原意有所偏差，请仔细辨别。"
 )
-# 设置字体路径
-font_ttf_path = 'C:\Windows\Fonts\simfang.ttf'
-pdfmetrics.registerFont(TTFont('FangSong', font_ttf_path))
-addMapping('FangSong', 0, 0, 'FangSong')  # 正常字体
+
+
+def get_system_font_paths() -> List[str]:
+    """
+    根据操作系统获取字体搜索路径
+    :return: 字体路径列表
+    """
+    system = platform.system()
+    paths = []
+
+    if system == "Windows":
+        paths = [
+            os.path.join(os.environ.get("WINDIR", "C:\\Windows"), "Fonts"),
+        ]
+    elif system == "Darwin":  # macOS
+        paths = [
+            "/System/Library/Fonts",
+            "/Library/Fonts",
+            os.path.expanduser("~/Library/Fonts"),
+        ]
+    else:  # Linux 和其他Unix系统
+        paths = [
+            "/usr/share/fonts",
+            "/usr/local/share/fonts",
+            os.path.expanduser("~/.fonts"),
+            os.path.expanduser("~/.local/share/fonts"),
+        ]
+
+    # 过滤掉不存在的路径
+    return [p for p in paths if os.path.exists(p)]
+
+
+def find_chinese_font() -> Optional[str]:
+    """
+    跨平台查找可用的中文字体
+    :return: 找到的字体文件路径，如果未找到则返回 None
+    """
+    # 1. 优先使用环境变量指定的字体
+    env_font = os.environ.get("CHINESE_FONT_PATH")
+    if env_font and os.path.isfile(env_font):
+        logger.info(f"使用环境变量指定的字体: {env_font}")
+        return env_font
+
+    # 2. 定义不同操作系统的字体候选列表
+    system = platform.system()
+
+    if system == "Windows":
+        font_candidates = [
+            "simfang.ttf",  # 仿宋
+            "simsun.ttc",  # 宋体
+            "simhei.ttf",  # 黑体
+            "msyh.ttc",  # 微软雅黑
+            "msyhbd.ttc",  # 微软雅黑粗体
+            "simkai.ttf",  # 楷体
+        ]
+    elif system == "Darwin":  # macOS
+        font_candidates = [
+            "PingFang.ttc",
+            "STHeiti Light.ttc",
+            "STHeiti Medium.ttc",
+            "STSong.ttf",
+            "STFangsong.ttf",
+            "Songti.ttc",
+            "STKaiti.ttf",
+        ]
+    else:  # Linux
+        font_candidates = [
+            # Noto Sans CJK
+            "NotoSansCJK-Regular.ttc",
+            "NotoSerifCJK-Regular.ttc",
+            "NotoSansCJK.ttc",
+            "NotoSerifCJK.ttc",
+            # WenQuanYi
+            "wqy-microhei.ttc",
+            "wqy-zenhei.ttc",
+            # Source Han Sans/Serif
+            "SourceHanSansCN-Regular.otf",
+            "SourceHanSerifCN-Regular.otf",
+            # Droid Sans Fallback
+            "DroidSansFallbackFull.ttf",
+            "DroidSansFallback.ttf",
+            # AR PL fonts
+            "uming.ttc",
+            "ukai.ttc",
+        ]
+
+    # 3. 搜索字体
+    font_paths = get_system_font_paths()
+
+    for font_dir in font_paths:
+        for font_name in font_candidates:
+            # 直接匹配
+            font_path = os.path.join(font_dir, font_name)
+            if os.path.isfile(font_path):
+                logger.info(f"找到中文字体: {font_path}")
+                return font_path
+
+            # 递归搜索（限制深度为2，避免性能问题）
+            for root, dirs, files in os.walk(font_dir):
+                # 限制搜索深度
+                depth = root[len(font_dir):].count(os.sep)
+                if depth >= 2:
+                    dirs.clear()
+                    continue
+
+                if font_name in files:
+                    font_path = os.path.join(root, font_name)
+                    logger.info(f"找到中文字体: {font_path}")
+                    return font_path
+
+    logger.warning("未找到中文字体，将使用默认字体（可能无法正确显示中文）")
+    return None
+
+
+def get_font_path() -> str:
+    """
+    获取字体路径，如果找不到则抛出异常
+    :return: 字体文件路径
+    """
+    font_path = find_chinese_font()
+    if font_path is None:
+        error_msg = (
+            "未找到可用的中文字体。请安装中文字体包或通过环境变量 CHINESE_FONT_PATH 指定字体路径。\n"
+            "Linux 用户可以安装以下字体包之一:\n"
+            "  - Arch Linux: sudo pacman -S noto-fonts-cjk 或 wqy-microhei\n"
+            "  - Debian/Ubuntu: sudo apt install fonts-noto-cjk 或 fonts-wqy-microhei\n"
+            "  - Fedora/RHEL: sudo dnf install google-noto-sans-cjk-fonts 或 wqy-microhei-fonts\n"
+            "或者通过环境变量指定: export CHINESE_FONT_PATH=/path/to/your/font.ttf"
+        )
+        logger.error(error_msg)
+        raise FileNotFoundError(error_msg)
+    return font_path
+
+
+# 初始化字体
+try:
+    font_ttf_path = get_font_path()
+    pdfmetrics.registerFont(TTFont('ChineseFont', font_ttf_path))
+    addMapping('ChineseFont', 0, 0, 'ChineseFont')  # 正常字体
+    logger.info(f"成功加载字体: {font_ttf_path}")
+except Exception as e:
+    logger.error(f"字体加载失败: {e}")
+    raise
 
 
 def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model: str, LLM_info: str = "") -> str:
@@ -43,7 +187,7 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
     # 样式定义
     normal_style = ParagraphStyle(
         name='Normal',
-        fontName='FangSong',
+        fontName='ChineseFont',
         fontSize=font_size,
         leading=leading,
         firstLineIndent=18,
@@ -53,7 +197,7 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
 
     pre_style = ParagraphStyle(
         name='PreText',
-        fontName='FangSong',
+        fontName='ChineseFont',
         fontSize=font_size - 1,
         leading=font_size * 1.1,
         textColor=colors.gray,
@@ -63,7 +207,7 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
 
     title_style = ParagraphStyle(
         name='Title',
-        fontName='FangSong',
+        fontName='ChineseFont',
         fontSize=font_size + 4,
         leading=font_size + 6,
         alignment=TA_CENTER,

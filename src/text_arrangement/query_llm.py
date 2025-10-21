@@ -4,6 +4,7 @@ from enum import StrEnum
 from typing import Optional
 
 import requests
+from cerebras.cloud.sdk import Cerebras
 from google import genai
 from google.genai import types
 from openai import OpenAI
@@ -11,6 +12,9 @@ from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
 from src.config import LOCAL_LLM_ENABLED, DEBUG_FLAG
 from src.load_api_key import load_api_keys
+from src.logger import get_logger
+
+logger = get_logger(__name__)
 
 load_api_keys(debug=DEBUG_FLAG)
 
@@ -23,6 +27,9 @@ class LLMApiSupported(StrEnum):
     QWEN3 = "qwen3"  # 默认使用 qwen3-plus 模型
     QWEN3_PLUS = "qwen3-plus"
     QWEN3_MAX = "qwen3-max"
+    CEREBRAS_QWEN3_32B = "Cerebras:Qwen-3-32B"
+    CEREBRAS_QWEN3_235B_INSTRUCT = "Cerebras:Qwen-3-235B-Instruct"
+    CEREBRAS_QWEN3_235B_THINKING = "Cerebras:Qwen-3-235B-Thinking"
     LOCAL_QWEN2_5 = "local:Qwen/Qwen2.5-1.5B-Instruct"
 
 
@@ -144,6 +151,51 @@ def query_qwen3_max(params: LLMQueryParams) -> str:
     return response.choices[0].message.content.strip()
 
 
+_cerebras_client = Cerebras(api_key=os.getenv("CEREBRAS_API_KEY"))
+
+
+def query_cerebras_qwen3_32b(params: LLMQueryParams) -> str:
+    """Query Cerebras API with Qwen 3 32B model."""
+    response = _cerebras_client.chat.completions.create(
+        model="qwen-3-32b",
+        messages=[
+            {"role": "system", "content": params.system_instruction},
+            {"role": "user", "content": params.content},
+        ],
+        temperature=params.temperature,
+        max_tokens=params.max_tokens,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def query_cerebras_qwen3_235b_instruct(params: LLMQueryParams) -> str:
+    """Query Cerebras API with Qwen 3 235B Instruct model."""
+    response = _cerebras_client.chat.completions.create(
+        model="qwen-3-235b-a22b-instruct-2507",
+        messages=[
+            {"role": "system", "content": params.system_instruction},
+            {"role": "user", "content": params.content},
+        ],
+        temperature=params.temperature,
+        max_tokens=params.max_tokens,
+    )
+    return response.choices[0].message.content.strip()
+
+
+def query_cerebras_qwen3_235b_thinking(params: LLMQueryParams) -> str:
+    """Query Cerebras API with Qwen 3 235B Thinking model."""
+    response = _cerebras_client.chat.completions.create(
+        model="qwen-3-235b-a22b-thinking-2507",
+        messages=[
+            {"role": "system", "content": params.system_instruction},
+            {"role": "user", "content": params.content},
+        ],
+        temperature=params.temperature,
+        max_tokens=params.max_tokens,
+    )
+    return response.choices[0].message.content.strip()
+
+
 _support_LLM_api_query_func = {
     "deepseek": query_deepseek_chat,
     "deepseek-reasoner": query_deepseek_reasoner,
@@ -152,11 +204,14 @@ _support_LLM_api_query_func = {
     "qwen3": query_qwen3_plus,
     "qwen3-plus": query_qwen3_plus,
     "qwen3-max": query_qwen3_max,
+    "Cerebras:Qwen-3-32B": query_cerebras_qwen3_32b,
+    "Cerebras:Qwen-3-235B-Instruct": query_cerebras_qwen3_235b_instruct,
+    "Cerebras:Qwen-3-235B-Thinking": query_cerebras_qwen3_235b_thinking,
 }
 
 if LOCAL_LLM_ENABLED:
     local_qwen2_5_model_name = "Qwen/Qwen2.5-1.5B-Instruct"
-    print(f"Loading local model: {local_qwen2_5_model_name} ... This may take a while.")
+    logger.info(f"Loading local model: {local_qwen2_5_model_name} ... This may take a while.")
     local_qwen2_5tokenizer = AutoTokenizer.from_pretrained(local_qwen2_5_model_name)
     local_qwen2_5model = AutoModelForCausalLM.from_pretrained(
         local_qwen2_5_model_name,

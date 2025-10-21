@@ -6,8 +6,11 @@ import time
 from collections import deque
 
 from src.config import OUTPUT_DIR
+from src.logger import get_logger
 from src.text_arrangement.query_llm import LLMQueryParams, query_llm, is_local_llm
 from src.text_arrangement.split_text import split_text_by_sentences
+
+logger = get_logger(__name__)
 
 MAX_RETRIES = 3
 RETRY_BACKOFF = 30
@@ -82,32 +85,32 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     assert split_len <= max_tokens * 0.7, "分段长度不能超过最大令牌数的70%，可能导致输出不完整。"
 
     # TODO: 改进异步调用
-    print(f"Using {api_service} API for polishing text.")
-    print(f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}")
+    logger.info(f"Using {api_service} API for polishing text.")
+    logger.info(f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}")
     split_text = split_text_by_sentences(txt, split_len=split_len)
-    print(f"Splitting text into {len(split_text)} chunks for processing.")
+    logger.info(f"Splitting text into {len(split_text)} chunks for processing.")
 
     if not async_flag or api_service == 'gemini' or is_local_llm(api_service):
         # 如果不使用异步方式，直接调用同步函数
-        print("Running in synchronous mode.")
+        logger.info("Running in synchronous mode.")
         polish_chunks = []
         for i, chunk in enumerate(split_text):
-            print(f"processing chunk {i + 1}/{len(split_text)}")
+            logger.info(f"processing chunk {i + 1}/{len(split_text)}")
             polish_chunks.append(polish_each_text(chunk, api_service, temperature, max_tokens))
-            print(f"Chunk {i + 1} polished successfully.")
+            logger.info(f"Chunk {i + 1} polished successfully.")
         return "\n\n".join(polish_chunks).strip()
 
-    print("Running in asynchronous mode.")
+    logger.info("Running in asynchronous mode.")
     rate_limiter = RateLimiter(MAX_REQUESTS_PER_MINUTE)
 
     async def safe_polish(chunk: str, task_id: int):
-        print(f"Processing chunk {task_id + 1}/{len(split_text)}")
+        logger.info(f"Processing chunk {task_id + 1}/{len(split_text)}")
         for attempt in range(1, MAX_RETRIES + 1):
             try:
                 await rate_limiter.wait_for_slot()  # ⏳ 等待速率许可
                 ret = await loop.run_in_executor(executor, polish_each_text, chunk, api_service, temperature,
                                                  max_tokens)
-                print(f"Chunk {task_id + 1} polished successfully.")
+                logger.info(f"Chunk {task_id + 1} polished successfully.")
                 return ret
             except Exception as e:
                 logging.warning(f"Error polishing chunk (attempt {attempt}): {e}")

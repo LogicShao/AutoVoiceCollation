@@ -7,7 +7,14 @@ DEBUG_FLAG = False
 OUTPUT_DIR = './out'  # 输出目录
 DOWNLOAD_DIR = './download'  # 音频下载目录
 TEMP_DIR = './temp'
-MODEL_DIR = './models'  # 模型缓存目录
+MODEL_DIR: Optional[str] = None  # './models'  # 模型缓存目录
+LOG_DIR = './logs'  # 日志目录
+
+# 日志配置
+LOG_LEVEL = 'INFO'  # 日志级别: DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_FILE: Optional[str] = os.path.join(LOG_DIR, f'{PROJECT_NAME}.log')  # 日志文件路径，None 表示不写入文件
+LOG_CONSOLE_OUTPUT = True  # 是否输出到控制台
+LOG_COLORED_OUTPUT = True  # 控制台输出是否使用彩色
 
 OUTPUT_STYLE = 'pdf only'
 OUTPUT_STYLE_SUPPORTED = ['pdf with img', 'img only', 'text only', 'pdf only']
@@ -18,7 +25,10 @@ ASR_MODEL_SUPPORTED = ['sense_voice', 'paraformer']
 DISABLE_LLM_POLISH = False  # 是否禁用 LLM 润色
 DISABLE_LLM_SUMMARY = False  # 是否禁用 LLM 摘要
 LLM_SERVER = 'deepseek'
-LLM_SERVER_SUPPORTED = ['gemini', 'qwen3', 'deepseek-chat', 'deepseek-reasoner', 'qwen3-max', 'qwen3-plus', 'deepseek']
+LLM_SERVER_SUPPORTED = [
+    'gemini', 'qwen3', 'deepseek-chat', 'deepseek-reasoner', 'qwen3-max', 'qwen3-plus', 'deepseek',
+    'Cerebras:Qwen-3-32B', 'Cerebras:Qwen-3-235B-Instruct', 'Cerebras:Qwen-3-235B-Thinking'
+]
 LOCAL_LLM_ENABLED = False  # 是否启用本地 LLM
 LOCAL_LLM_SERVER_SUPPORTED = ['local:Qwen/Qwen2.5-1.5B-Instruct']
 LLM_TEMPERATURE = 0.1
@@ -32,7 +42,7 @@ if LOCAL_LLM_ENABLED:
 
 SUMMARY_LLM_TEMPERATURE = 1
 SUMMARY_LLM_MAX_TOKENS = 8192
-SUMMARY_LLM_SERVER = 'deepseek-reasoner'
+SUMMARY_LLM_SERVER = 'Cerebras:Qwen-3-235B-Thinking'
 
 WEB_SEVER_PORT: Optional[int] = None
 
@@ -45,5 +55,8 @@ assert ASR_MODEL in ASR_MODEL_SUPPORTED
 
 os.makedirs(OUTPUT_DIR, exist_ok=True)
 os.makedirs(DOWNLOAD_DIR, exist_ok=True)
-os.makedirs(MODEL_DIR, exist_ok=True)
+if MODEL_DIR:
+    os.makedirs(MODEL_DIR, exist_ok=True)
 os.makedirs(TEMP_DIR, exist_ok=True)
+if LOG_FILE:
+    os.makedirs(LOG_DIR, exist_ok=True)

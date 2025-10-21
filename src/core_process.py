@@ -5,10 +5,13 @@ from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_
     new_local_bili_file
 from src.config import *
 from src.extract_audio_text import extract_audio_text
+from src.logger import get_logger
 from src.subtitle_generator import hard_encode_dot_srt_file, gen_timestamped_text_file
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.text_arrangement.text_exporter import text_to_img_or_pdf
+
+logger = get_logger(__name__)
 
 
 def zip_output_dir(output_dir: str) -> str:
@@ -78,7 +81,9 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
     md_file_path = os.path.join(output_dir, "summary_text.md")
     with open(md_file_path, "w", encoding="utf-8") as f:
         f.write(summary_text)
+    logger.info(f"Summary text saved to {md_file_path}")
     zip_file = zip_output_dir(output_dir)
+    logger.info('all done')
     return output_dir, extract_time, polish_time, zip_file
 
 

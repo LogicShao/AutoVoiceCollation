@@ -12,9 +12,12 @@ import torch
 import torchaudio
 
 from src.SenseVoiceSmall.model import SenseVoiceSmall
-from src.extract_audio_text import model_paraformer
+from src.extract_audio_text import get_paraformer_model
+from src.logger import get_logger
 from src.text_arrangement.query_llm import query_llm, LLMQueryParams
 from src.text_arrangement.split_text import clean_asr_text, smart_split
+
+logger = get_logger(__name__)
 
 
 def slice_audio(audio_path, batch_size_s, sample_rate=16000):
@@ -32,7 +35,7 @@ def slice_audio(audio_path, batch_size_s, sample_rate=16000):
         slice_audio = audio[:, start:end]
         slices.append((slice_audio, start / sample_rate, end / sample_rate))  # 秒级时间戳
 
-    print(f"Total slices: {len(slices)}")
+    logger.debug(f"Total slices: {len(slices)}")
     return slices
 
 
@@ -197,17 +200,17 @@ def split_by_llm(timestamp_data, max_char_per_seg=16, split_len=600, max_tokens=
         chunk_without_spaces = chunk.replace(" ", "").replace("\n", "")
 
         for try_count in range(llm_retry):
-            print(f"正在查询 LLM，尝试次数：{try_count + 1}/{llm_retry}，内容长度：{len(chunk)}")
+            logger.info(f"正在查询 LLM，尝试次数：{try_count + 1}/{llm_retry}，内容长度：{len(chunk)}")
 
             response = query_llm(llm_input)
             response_text = response.replace(" ", "").replace("\n", "")
             split_parts = response_text.split("|")
             response_full_text = ''.join(split_parts)
-            print(response_full_text)
-            print(chunk_without_spaces)
+            logger.debug(response_full_text)
+            logger.debug(chunk_without_spaces)
 
             if is_likely_string(response_full_text, chunk_without_spaces, max_error=2):
-                print(f"LLM 查询成功。")
+                logger.info(f"LLM 查询成功。")
 
                 fixed_split_list = fix_split_list(split_parts, chunk_without_spaces)
                 for part in fixed_split_list:
@@ -229,7 +232,7 @@ def split_by_llm(timestamp_data, max_char_per_seg=16, split_len=600, max_tokens=
 
                 break
         else:
-            print(f"LLM 查询失败，重试 {llm_retry} 次后仍未成功，使用语音停顿和语义边界进行切分。")
+            logger.warning(f"LLM 查询失败，重试 {llm_retry} 次后仍未成功，使用语音停顿和语义边界进行切分。")
 
             match_result = re.search(chunk_without_spaces, full_text_without_spaces)
             assert match_result, "匹配不到原始文本中的内容，请检查切分逻辑。"
@@ -260,7 +263,7 @@ def run_asr_on_slices_by_sense_voice(audio_path, batch_size_s):
         os.makedirs("./temp")
 
     for idx, (audio_tensor, t_start, t_end) in enumerate(slices):
-        print(f"Processing slice {idx + 1}/{len(slices)}: {t_start:.2f}s - {t_end:.2f}s")
+        logger.info(f"Processing slice {idx + 1}/{len(slices)}: {t_start:.2f}s - {t_end:.2f}s")
 
         temp_path = f"./temp/clip_{idx}.wav"
         sf.write(temp_path, audio_tensor.T.numpy(), samplerate=16000, format='WAV', subtype='PCM_16')
@@ -276,8 +279,8 @@ def run_asr_on_slices_by_sense_voice(audio_path, batch_size_s):
                     **kwargs,
                 )
         except Exception as e:
-            print(f"Error processing slice {idx + 1}: {e}")
-            print("Skipping this slice.")
+            logger.error(f"Error processing slice {idx + 1}: {e}")
+            logger.warning("Skipping this slice.")
             continue
 
         fix_str = lambda s: s.replace("_", "").replace("▁", "")
@@ -308,6 +311,7 @@ def run_asr_on_slices_by_sense_voice(audio_path, batch_size_s):
 
 
 def run_asr_by_paraformer(audio_path):
+    model_paraformer = get_paraformer_model()
     res = model_paraformer.generate(
         input=audio_path,
         batch_size_s=900,
@@ -438,15 +442,15 @@ def hard_encode_dot_srt_file(input_video_path: str, input_srt_path: str, output_
         output_video_ffmpeg
     ]
 
-    print(f"开始硬编码字幕到视频：{output_video_path}")
-    print(f"{' '.join(command)}")
+    logger.info(f"开始硬编码字幕到视频：{output_video_path}")
+    logger.debug(f"{' '.join(command)}")
 
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
 
     if result.returncode != 0:
         raise RuntimeError(f"字幕硬编码失败：\n{result.stderr}")
 
-    print(f"字幕硬编码成功，输出视频路径：{output_video_path}")
+    logger.info(f"字幕硬编码成功，输出视频路径：{output_video_path}")
     return output_video_path
 
 
@@ -459,7 +463,7 @@ if __name__ == "__main__":
     if using_local_video == "y":
         video_path = input("请输入本地视频文件路径：\n").strip()
         if not os.path.isfile(video_path):
-            print(f"未找到视频文件：{video_path}")
+            logger.error(f"未找到视频文件：{video_path}")
             sys.exit(1)
     else:
         video_url = input("请输入B站视频链接（例如：https://www.bilibili.com/video/BV1...）：\n")
@@ -474,13 +478,13 @@ if __name__ == "__main__":
         gen_file_type = "srt"
 
     file_path = gen_timestamped_text_file(audio_path, file_type=gen_file_type, batch_size_s=5)
-    print(f"字幕文件已生成：{file_path}")
+    logger.info(f"字幕文件已生成：{file_path}")
 
     if gen_file_type == "srt":
         hard_encode_flag = input("是否将字幕硬编码到视频中？(y/n)：\n").strip().lower()
         if hard_encode_flag == "y":
             output_video_path = os.path.splitext(video_path)[0] + "-subtitled.mp4"
             hard_encode_dot_srt_file(video_path, file_path, output_video_path)
-            print(f"硬编码字幕后的视频已保存到：{output_video_path}")
+            logger.info(f"硬编码字幕后的视频已保存到：{output_video_path}")
         else:
-            print("字幕文件已生成，但未进行硬编码。")
+            logger.info("字幕文件已生成，但未进行硬编码。")

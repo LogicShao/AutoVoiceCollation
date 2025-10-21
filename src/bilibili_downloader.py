@@ -10,6 +10,10 @@ from typing import Optional
 
 from yt_dlp import YoutubeDL
 
+from src.logger import get_logger
+
+logger = get_logger(__name__)
+
 _pre_text = (
     "本项目使用{ASR_model}+LLM({LLM_api},温度:{temperature})进行音频文本提取和润色，"
     "ASR模型提取的文本可能存在错误和不准确之处，"
@@ -94,10 +98,10 @@ def download_bilibili_video(video_url, output_format='mp4',
                             retries: int = 3, delay: float = 3.0) -> BiliVideoFile:
     for attempt in range(1, retries + 1):
         try:
-            print(f"尝试第 {attempt} 次下载视频：{video_url}")
+            logger.info(f"尝试第 {attempt} 次下载视频：{video_url}")
             return _download_bilibili_video_once(video_url, output_format, output_dir)
         except Exception as e:
-            print(f"下载失败（第 {attempt} 次），错误信息：{e}")
+            logger.warning(f"下载失败（第 {attempt} 次），错误信息：{e}")
             time.sleep(delay)
     raise RuntimeError("视频下载失败，已达最大重试次数。")
 
@@ -118,7 +122,7 @@ def _download_bilibili_video_once(video_url, output_format='mp4',
 
     existing = _find_downloaded_file(video_id, resolved_dir, output_format)
     if existing and os.path.isfile(existing):
-        print(f"已检测到本地缓存文件：{existing}，跳过下载。")
+        logger.info(f"已检测到本地缓存文件：{existing}，跳过下载。")
         return BiliVideoFile(url=video_url, path=existing, title=title)
 
     def hook(d):
@@ -139,7 +143,7 @@ def _download_bilibili_video_once(video_url, output_format='mp4',
 
     found = _find_downloaded_file(video_id, resolved_dir, output_format)
     if found:
-        print(f"下载成功，文件路径：{found}")
+        logger.info(f"下载成功，文件路径：{found}")
         return BiliVideoFile(url=video_url, path=found, title=title)
 
     if output_file_path['path']:
@@ -157,10 +161,10 @@ def download_bilibili_audio(video_url, output_format='mp3',
                             retries: int = 3, delay: float = 3.0) -> BiliVideoFile:
     for attempt in range(1, retries + 1):
         try:
-            print(f"尝试第 {attempt} 次下载：{video_url}")
+            logger.info(f"尝试第 {attempt} 次下载：{video_url}")
             return _download_bilibili_audio_once(video_url, output_format, output_dir)
         except Exception as e:
-            print(f"下载失败（第 {attempt} 次），错误信息：{e}")
+            logger.warning(f"下载失败（第 {attempt} 次），错误信息：{e}")
             time.sleep(delay)
     raise RuntimeError("音频下载失败，已达最大重试次数。")
 
@@ -181,7 +185,7 @@ def _download_bilibili_audio_once(video_url, output_format='mp3',
 
     existing = _find_downloaded_file(video_id, resolved_dir, output_format)
     if existing and os.path.isfile(existing):
-        print(f"音频文件已存在：{existing}，跳过下载。")
+        logger.info(f"音频文件已存在：{existing}，跳过下载。")
         return BiliVideoFile(url=video_url, path=existing, title=title)
 
     def hook(d):
@@ -207,7 +211,7 @@ def _download_bilibili_audio_once(video_url, output_format='mp3',
 
     found = _find_downloaded_file(video_id, resolved_dir, output_format)
     if found:
-        print(f"音频下载并转换成功：{found}")
+        logger.info(f"音频下载并转换成功：{found}")
         return BiliVideoFile(url=video_url, path=found, title=title)
 
     if output_file_path['path']:
@@ -248,7 +252,7 @@ def extract_audio_from_video(video_path: str, output_format: str = 'mp3', output
         audio_path
     ]
 
-    print(f"开始提取音频：{audio_path}")
+    logger.info(f"开始提取音频：{audio_path}")
     result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
 
     if result.returncode != 0:

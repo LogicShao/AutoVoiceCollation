@@ -7,7 +7,6 @@ from src.core_process import (
     process_multiple_urls, process_subtitles
 )
 
-
 with gr.Blocks(title="音频识别与文本整理工具") as app:
     gr.Markdown("# 🎧 音频识别与文本整理系统")
     gr.Markdown("上传音频文件或输入B站视频链接，一键提取文本并生成图文版。")
