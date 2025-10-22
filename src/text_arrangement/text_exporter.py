@@ -361,19 +361,19 @@ def text_to_img_or_pdf(txt: str, output_style: str, output_path: str, ASR_model:
     """
     将文本转换为图片或PDF
     :param txt: 文本内容
-    :param output_style: 输出样式（'pdf with img', 'img only', 'text only', 'pdf only'）
+    :param output_style: 输出样式（'pdf_with_img', 'pdf_only', 'img_only'）
     :param title: 文本标题（可选）
     :param output_path: 输出路径
     :param LLM_info: LLM信息（可选）
     :return: 输出文件路径
     """
-    if output_style == 'pdf with img':
+    if output_style == 'pdf_with_img':
         return text_to_pdf(txt, with_img=True, title=title, output_dir=output_path, LLM_info=LLM_info,
                            ASR_model=ASR_model)
-    elif output_style == 'pdf only':
+    elif output_style == 'pdf_only':
         return text_to_pdf(txt, with_img=False, title=title, output_dir=output_path, LLM_info=LLM_info,
                            ASR_model=ASR_model)
-    elif output_style == 'img only':
+    elif output_style == 'img_only':
         return text_to_one_image(txt, output_path=output_path, title=title)
     else:
         raise ValueError(f"Unsupported output style: {output_style}")

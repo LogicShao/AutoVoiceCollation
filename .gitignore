@@ -14,3 +14,4 @@ temp/
 output.txt
 .venv/
 .claude/
+.vscode/

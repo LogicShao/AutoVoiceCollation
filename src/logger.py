@@ -113,3 +113,36 @@ def get_logger(name: str) -> logging.Logger:
         )
 
     return logger
+
+
+def configure_third_party_loggers(log_level: str = "WARNING"):
+    """
+    配置第三方库的日志级别，避免其输出过多信息
+
+    :param log_level: 日志级别 (DEBUG, INFO, WARNING, ERROR, CRITICAL)
+    """
+    # 常见的第三方库日志名称
+    third_party_loggers = [
+        'funasr',
+        'modelscope',
+        'torch',
+        'transformers',
+        'tensorflow',
+        'PIL',
+        'matplotlib',
+        'urllib3',
+        'requests',
+        'httpx',
+        'httpcore',
+    ]
+
+    level = getattr(logging, log_level.upper())
+
+    for logger_name in third_party_loggers:
+        third_party_logger = logging.getLogger(logger_name)
+        third_party_logger.setLevel(level)
+
+    # 特别处理 root logger 的 WARNING 消息
+    logging.captureWarnings(True)
+    warnings_logger = logging.getLogger('py.warnings')
+    warnings_logger.setLevel(level)

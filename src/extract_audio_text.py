@@ -2,11 +2,14 @@ from typing import Optional
 
 from funasr import AutoModel
 
-from src.config import MODEL_DIR
-from src.logger import get_logger
+from src.config import MODEL_DIR, THIRD_PARTY_LOG_LEVEL
+from src.logger import get_logger, configure_third_party_loggers
 from src.text_arrangement.split_text import clean_asr_text
 
 logger = get_logger(__name__)
+
+# 配置第三方库日志级别，避免输出过多信息
+configure_third_party_loggers(THIRD_PARTY_LOG_LEVEL)
 
 # 模型缓存
 _model_sense_voice_small: Optional[AutoModel] = None

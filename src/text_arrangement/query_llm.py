@@ -11,12 +11,12 @@ from openai import OpenAI
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
 from src.config import LOCAL_LLM_ENABLED, DEBUG_FLAG
-from src.load_api_key import load_api_keys
+from src.load_api_key import check_api_keys
 from src.logger import get_logger
 
 logger = get_logger(__name__)
 
-load_api_keys(debug=DEBUG_FLAG)
+check_api_keys(debug=DEBUG_FLAG)
 
 
 class LLMApiSupported(StrEnum):
@@ -98,7 +98,7 @@ def query_deepseek_reasoner(params: LLMQueryParams) -> str:
 _gemini_client = genai.Client(api_key=os.getenv('GEMINI_API_KEY'))
 
 
-def query_gemini(params: LLMQueryParams) -> str:
+def query_gemini_2_0_flash(params: LLMQueryParams) -> str:
     """Query the Gemini API with a parameter object."""
     config_params_dict = {
         "temperature": params.temperature,
@@ -197,11 +197,9 @@ def query_cerebras_qwen3_235b_thinking(params: LLMQueryParams) -> str:
 
 
 _support_LLM_api_query_func = {
-    "deepseek": query_deepseek_chat,
     "deepseek-reasoner": query_deepseek_reasoner,
     "deepseek-chat": query_deepseek_chat,
-    "gemini": query_gemini,
-    "qwen3": query_qwen3_plus,
+    "gemini-2.0-flash": query_gemini_2_0_flash,
     "qwen3-plus": query_qwen3_plus,
     "qwen3-max": query_qwen3_max,
     "Cerebras:Qwen-3-32B": query_cerebras_qwen3_32b,

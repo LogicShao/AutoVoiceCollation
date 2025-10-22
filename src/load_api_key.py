@@ -1,8 +1,6 @@
 import os
 from typing import Optional
 
-from dotenv import load_dotenv
-
 
 def display_api_key(api_key: Optional[str], front_display_num: int = 6, back_display_num: int = 4) -> str:
     """
@@ -21,20 +19,12 @@ def display_api_key(api_key: Optional[str], front_display_num: int = 6, back_dis
                                                     back_display_num) + api_key[-back_display_num:]
 
 
-def load_api_keys(dotenv_file: str = '.env', debug: bool = False):
+def check_api_keys(debug: bool = False):
     """
     从环境变量中加载 API 密钥，并显示部分内容。
-    :param dotenv_file: .env 文件路径
     :param debug: 是否显示API密钥详情（默认False，生产环境不应开启）
     :return: None
     """
-    # 加载 .env 文件中的环境变量
-    if os.path.exists(dotenv_file):
-        load_dotenv(dotenv_file)
-        print(f'检测到 dotenv 文件 {dotenv_file}，已加载环境变量。')
-    else:
-        print('未检测到 dotenv 文件，直接从系统环境变量加载。')
-
     # 读取API密钥
     _deepseek_api_key = os.getenv('DEEPSEEK_API_KEY')
     _gemini_api_key = os.getenv('GEMINI_API_KEY')

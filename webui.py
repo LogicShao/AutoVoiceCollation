@@ -104,4 +104,4 @@ with gr.Blocks(title="音频识别与文本整理工具") as app:
     gr.Markdown("处理完成后，可点击上方下载按钮获取完整输出。")
 
 if __name__ == "__main__":
-    app.launch(server_name="localhost", inbrowser=True, server_port=WEB_SEVER_PORT)
+    app.launch(server_name="localhost", inbrowser=True, server_port=WEB_SERVER_PORT)

@@ -11,6 +11,10 @@ from src.extract_audio_text import extract_audio_text
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.text_arrangement.text_exporter import text_to_img_or_pdf
+from src.logger import configure_third_party_loggers
+
+# Configure third-party loggers early using configured level (reduces noisy INFO from modelscope/funasr/etc.)
+configure_third_party_loggers(log_level=THIRD_PARTY_LOG_LEVEL)
 
 
 def cli():
