@@ -2,7 +2,7 @@ from typing import Optional
 
 from funasr import AutoModel
 
-from src.config import MODEL_DIR, THIRD_PARTY_LOG_LEVEL
+from config import MODEL_DIR, THIRD_PARTY_LOG_LEVEL
 from src.logger import get_logger, configure_third_party_loggers
 from src.text_arrangement.split_text import clean_asr_text
 

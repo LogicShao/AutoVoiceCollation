@@ -10,7 +10,7 @@ from google.genai import types
 from openai import OpenAI
 from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
 
-from src.config import LOCAL_LLM_ENABLED, DEBUG_FLAG
+from config import LOCAL_LLM_ENABLED, DEBUG_FLAG
 from src.load_api_key import check_api_keys
 from src.logger import get_logger
 

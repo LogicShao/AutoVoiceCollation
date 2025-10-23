@@ -1,17 +1,17 @@
 import argparse
 import sys
 
+from config import *
 from src.Timer import Timer
 from src.bilibili_downloader import download_bilibili_audio, BiliVideoFile, new_local_bili_file
-from src.config import *
 from src.core_process import (
     process_multiple_urls, process_subtitles, upload_audio, bilibili_video_download_process
 )
 from src.extract_audio_text import extract_audio_text
+from src.logger import configure_third_party_loggers
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.text_arrangement.text_exporter import text_to_img_or_pdf
-from src.logger import configure_third_party_loggers
 
 # Configure third-party loggers early using configured level (reduces noisy INFO from modelscope/funasr/etc.)
 configure_third_party_loggers(log_level=THIRD_PARTY_LOG_LEVEL)

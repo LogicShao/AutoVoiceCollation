@@ -1,0 +1,38 @@
+body, html {
+    margin: 0;
+    padding: 0;
+    width: 100%;
+    height: 100%;
+    display: flex;
+    justify-content: center;
+    align-items: center;
+    background-color: #f0f2f5;
+    font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, Helvetica, Arial, sans-serif;
+    overflow: hidden; /* 防止出现滚动条 */
+}
+
+.loader-container {
+    text-align: center;
+}
+
+.loader {
+    border: 6px solid #e0e0e0; /* 浅灰色轨道 */
+    border-top: 6px solid #3498db; /* 蓝色旋转部分 */
+    border-radius: 50%;
+    width: 50px;
+    height: 50px;
+    animation: spin 1.5s linear infinite;
+    margin: 0 auto;
+}
+
+.loading-text {
+    margin-top: 20px;
+    font-size: 16px;
+    color: #555;
+}
+
+/* 旋转动画定义 */
+@keyframes spin {
+    0% { transform: rotate(0deg); }
+    100% { transform: rotate(360deg); }
+}

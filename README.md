@@ -39,58 +39,69 @@ AutoVoiceCollation 是一个功能强大的自动语音识别（ASR）和文本�
 
 推荐使用带有 CUDA 的 GPU 运行本项目。如果遇到显存不足或需要提升性能，可修改 `src/extract_audio_text.py` 中的 `batch_size_s` 参数。
 
-## Quick Start
+## Quick Start (使用 uv)
 
-* 克隆代码
+本项目推荐使用 [uv](https://github.com/astral-sh/uv) 进行环境管理，它是一个速度极快的 Python 打包工具，可以取代 `venv` 和 `pip`。
+
+* **第零步：安装 uv (如果尚未安装)**
+
+macOS / Linux:
+```bash
+curl -LsSf https://astral.sh/uv/install.sh | sh
+```
+
+Windows:
+```powershell
+powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
+```
+
+* **第一步：克隆代码**
 
 ```bash
 git clone https://github.com/LogicShao/AutoVoiceCollation
 cd AutoVoiceCollation
 ```
 
-* 创建虚拟环境
+* **第二步：创建并激活虚拟环境**
 
 ```bash
-python -m venv .venv
+# 使用 uv 创建虚拟环境 (会自动创建 .venv 目录)
+uv venv
 ```
 
-* 激活虚拟环境
+激活虚拟环境：
 
 Windows:
-
 ```bash
 .venv\Scripts\activate
 ```
 
-Linux:
-
+Linux / macOS:
 ```bash
 source .venv/bin/activate
 ```
 
-* 安装 PyTorch（推荐使用 CUDA 版本）
-
-访问 [PyTorch 官网](https://pytorch.org/) 根据你的系统选择合适的安装命令。例如：
+* **第三步：安装依赖**
 
 ```bash
-# CUDA 12.1 示例
-pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu121
+# 使用 uv 安装 PyTorch（推荐使用 CUDA 版本）
+# 访问 PyTorch 官网 https://pytorch.org/ 获取适合你系统的命令
+# CUDA 12.9 示例:
+uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu129
+
+# 使用 uv 安装其他依赖 (速度飞快)
+uv pip install -r requirements.txt
 ```
 
-* 安装其他依赖
-
-```bash
-pip install -r requirements.txt
-```
-
-* 配置环境变量
+* **第四步：配置环境变量**
 
 复制 `.env.example` 为 `.env`，并填入你的 API 密钥：
 
 ```bash
-cp .env.example .env  # Linux/Mac
-# 或
-copy .env.example .env  # Windows
+# Linux/Mac
+cp .env.example .env
+# Windows
+copy .env.example .env
 ```
 
 编辑 `.env` 文件，填入必要的配置（参考下方"配置说明"）。
@@ -305,13 +316,13 @@ THIRD_PARTY_LOG_LEVEL=ERROR
 ## Demo 展示
 
 webui:
-![](img/webui_demo.png)
+![](assets/webui_demo.png)
 
 pdf output:
-![](img/pdf_output_demo.png)
+![](assets/pdf_output_demo.png)
 
 summary:
-![](img/summary_demo.png)
+![](assets/summary_demo.png)
 
 ## 项目结构
 

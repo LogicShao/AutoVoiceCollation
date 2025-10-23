@@ -12,7 +12,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from src.config import *
+from config import *
 from src.core_process import (
     upload_audio, bilibili_video_download_process,
     process_multiple_urls, process_subtitles
@@ -245,5 +245,5 @@ async def process_subtitle_task(task_id: str, video_path: str):
 
 
 if __name__ == "__main__":
-    port = WEB_SEVER_PORT if WEB_SEVER_PORT else 8000
+    port = WEB_SERVER_PORT if WEB_SERVER_PORT else 8000
     uvicorn.run(app, host="0.0.0.0", port=port)

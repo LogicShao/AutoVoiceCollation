@@ -51,7 +51,7 @@ def check_api_keys(debug: bool = False):
     else:
         # 生产模式只显示是否已设置
         print('API 密钥加载状态:')
-        print(f'  deepseek:   {"✓ 已设置" if _deepseek_api_key else "✗ 未设置"}')
-        print(f'  gemini:     {"✓ 已设置" if _gemini_api_key else "✗ 未设置"}')
-        print(f'  dashscope:  {"✓ 已设置" if _dashscope_api_key else "✗ 未设置"}')
-        print(f'  cerebras:   {"✓ 已设置" if _cerebras_api_key else "✗ 未设置"}')
+        print(f'  deepseek:   {"[已设置]" if _deepseek_api_key else "[未设置]"}')
+        print(f'  gemini:     {"[已设置]" if _gemini_api_key else "[未设置]"}')
+        print(f'  dashscope:  {"[已设置]" if _dashscope_api_key else "[未设置]"}')
+        print(f'  cerebras:   {"[已设置]" if _cerebras_api_key else "[未设置]"}')

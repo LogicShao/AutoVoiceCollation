@@ -1,0 +1,31 @@
+{
+  "name": "autovoicecollation",
+  "version": "1.0.0",
+  "description": "AutoVoiceCollation 是一个功能强大的自动语音识别（ASR）和文本处理工具，旨在帮助用户快速整理和润色语音转录文本。",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "start": "chcp 65001 && electron ."
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/LogicShao/AutoVoiceCollation.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "MIT",
+  "type": "commonjs",
+  "bugs": {
+    "url": "https://github.com/LogicShao/AutoVoiceCollation/issues"
+  },
+  "homepage": "https://github.com/LogicShao/AutoVoiceCollation#readme",
+  "devDependencies": {
+    "electron": "^38.4.0"
+  },
+  "dependencies": {
+    "iconv-lite": "^0.7.0"
+  }
+}

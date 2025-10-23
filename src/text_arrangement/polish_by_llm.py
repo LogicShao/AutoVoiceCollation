@@ -4,10 +4,11 @@ import logging
 import os
 import time
 from collections import deque
+import threading
 
-from src.config import OUTPUT_DIR
+from config import OUTPUT_DIR
 from src.logger import get_logger
-from src.text_arrangement.query_llm import LLMQueryParams, query_llm, is_local_llm
+from src.text_arrangement.query_llm import LLMQueryParams, query_llm, is_local_llm, LLMApiSupported
 from src.text_arrangement.split_text import split_text_by_sentences
 
 logger = get_logger(__name__)
@@ -45,7 +46,7 @@ def polish_each_text(txt: str, api_server: str, temperature: float, max_tokens: 
         system_instruction=system_prompt,
         temperature=temperature,
         max_tokens=max_tokens,
-        api_server=api_server
+        api_server=LLMApiSupported(api_server)
     ))
 
 
@@ -54,19 +55,40 @@ class RateLimiter:
         self.max_requests = max_requests_per_minute
         self.interval = 60.0
         self.timestamps = deque()
+        self._lock = threading.Lock()
 
     async def wait_for_slot(self):
         while True:
             now = time.monotonic()
-            while self.timestamps and now - self.timestamps[0] > self.interval:
-                self.timestamps.popleft()
+            with self._lock:
+                while self.timestamps and now - self.timestamps[0] > self.interval:
+                    self.timestamps.popleft()
 
-            if len(self.timestamps) < self.max_requests:
-                self.timestamps.append(now)
-                return
-            else:
-                sleep_time = self.interval - (now - self.timestamps[0]) + 0.01
-                await asyncio.sleep(sleep_time)
+                if len(self.timestamps) < self.max_requests:
+                    self.timestamps.append(now)
+                    return
+
+                oldest = self.timestamps[0]
+
+            sleep_time = self.interval - (now - oldest) + 0.01
+            await asyncio.sleep(sleep_time)
+
+    def wait_for_slot_sync(self):
+        """同步阻塞版本的速率限制，用于在已有事件循环时的回退路径。"""
+        while True:
+            now = time.monotonic()
+            with self._lock:
+                while self.timestamps and now - self.timestamps[0] > self.interval:
+                    self.timestamps.popleft()
+
+                if len(self.timestamps) < self.max_requests:
+                    self.timestamps.append(now)
+                    return
+
+                oldest = self.timestamps[0]
+
+            sleep_time = self.interval - (now - oldest) + 0.01
+            time.sleep(sleep_time)
 
 
 def polish_text(txt: str, api_service: str, temperature: float, split_len: int, max_tokens: int,
@@ -130,10 +152,47 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
         results = await asyncio.gather(*tasks)
         return results
 
-    loop = asyncio.new_event_loop()
-    asyncio.set_event_loop(loop)
-    with concurrent.futures.ThreadPoolExecutor() as executor:
-        polished_chunks = loop.run_until_complete(polish_all())
+    # 如果当前线程中已经存在正在运行的 asyncio 事件循环，直接在该线程中调用
+    # run_until_complete 会抛出 "Cannot run the event loop while another loop is running"。
+    # 因此我们在检测到已有 loop 时使用同步 + 线程池回退路径：保留并发与重试逻辑，但不再创建/运行新的事件循环。
+    try:
+        running_loop = asyncio.get_running_loop()
+    except RuntimeError:
+        running_loop = None
+
+    if running_loop is None:
+        loop = asyncio.new_event_loop()
+        try:
+            asyncio.set_event_loop(loop)
+            with concurrent.futures.ThreadPoolExecutor() as executor:
+                polished_chunks = loop.run_until_complete(polish_all())
+        finally:
+            try:
+                loop.close()
+            except Exception:
+                pass
+            asyncio.set_event_loop(None)
+    else:
+        # 回退到线程池中的同步实现（保留速率限制与重试）
+        logger.warning("Detected running asyncio loop in current thread. Falling back to thread-based synchronous processing for polishing.")
+
+        def sync_safe_polish(chunk: str, task_id: int):
+            for attempt in range(1, MAX_RETRIES + 1):
+                try:
+                    # 使用同步速率限制
+                    rate_limiter.wait_for_slot_sync()
+                    return polish_each_text(chunk, api_service, temperature, max_tokens)
+                except Exception as e:
+                    logging.warning(f"Error polishing chunk (attempt {attempt}): {e}")
+                    if attempt < MAX_RETRIES:
+                        time.sleep(RETRY_BACKOFF * attempt)
+            logging.error(f"Failed to process chunk after {MAX_RETRIES} attempts.")
+            return chunk
+
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
+            futures = [executor.submit(sync_safe_polish, chunk, task_id) for task_id, chunk in enumerate(split_text)]
+            # 保持输入顺序
+            polished_chunks = [f.result() for f in futures]
 
     if debug_flag:
         debug_text = ""

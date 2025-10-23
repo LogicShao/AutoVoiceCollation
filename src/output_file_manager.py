@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from src.config import OUTPUT_DIR
+from config import OUTPUT_DIR
 
 
 def copy_output_files(audio_name: str):

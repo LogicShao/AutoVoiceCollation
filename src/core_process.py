@@ -1,9 +1,9 @@
 import shutil
 
+from config import *
 from src.Timer import Timer
 from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_video, BiliVideoFile, \
     new_local_bili_file
-from src.config import *
 from src.extract_audio_text import extract_audio_text
 from src.logger import get_logger
 from src.subtitle_generator import hard_encode_dot_srt_file, gen_timestamped_text_file
