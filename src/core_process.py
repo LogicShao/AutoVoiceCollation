@@ -97,7 +97,8 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
             json.dump(result_data, f, ensure_ascii=False, indent=2)
         logger.info(f"Text-only result saved to {json_file_path}")
         logger.info('all done')
-        return output_dir, extract_time, polish_time, json_file_path
+        # 返回文本内容而不是文件路径
+        return result_data, extract_time, polish_time, None
 
     # 正常模式：生成PDF/图片和摘要
     text_to_img_or_pdf(polished_text, title=audio_file.title, output_style=OUTPUT_STYLE, output_path=output_dir,

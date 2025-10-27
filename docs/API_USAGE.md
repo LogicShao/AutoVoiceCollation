@@ -129,7 +129,7 @@ curl http://localhost:8000/health
 curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
   -H "Content-Type: application/json" \
   -d '{
-    "video_url": "https://www.bilibili.com/video/BV1234567890",
+    "video_url": "https://www.bilibili.com/video/BV1wP411W7pe?t=0.3",
     "llm_api": "deepseek-chat",
     "temperature": 0.1,
     "max_tokens": 6000,

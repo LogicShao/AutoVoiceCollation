@@ -131,6 +131,7 @@ docker-compose.override.yml
 *.swo
 *~
 *.bak
+nul
 
 # ============================
 # Project-specific / custom

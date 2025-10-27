@@ -199,12 +199,18 @@ async def process_bilibili_task(task_id: str, video_url: str, llm_api: str, temp
     """后台处理B站视频任务"""
     try:
         tasks[task_id] = {"status": "processing", "message": "正在下载和处理视频"}
-        output_dir, extract_time, polish_time, zip_file = bilibili_video_download_process(video_url, llm_api,
+        output_data, extract_time, polish_time, zip_file = bilibili_video_download_process(video_url, llm_api,
                                                                                           temperature, max_tokens,
                                                                                           text_only)
-        tasks[task_id] = {"status": "completed", "message": "处理完成",
-                          "result": {"output_dir": output_dir, "extract_time": extract_time, "polish_time": polish_time,
-                                     "zip_file": zip_file}}
+        if text_only:
+            # text_only 模式：返回文本内容
+            tasks[task_id] = {"status": "completed", "message": "处理完成",
+                              "result": output_data}  # output_data 是包含文本内容的字典
+        else:
+            # 正常模式：返回文件路径
+            tasks[task_id] = {"status": "completed", "message": "处理完成",
+                              "result": {"output_dir": output_data, "extract_time": extract_time, "polish_time": polish_time,
+                                         "zip_file": zip_file}}
     except Exception as e:
         tasks[task_id] = {"status": "failed", "message": f"处理失败: {str(e)}"}
 
@@ -214,13 +220,19 @@ async def process_audio_task(task_id: str, audio_path: str, llm_api: str, temper
     """后台处理音频任务"""
     try:
         tasks[task_id] = {"status": "processing", "message": "正在处理音频"}
-        output_dir, extract_time, polish_time, zip_file = upload_audio(audio_path, llm_api, temperature, max_tokens,
+        output_data, extract_time, polish_time, zip_file = upload_audio(audio_path, llm_api, temperature, max_tokens,
                                                                        text_only)
         if os.path.exists(audio_path):
             os.remove(audio_path)
-        tasks[task_id] = {"status": "completed", "message": "处理完成",
-                          "result": {"output_dir": output_dir, "extract_time": extract_time, "polish_time": polish_time,
-                                     "zip_file": zip_file}}
+        if text_only:
+            # text_only 模式：返回文本内容
+            tasks[task_id] = {"status": "completed", "message": "处理完成",
+                              "result": output_data}  # output_data 是包含文本内容的字典
+        else:
+            # 正常模式：返回文件路径
+            tasks[task_id] = {"status": "completed", "message": "处理完成",
+                              "result": {"output_dir": output_data, "extract_time": extract_time, "polish_time": polish_time,
+                                         "zip_file": zip_file}}
     except Exception as e:
         tasks[task_id] = {"status": "failed", "message": f"处理失败: {str(e)}"}
 
