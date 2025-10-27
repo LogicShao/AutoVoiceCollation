@@ -7,8 +7,8 @@
     "doc": "docs"
   },
   "scripts": {
-    "test": "echo \"Error: no test specified\" && exit 1",
-    "start": "chcp 65001 && electron ."
+    "test": "echo \"Error: no tests specified\" && exit 1",
+    "start": "chcp 65001 && conda activate AutoVoiceCollation && electron ."
   },
   "repository": {
     "type": "git",
@@ -24,8 +24,5 @@
   "homepage": "https://github.com/LogicShao/AutoVoiceCollation#readme",
   "devDependencies": {
     "electron": "^38.4.0"
-  },
-  "dependencies": {
-    "iconv-lite": "^0.7.0"
   }
 }

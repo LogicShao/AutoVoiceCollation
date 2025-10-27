@@ -138,4 +138,9 @@ docker-compose.override.yml
 .claude/
 *.ini
 
+# ============================
+# pytest local test files
+# ============================
+tests/local
+
 # End of file

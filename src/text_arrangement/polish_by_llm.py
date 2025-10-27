@@ -2,9 +2,9 @@ import asyncio
 import concurrent.futures
 import logging
 import os
+import threading
 import time
 from collections import deque
-import threading
 
 from config import OUTPUT_DIR
 from src.logger import get_logger
@@ -174,7 +174,8 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
             asyncio.set_event_loop(None)
     else:
         # 回退到线程池中的同步实现（保留速率限制与重试）
-        logger.warning("Detected running asyncio loop in current thread. Falling back to thread-based synchronous processing for polishing.")
+        logger.warning(
+            "Detected running asyncio loop in current thread. Falling back to thread-based synchronous processing for polishing.")
 
         def sync_safe_polish(chunk: str, task_id: int):
             for attempt in range(1, MAX_RETRIES + 1):

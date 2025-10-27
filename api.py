@@ -36,6 +36,7 @@ class BilibiliVideoRequest(BaseModel):
     llm_api: str = Field(default=LLM_SERVER, description="LLM服务")
     temperature: float = Field(default=LLM_TEMPERATURE, ge=0, le=2, description="温度参数")
     max_tokens: int = Field(default=LLM_MAX_TOKENS, gt=0, description="最大token数")
+    text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
 
 
 class BatchProcessRequest(BaseModel):
@@ -44,6 +45,7 @@ class BatchProcessRequest(BaseModel):
     llm_api: str = Field(default=LLM_SERVER, description="LLM服务")
     temperature: float = Field(default=LLM_TEMPERATURE, ge=0, le=2, description="温度参数")
     max_tokens: int = Field(default=LLM_MAX_TOKENS, gt=0, description="最大token数")
+    text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
 
 
 class TaskResponse(BaseModel):
@@ -103,14 +105,14 @@ async def process_bilibili_video(request: BilibiliVideoRequest, background_tasks
     task_id = str(uuid.uuid4())
     tasks[task_id] = {"status": "pending", "message": "任务已创建"}
     background_tasks.add_task(process_bilibili_task, task_id, request.video_url, request.llm_api, request.temperature,
-                              request.max_tokens)
+                              request.max_tokens, request.text_only)
     return TaskResponse(task_id=task_id, status="pending", message="任务已提交，正在处理中")
 
 
 @app.post("/api/v1/process/audio", response_model=TaskResponse)
 async def process_audio_file(file: UploadFile = File(...), llm_api: str = LLM_SERVER,
                              temperature: float = LLM_TEMPERATURE, max_tokens: int = LLM_MAX_TOKENS,
-                             background_tasks: BackgroundTasks = None):
+                             text_only: bool = False, background_tasks: BackgroundTasks = None):
     """处理上传的音频文件"""
     allowed_extensions = ['.mp3', '.wav', '.m4a', '.flac']
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -127,7 +129,7 @@ async def process_audio_file(file: UploadFile = File(...), llm_api: str = LLM_SE
         tasks[task_id] = {"status": "failed", "message": f"文件保存失败: {str(e)}"}
         raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
 
-    background_tasks.add_task(process_audio_task, task_id, temp_file_path, llm_api, temperature, max_tokens)
+    background_tasks.add_task(process_audio_task, task_id, temp_file_path, llm_api, temperature, max_tokens, text_only)
     return TaskResponse(task_id=task_id, status="pending", message="文件已上传，正在处理中")
 
 
@@ -140,7 +142,7 @@ async def process_batch_videos(request: BatchProcessRequest, background_tasks: B
     tasks[task_id] = {"status": "pending", "message": "批量任务已创建"}
     urls_text = "\n".join(request.urls)
     background_tasks.add_task(process_batch_task, task_id, urls_text, request.llm_api, request.temperature,
-                              request.max_tokens)
+                              request.max_tokens, request.text_only)
     return TaskResponse(task_id=task_id, status="pending", message=f"批量任务已提交，共 {len(request.urls)} 个视频")
 
 
@@ -192,12 +194,14 @@ async def download_result(task_id: str):
 
 
 # 后台任务处理函数
-async def process_bilibili_task(task_id: str, video_url: str, llm_api: str, temperature: float, max_tokens: int):
+async def process_bilibili_task(task_id: str, video_url: str, llm_api: str, temperature: float, max_tokens: int,
+                                text_only: bool = False):
     """后台处理B站视频任务"""
     try:
         tasks[task_id] = {"status": "processing", "message": "正在下载和处理视频"}
         output_dir, extract_time, polish_time, zip_file = bilibili_video_download_process(video_url, llm_api,
-                                                                                          temperature, max_tokens)
+                                                                                          temperature, max_tokens,
+                                                                                          text_only)
         tasks[task_id] = {"status": "completed", "message": "处理完成",
                           "result": {"output_dir": output_dir, "extract_time": extract_time, "polish_time": polish_time,
                                      "zip_file": zip_file}}
@@ -205,11 +209,13 @@ async def process_bilibili_task(task_id: str, video_url: str, llm_api: str, temp
         tasks[task_id] = {"status": "failed", "message": f"处理失败: {str(e)}"}
 
 
-async def process_audio_task(task_id: str, audio_path: str, llm_api: str, temperature: float, max_tokens: int):
+async def process_audio_task(task_id: str, audio_path: str, llm_api: str, temperature: float, max_tokens: int,
+                             text_only: bool = False):
     """后台处理音频任务"""
     try:
         tasks[task_id] = {"status": "processing", "message": "正在处理音频"}
-        output_dir, extract_time, polish_time, zip_file = upload_audio(audio_path, llm_api, temperature, max_tokens)
+        output_dir, extract_time, polish_time, zip_file = upload_audio(audio_path, llm_api, temperature, max_tokens,
+                                                                       text_only)
         if os.path.exists(audio_path):
             os.remove(audio_path)
         tasks[task_id] = {"status": "completed", "message": "处理完成",
@@ -219,11 +225,13 @@ async def process_audio_task(task_id: str, audio_path: str, llm_api: str, temper
         tasks[task_id] = {"status": "failed", "message": f"处理失败: {str(e)}"}
 
 
-async def process_batch_task(task_id: str, urls: str, llm_api: str, temperature: float, max_tokens: int):
+async def process_batch_task(task_id: str, urls: str, llm_api: str, temperature: float, max_tokens: int,
+                             text_only: bool = False):
     """后台处理批量任务"""
     try:
         tasks[task_id] = {"status": "processing", "message": "正在批量处理视频"}
-        result_text, extract_time, polish_time, _, _, _ = process_multiple_urls(urls, llm_api, temperature, max_tokens)
+        result_text, extract_time, polish_time, _, _, _ = process_multiple_urls(urls, llm_api, temperature, max_tokens,
+                                                                                text_only)
         tasks[task_id] = {"status": "completed", "message": "批量处理完成",
                           "result": {"output_files": result_text, "total_extract_time": extract_time,
                                      "total_polish_time": polish_time}}

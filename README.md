@@ -1,5 +1,9 @@
 # AutoVoiceCollation
 
+<div align="center">
+  <img src="assets/icon.svg" alt="AutoVoiceCollation Icon" width="150" />
+</div>
+
 ## 介绍
 
 AutoVoiceCollation 是一个功能强大的自动语音识别（ASR）和文本处理工具，旨在帮助用户快速整理和润色语音转录文本。
@@ -39,21 +43,7 @@ AutoVoiceCollation 是一个功能强大的自动语音识别（ASR）和文本�
 
 推荐使用带有 CUDA 的 GPU 运行本项目。如果遇到显存不足或需要提升性能，可修改 `src/extract_audio_text.py` 中的 `batch_size_s` 参数。
 
-## Quick Start (使用 uv)
-
-本项目推荐使用 [uv](https://github.com/astral-sh/uv) 进行环境管理，它是一个速度极快的 Python 打包工具，可以取代 `venv` 和 `pip`。
-
-* **第零步：安装 uv (如果尚未安装)**
-
-macOS / Linux:
-```bash
-curl -LsSf https://astral.sh/uv/install.sh | sh
-```
-
-Windows:
-```powershell
-powershell -c "irm https://astral.sh/uv/install.ps1 | iex"
-```
+## Quick Start
 
 * **第一步：克隆代码**
 
@@ -65,32 +55,19 @@ cd AutoVoiceCollation
 * **第二步：创建并激活虚拟环境**
 
 ```bash
-# 使用 uv 创建虚拟环境 (会自动创建 .venv 目录)
-uv venv
-```
-
-激活虚拟环境：
-
-Windows:
-```bash
-.venv\Scripts\activate
-```
-
-Linux / macOS:
-```bash
-source .venv/bin/activate
+conda create -n avc_env python=3.11 -y
 ```
 
 * **第三步：安装依赖**
 
 ```bash
-# 使用 uv 安装 PyTorch（推荐使用 CUDA 版本）
+# 1. 安装基础依赖
+pip install -r requirements.txt
+
+# 2. 安装 PyTorch（推荐使用 CUDA 版本）
 # 访问 PyTorch 官网 https://pytorch.org/ 获取适合你系统的命令
 # CUDA 12.9 示例:
-uv pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu129
-
-# 使用 uv 安装其他依赖 (速度飞快)
-uv pip install -r requirements.txt
+pip install torch torchvision torchaudio --index-url https://download.pytorch.org/whl/cu129
 ```
 
 * **第四步：配置环境变量**
@@ -360,8 +337,8 @@ AutoVoiceCollation/
 
 ### 1. 如何选择 ASR 模型？
 
-- **Paraformer**: 速度更快，适合长音频
-- **SenseVoiceSmall**: 准确度更高，支持情感识别
+- **Paraformer**: 准确度高，但是速度稍慢，对于硬件要求较高
+- **SenseVoiceSmall**: 速度快，支持语言更多，但准确度略低
 
 在 `.env` 中设置 `ASR_MODEL=paraformer` 或 `ASR_MODEL=sense_voice`。
 
@@ -376,7 +353,7 @@ AutoVoiceCollation/
 
 ### 3. 显存不足怎么办？
 
-编辑 `src/extract_audio_text.py`，降低 `batch_size_s` 参数值。
+编辑 `src/extract_audio_text.py`，降低 `batch_size_s` 参数值。或者使用更小的 ASR 模型（如 SenseVoiceSmall）。
 
 ### 4. 如何使用本地 LLM？
 

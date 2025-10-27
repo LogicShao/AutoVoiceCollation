@@ -35,6 +35,7 @@ def save_env_config(config_dict):
     lines = []
     if env_example_path.exists():
         with open(env_example_path, 'r', encoding='utf-8') as f:
+            written_keys = set()
             for line in f:
                 line_stripped = line.strip()
                 # 如果是配置行，更新值
@@ -44,10 +45,16 @@ def save_env_config(config_dict):
                         # 保留原始缩进
                         indent = len(line) - len(line.lstrip())
                         lines.append(' ' * indent + f"{key}={config_dict[key]}\n")
+                        written_keys.add(key)
                     else:
                         lines.append(line)
                 else:
                     lines.append(line)
+
+            # 将示例中没有但 config_dict 有的键追加到末尾，保证新键被持久化
+            for key, value in config_dict.items():
+                if key not in written_keys:
+                    lines.append(f"{key}={value}\n")
     else:
         # 如果没有示例文件，直接写入配置
         for key, value in config_dict.items():
@@ -68,6 +75,8 @@ def update_config(
         log_level, log_file, log_console, log_colored, third_party_log_level,
         # ASR & 输出
         asr_model, output_style, zip_enabled,
+        # UI 默认
+        text_only_default,
         # LLM
         llm_server, llm_temp, llm_tokens, llm_top_p, llm_top_k, split_limit, async_flag,
         # 摘要
@@ -96,6 +105,7 @@ def update_config(
         "ASR_MODEL": asr_model,
         "OUTPUT_STYLE": output_style,
         "ZIP_OUTPUT_ENABLED": str(zip_enabled).lower(),
+        "TEXT_ONLY_DEFAULT": str(text_only_default).lower(),
         "LLM_SERVER": llm_server,
         "LLM_TEMPERATURE": str(llm_temp),
         "LLM_MAX_TOKENS": str(llm_tokens),
@@ -119,6 +129,8 @@ def create_app():
     with gr.Blocks(title="音频识别与文本整理工具") as app:
         gr.Markdown("# 🎧 音频识别与文本整理系统")
         gr.Markdown("上传音频文件或输入B站视频链接，一键提取文本并生成图文版。")
+        # 预先加载 .env 配置，用于设置各 Tab 默认值（例如 TEXT_ONLY_DEFAULT）
+        env_config = load_env_config()
 
         with gr.Tab("输入B站链接"):
             with gr.Row():
@@ -127,6 +139,9 @@ def create_app():
                 llm_api_dropdown2 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
                 temp_slider2 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
                 token_slider2 = gr.Slider(100, 8000, step=100, value=LLM_MAX_TOKENS, label="Max Tokens")
+                # 新增：仅返回纯文本(JSON)开关
+                text_only2 = gr.Checkbox(label="仅返回文本(JSON)",
+                                         value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true")
             bilibili_button = gr.Button("下载并处理")
             bilibili_output = gr.Textbox(label="输出目录", interactive=False)
             bilibili_time = gr.Textbox(label="下载+识别+润色用时（秒）", interactive=False)
@@ -136,7 +151,7 @@ def create_app():
 
             bilibili_button.click(
                 fn=bilibili_video_download_process,
-                inputs=[bilibili_input, llm_api_dropdown2, temp_slider2, token_slider2],
+                inputs=[bilibili_input, llm_api_dropdown2, temp_slider2, token_slider2, text_only2],
                 outputs=[bilibili_output, bilibili_time, bilibili_time, download_zip2]
             )
 
@@ -147,6 +162,9 @@ def create_app():
                 llm_api_dropdown3 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
                 temp_slider3 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
                 token_slider3 = gr.Slider(100, 8000, step=100, value=LLM_MAX_TOKENS, label="Max Tokens")
+                # 新增：仅返回纯文本(JSON)开关
+                text_only3 = gr.Checkbox(label="仅返回文本(JSON)",
+                                         value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true")
             batch_button = gr.Button("批量下载并处理")
             batch_output = gr.Textbox(label="输出文件", interactive=False)
             batch_time = gr.Textbox(label="总下载+识别+润色用时（秒）", interactive=False)
@@ -155,7 +173,7 @@ def create_app():
 
             batch_button.click(
                 fn=process_multiple_urls,
-                inputs=[url_input, llm_api_dropdown3, temp_slider3, token_slider3],
+                inputs=[url_input, llm_api_dropdown3, temp_slider3, token_slider3, text_only3],
                 outputs=[batch_output, batch_time, batch_time, download_zip_batch]
             )
 
@@ -166,6 +184,9 @@ def create_app():
                 llm_api_dropdown1 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
                 temp_slider1 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
                 token_slider1 = gr.Slider(100, 8000, step=100, value=LLM_MAX_TOKENS, label="Max Tokens")
+                # 新增：仅返回纯文本(JSON)开关
+                text_only1 = gr.Checkbox(label="仅返回文本(JSON)",
+                                         value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true")
             upload_button = gr.Button("开始处理")
             upload_output = gr.Textbox(label="输出目录", interactive=False)
             upload_time = gr.Textbox(label="识别+润色用时（秒）", interactive=False)
@@ -175,7 +196,7 @@ def create_app():
 
             upload_button.click(
                 fn=upload_audio,
-                inputs=[audio_input, llm_api_dropdown1, temp_slider1, token_slider1],
+                inputs=[audio_input, llm_api_dropdown1, temp_slider1, token_slider1, text_only1],
                 outputs=[upload_output, upload_time, upload_time, download_zip1]
             )
 
@@ -190,10 +211,10 @@ def create_app():
                 download_zip_video = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
             video_button.click(
-                fn=lambda vf, api, temp, tokens: upload_audio(
-                    extract_audio_from_video(vf), api, temp, tokens
+                fn=lambda vf, api, temp, tokens, text_only: upload_audio(
+                    extract_audio_from_video(vf), api, temp, tokens, text_only
                 ) if vf else ("请上传一个视频文件。", None, None, None),
-                inputs=[video_input2, llm_api_dropdown1, temp_slider1, token_slider1],
+                inputs=[video_input2, llm_api_dropdown1, temp_slider1, token_slider1, text_only1],
                 outputs=[video_output, video_time, video_time, download_zip_video]
             )
 
@@ -214,7 +235,7 @@ def create_app():
             gr.Markdown("在这里修改系统配置，保存后需要重启应用才能生效。")
 
             # 加载当前配置
-            env_config = load_env_config()
+            # env_config = load_env_config()
 
             with gr.Accordion("API Keys", open=True):
                 deepseek_key = gr.Textbox(
@@ -298,6 +319,11 @@ def create_app():
                 zip_enabled = gr.Checkbox(
                     label="启用 ZIP 压缩输出",
                     value=env_config.get("ZIP_OUTPUT_ENABLED", "false").lower() == "true"
+                )
+                # 新增：记住 Web UI 中 text_only 的默认值
+                text_only_default = gr.Checkbox(
+                    label="默认仅返回文本(JSON)",
+                    value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true"
                 )
 
             with gr.Accordion("LLM 配置", open=False):
@@ -404,7 +430,7 @@ def create_app():
                     deepseek_key, gemini_key, dashscope_key, cerebras_key,
                     output_dir, download_dir, temp_dir, model_dir, log_dir,
                     log_level, log_file, log_console, log_colored, third_party_log_level,
-                    asr_model, output_style, zip_enabled,
+                    asr_model, output_style, zip_enabled, text_only_default,
                     llm_server, llm_temp, llm_tokens, llm_top_p, llm_top_k, split_limit, async_flag,
                     summary_server, summary_temp, summary_tokens,
                     disable_polish, disable_summary, local_llm, debug_flag,

@@ -26,13 +26,6 @@ const createLoadingWindow = () => {
 
 // --- 后端 Gradio 服务管理 ---
 const startPythonBackend = () => {
-    // 确保使用虚拟环境中的 Python 解释器
-    // 在 Windows 上: .venv\Scripts\python.exe
-    // 在 Linux/Mac 上: .venv/bin/python
-    const pythonExecutable = path.join(__dirname, '.venv', process.platform === 'win32' ? 'Scripts' : 'bin', process.platform === 'win32' ? 'python.exe' : 'python');
-
-    console.log('Starting Python backend with:', pythonExecutable);
-
     // 启动 webui.py 脚本
     // 强制 Python 使用 UTF-8 输出，这是解决乱码问题的核心
     const spawnOptions = {
@@ -46,6 +39,7 @@ const startPythonBackend = () => {
         shell: false
     };
 
+    const pythonExecutable = 'python';
     pythonProcess = spawn(pythonExecutable, ['webui.py', '--from-electron'], spawnOptions);
 
     // 打印后端的输出 (用于调试)，并显式用 utf8 解码
