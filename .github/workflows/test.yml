@@ -1,0 +1,132 @@
+name: Tests
+
+on:
+  push:
+    branches: [ master, main, develop ]
+  pull_request:
+    branches: [ master, main, develop ]
+  workflow_dispatch:  # 允许手动触发
+
+jobs:
+  test:
+    name: Run Unit Tests
+    runs-on: ${{ matrix.os }}
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ ubuntu-latest, windows-latest ]
+        python-version: [ '3.11' ]
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python ${{ matrix.python-version }}
+        uses: actions/setup-python@v5
+        with:
+          python-version: ${{ matrix.python-version }}
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+          pip install -r requirements.txt || true
+
+      - name: Run unit tests
+        run: |
+          pytest tests/test_api.py -k "not Background" --maxfail=10
+        continue-on-error: false
+
+      - name: Generate coverage report
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        run: |
+          pytest tests/test_api.py -k "not Background" --cov=api --cov=src --cov-report=xml --cov-report=term-missing
+
+      - name: Upload coverage to Codecov
+        if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        uses: codecov/codecov-action@v4
+        with:
+          file: ./coverage.xml
+          flags: unittests
+          name: codecov-umbrella
+          fail_ci_if_error: false
+
+  test-integration:
+    name: Integration Tests
+    runs-on: ubuntu-latest
+    # 只在推送到主分支时运行集成测试
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+          pip install -r requirements.txt || true
+
+      - name: Set up test environment variables
+        run: |
+          echo "DEEPSEEK_API_KEY=${{ secrets.DEEPSEEK_API_KEY }}" >> $GITHUB_ENV
+          echo "GEMINI_API_KEY=${{ secrets.GEMINI_API_KEY }}" >> $GITHUB_ENV
+
+      - name: Start API server
+        run: |
+          python api.py &
+          sleep 10  # 等待服务启动
+
+      - name: Run integration tests
+        run: |
+          pytest tests/test_bilibili_endpoint.py -m integration -v --tb=short
+        env:
+          API_BASE_URL: http://127.0.0.1:8000
+          TEST_BILIBILI_TIMEOUT: 600
+
+  lint:
+    name: Code Quality Checks
+    runs-on: ubuntu-latest
+
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install linting tools
+        run: |
+          python -m pip install --upgrade pip
+          pip install flake8 black isort mypy
+
+      - name: Run Black (code formatting check)
+        run: |
+          black --check --diff api.py src/ tests/
+        continue-on-error: true
+
+      - name: Run isort (import sorting check)
+        run: |
+          isort --check-only --diff api.py src/ tests/
+        continue-on-error: true
+
+      - name: Run flake8 (linting)
+        run: |
+          flake8 api.py src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
+          flake8 api.py src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
+        continue-on-error: true
+
+      - name: Run mypy (type checking)
+        run: |
+          mypy api.py --ignore-missing-imports
+        continue-on-error: true

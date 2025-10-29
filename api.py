@@ -17,6 +17,7 @@ from src.core_process import (
     upload_audio, bilibili_video_download_process,
     process_multiple_urls, process_subtitles
 )
+from src.text_arrangement.summary_by_llm import summarize_text
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -30,6 +31,15 @@ tasks = {}
 
 
 # Pydantic模型定义
+class SummarizeRequest(BaseModel):
+    """文本总结请求"""
+    text: str = Field(..., description="要总结的文本内容")
+    title: str = Field(default="", description="文本标题（可选）")
+    llm_api: str = Field(default=LLM_SERVER, description="LLM服务")
+    temperature: float = Field(default=LLM_TEMPERATURE, ge=0, le=2, description="温度参数")
+    max_tokens: int = Field(default=LLM_MAX_TOKENS, gt=0, description="最大token数")
+
+
 class BilibiliVideoRequest(BaseModel):
     """B站视频处理请求"""
     video_url: str = Field(..., description="B站视频链接")
@@ -37,6 +47,7 @@ class BilibiliVideoRequest(BaseModel):
     temperature: float = Field(default=LLM_TEMPERATURE, ge=0, le=2, description="温度参数")
     max_tokens: int = Field(default=LLM_MAX_TOKENS, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
+    summarize: bool = Field(default=False, description="是否对结果进行总结")
 
 
 class BatchProcessRequest(BaseModel):
@@ -46,6 +57,7 @@ class BatchProcessRequest(BaseModel):
     temperature: float = Field(default=LLM_TEMPERATURE, ge=0, le=2, description="温度参数")
     max_tokens: int = Field(default=LLM_MAX_TOKENS, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
+    summarize: bool = Field(default=False, description="是否对结果进行总结")
 
 
 class TaskResponse(BaseModel):
@@ -79,6 +91,7 @@ async def root():
             "process_audio": "/api/v1/process/audio",
             "process_batch": "/api/v1/process/batch",
             "process_subtitle": "/api/v1/process/subtitle",
+            "summarize": "/api/v1/summarize",
             "task_status": "/api/v1/task/{task_id}",
             "download_result": "/api/v1/download/{task_id}"
         }
@@ -105,14 +118,15 @@ async def process_bilibili_video(request: BilibiliVideoRequest, background_tasks
     task_id = str(uuid.uuid4())
     tasks[task_id] = {"status": "pending", "message": "任务已创建"}
     background_tasks.add_task(process_bilibili_task, task_id, request.video_url, request.llm_api, request.temperature,
-                              request.max_tokens, request.text_only)
+                              request.max_tokens, request.text_only, request.summarize)
     return TaskResponse(task_id=task_id, status="pending", message="任务已提交，正在处理中")
 
 
 @app.post("/api/v1/process/audio", response_model=TaskResponse)
 async def process_audio_file(file: UploadFile = File(...), llm_api: str = LLM_SERVER,
                              temperature: float = LLM_TEMPERATURE, max_tokens: int = LLM_MAX_TOKENS,
-                             text_only: bool = False, background_tasks: BackgroundTasks = None):
+                             text_only: bool = False, summarize: bool = False,
+                             background_tasks: BackgroundTasks = None):
     """处理上传的音频文件"""
     allowed_extensions = ['.mp3', '.wav', '.m4a', '.flac']
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -129,7 +143,8 @@ async def process_audio_file(file: UploadFile = File(...), llm_api: str = LLM_SE
         tasks[task_id] = {"status": "failed", "message": f"文件保存失败: {str(e)}"}
         raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
 
-    background_tasks.add_task(process_audio_task, task_id, temp_file_path, llm_api, temperature, max_tokens, text_only)
+    background_tasks.add_task(process_audio_task, task_id, temp_file_path, llm_api, temperature, max_tokens, text_only,
+                              summarize)
     return TaskResponse(task_id=task_id, status="pending", message="文件已上传，正在处理中")
 
 
@@ -142,7 +157,7 @@ async def process_batch_videos(request: BatchProcessRequest, background_tasks: B
     tasks[task_id] = {"status": "pending", "message": "批量任务已创建"}
     urls_text = "\n".join(request.urls)
     background_tasks.add_task(process_batch_task, task_id, urls_text, request.llm_api, request.temperature,
-                              request.max_tokens, request.text_only)
+                              request.max_tokens, request.text_only, request.summarize)
     return TaskResponse(task_id=task_id, status="pending", message=f"批量任务已提交，共 {len(request.urls)} 个视频")
 
 
@@ -166,6 +181,27 @@ async def process_video_subtitle(file: UploadFile = File(...), background_tasks:
 
     background_tasks.add_task(process_subtitle_task, task_id, temp_file_path)
     return TaskResponse(task_id=task_id, status="pending", message="视频已上传，正在生成字幕")
+
+
+@app.post("/api/v1/summarize")
+async def summarize_text_endpoint(request: SummarizeRequest):
+    """对文本进行总结"""
+    try:
+        summary = summarize_text(
+            txt=request.text,
+            api_server=request.llm_api,
+            temperature=request.temperature,
+            max_tokens=request.max_tokens,
+            title=request.title
+        )
+        return {
+            "status": "success",
+            "summary": summary,
+            "original_length": len(request.text),
+            "summary_length": len(summary)
+        }
+    except Exception as e:
+        raise HTTPException(status_code=500, detail=f"总结失败: {str(e)}")
 
 
 @app.get("/api/v1/task/{task_id}", response_model=TaskResponse)
@@ -195,58 +231,100 @@ async def download_result(task_id: str):
 
 # 后台任务处理函数
 async def process_bilibili_task(task_id: str, video_url: str, llm_api: str, temperature: float, max_tokens: int,
-                                text_only: bool = False):
+                                text_only: bool = False, summarize: bool = False):
     """后台处理B站视频任务"""
     try:
         tasks[task_id] = {"status": "processing", "message": "正在下载和处理视频"}
         output_data, extract_time, polish_time, zip_file = bilibili_video_download_process(video_url, llm_api,
-                                                                                          temperature, max_tokens,
-                                                                                          text_only)
+                                                                                           temperature, max_tokens,
+                                                                                           text_only)
         if text_only:
             # text_only 模式：返回文本内容
-            tasks[task_id] = {"status": "completed", "message": "处理完成",
-                              "result": output_data}  # output_data 是包含文本内容的字典
+            result_data = output_data  # output_data 是包含文本内容的字典
+            # 如果需要总结，对润色后的文本进行总结
+            if summarize and "polished_text" in result_data:
+                tasks[task_id] = {"status": "processing", "message": "正在生成总结"}
+                summary = summarize_text(
+                    txt=result_data["polished_text"],
+                    api_server=llm_api,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    title=result_data.get("title", "")
+                )
+                result_data["summary"] = summary
+            tasks[task_id] = {"status": "completed", "message": "处理完成", "result": result_data}
         else:
             # 正常模式：返回文件路径
             tasks[task_id] = {"status": "completed", "message": "处理完成",
-                              "result": {"output_dir": output_data, "extract_time": extract_time, "polish_time": polish_time,
+                              "result": {"output_dir": output_data, "extract_time": extract_time,
+                                         "polish_time": polish_time,
                                          "zip_file": zip_file}}
     except Exception as e:
         tasks[task_id] = {"status": "failed", "message": f"处理失败: {str(e)}"}
 
 
 async def process_audio_task(task_id: str, audio_path: str, llm_api: str, temperature: float, max_tokens: int,
-                             text_only: bool = False):
+                             text_only: bool = False, summarize: bool = False):
     """后台处理音频任务"""
     try:
         tasks[task_id] = {"status": "processing", "message": "正在处理音频"}
         output_data, extract_time, polish_time, zip_file = upload_audio(audio_path, llm_api, temperature, max_tokens,
-                                                                       text_only)
+                                                                        text_only)
         if os.path.exists(audio_path):
             os.remove(audio_path)
         if text_only:
             # text_only 模式：返回文本内容
-            tasks[task_id] = {"status": "completed", "message": "处理完成",
-                              "result": output_data}  # output_data 是包含文本内容的字典
+            result_data = output_data  # output_data 是包含文本内容的字典
+            # 如果需要总结，对润色后的文本进行总结
+            if summarize and "polished_text" in result_data:
+                tasks[task_id] = {"status": "processing", "message": "正在生成总结"}
+                summary = summarize_text(
+                    txt=result_data["polished_text"],
+                    api_server=llm_api,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
+                    title=result_data.get("title", "")
+                )
+                result_data["summary"] = summary
+            tasks[task_id] = {"status": "completed", "message": "处理完成", "result": result_data}
         else:
             # 正常模式：返回文件路径
             tasks[task_id] = {"status": "completed", "message": "处理完成",
-                              "result": {"output_dir": output_data, "extract_time": extract_time, "polish_time": polish_time,
+                              "result": {"output_dir": output_data, "extract_time": extract_time,
+                                         "polish_time": polish_time,
                                          "zip_file": zip_file}}
     except Exception as e:
         tasks[task_id] = {"status": "failed", "message": f"处理失败: {str(e)}"}
 
 
 async def process_batch_task(task_id: str, urls: str, llm_api: str, temperature: float, max_tokens: int,
-                             text_only: bool = False):
+                             text_only: bool = False, summarize: bool = False):
     """后台处理批量任务"""
     try:
         tasks[task_id] = {"status": "processing", "message": "正在批量处理视频"}
         result_text, extract_time, polish_time, _, _, _ = process_multiple_urls(urls, llm_api, temperature, max_tokens,
                                                                                 text_only)
-        tasks[task_id] = {"status": "completed", "message": "批量处理完成",
-                          "result": {"output_files": result_text, "total_extract_time": extract_time,
-                                     "total_polish_time": polish_time}}
+        result_data = {"output_files": result_text, "total_extract_time": extract_time,
+                       "total_polish_time": polish_time}
+
+        # 如果需要总结且返回的是文本模式，对每个视频的文本进行总结
+        if summarize and text_only and isinstance(result_text, list):
+            tasks[task_id] = {"status": "processing", "message": "正在生成总结"}
+            summaries = []
+            for item in result_text:
+                if isinstance(item, dict) and "polished_text" in item:
+                    summary = summarize_text(
+                        txt=item["polished_text"],
+                        api_server=llm_api,
+                        temperature=temperature,
+                        max_tokens=max_tokens,
+                        title=item.get("title", "")
+                    )
+                    item["summary"] = summary
+                    summaries.append({"title": item.get("title", ""), "summary": summary})
+            result_data["summaries"] = summaries
+
+        tasks[task_id] = {"status": "completed", "message": "批量处理完成", "result": result_data}
     except Exception as e:
         tasks[task_id] = {"status": "failed", "message": f"处理失败: {str(e)}"}
 

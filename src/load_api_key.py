@@ -1,6 +1,10 @@
 import os
 from typing import Optional
 
+from src.logger import get_logger
+
+logger = get_logger(__name__)
+
 
 def display_api_key(api_key: Optional[str], front_display_num: int = 6, back_display_num: int = 4) -> str:
     """
@@ -33,25 +37,25 @@ def check_api_keys(debug: bool = False):
 
     # 验证至少有一个API密钥被设置
     if not any([_deepseek_api_key, _gemini_api_key, _dashscope_api_key, _cerebras_api_key]):
-        print("警告: 未检测到任何 API 密钥！")
-        print("请在 .env 文件或系统环境变量中设置以下至少一个变量：")
-        print("  - DEEPSEEK_API_KEY")
-        print("  - GEMINI_API_KEY")
-        print("  - DASHSCOPE_API_KEY")
-        print("  - CEREBRAS_API_KEY")
+        logger.warning("未检测到任何 API 密钥！")
+        logger.warning("请在 .env 文件或系统环境变量中设置以下至少一个变量：")
+        logger.warning("  - DEEPSEEK_API_KEY")
+        logger.warning("  - GEMINI_API_KEY")
+        logger.warning("  - DASHSCOPE_API_KEY")
+        logger.warning("  - CEREBRAS_API_KEY")
         return
 
     # 仅在 debug 模式下显示密钥详情
     if debug:
-        print('API 密钥加载状态（DEBUG模式）:')
-        print('  deepseek api 密钥:', display_api_key(_deepseek_api_key))
-        print('  gemini api 密钥:', display_api_key(_gemini_api_key))
-        print('  dashscope api 密钥:', display_api_key(_dashscope_api_key))
-        print('  cerebras api 密钥:', display_api_key(_cerebras_api_key))
+        logger.info('API 密钥加载状态（DEBUG模式）:')
+        logger.info(f'  deepseek api 密钥: {display_api_key(_deepseek_api_key)}')
+        logger.info(f'  gemini api 密钥: {display_api_key(_gemini_api_key)}')
+        logger.info(f'  dashscope api 密钥: {display_api_key(_dashscope_api_key)}')
+        logger.info(f'  cerebras api 密钥: {display_api_key(_cerebras_api_key)}')
     else:
         # 生产模式只显示是否已设置
-        print('API 密钥加载状态:')
-        print(f'  deepseek:   {"[已设置]" if _deepseek_api_key else "[未设置]"}')
-        print(f'  gemini:     {"[已设置]" if _gemini_api_key else "[未设置]"}')
-        print(f'  dashscope:  {"[已设置]" if _dashscope_api_key else "[未设置]"}')
-        print(f'  cerebras:   {"[已设置]" if _cerebras_api_key else "[未设置]"}')
+        logger.info('API 密钥加载状态:')
+        logger.info(f'  deepseek:   {"[已设置]" if _deepseek_api_key else "[未设置]"}')
+        logger.info(f'  gemini:     {"[已设置]" if _gemini_api_key else "[未设置]"}')
+        logger.info(f'  dashscope:  {"[已设置]" if _dashscope_api_key else "[未设置]"}')
+        logger.info(f'  cerebras:   {"[已设置]" if _cerebras_api_key else "[未设置]"}')

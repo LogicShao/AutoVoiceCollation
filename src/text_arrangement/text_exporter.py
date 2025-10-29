@@ -241,7 +241,7 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
     )
 
     doc.build(story)
-    print(f"PDF 已保存到：{pdf_path}")
+    logger.info(f"PDF 已保存到：{pdf_path}")
 
     if not with_img:
         return pdf_path
@@ -258,9 +258,9 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
         img.save(img_path)
         image_paths.append(img_path)
 
-    print(f"共导出 {len(image_paths)} 张图片到：{img_dir}")
+    logger.info(f"共导出 {len(image_paths)} 张图片到：{img_dir}")
     for img_path in image_paths:
-        print(f"图片路径：{img_path}")
+        logger.info(f"图片路径：{img_path}")
 
     return pdf_path
 
@@ -351,7 +351,7 @@ def text_to_one_image(txt: str, output_path: str, title: Optional[str] = None) -
     filename = 'output.png'
     output_file_path = os.path.join(output_path, filename)
     image.save(output_file_path)
-    print(f"文本已保存为图片：{output_file_path}")
+    logger.info(f"文本已保存为图片：{output_file_path}")
 
     return output_file_path
 

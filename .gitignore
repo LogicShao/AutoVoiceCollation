@@ -143,5 +143,6 @@ nul
 # pytest local test files
 # ============================
 tests/local
+tests/fake_font.ttf
 
 # End of file

@@ -1,4 +1,7 @@
+from src.logger import get_logger
 from src.text_arrangement.query_llm import LLMQueryParams, query_llm
+
+logger = get_logger(__name__)
 
 system_instruction = (
     "你是一名资深学术研究助手，擅长将素材转化为具有哲学深度和辩证张力的小论文。"
@@ -33,7 +36,7 @@ def summarize_text(txt: str, api_server: str, temperature: float, max_tokens: in
     """
     prompt = prompt_template.format(text=txt, title=f"标题:{title}")
 
-    print(f"Summarizing text with API server: {api_server}, temperature: {temperature}, max_tokens: {max_tokens}")
+    logger.info(f"Summarizing text with API server: {api_server}, temperature: {temperature}, max_tokens: {max_tokens}")
 
     return query_llm(LLMQueryParams(
         content=prompt,

@@ -1,0 +1,35 @@
+name: Quick Test
+
+# 快速测试 - 只在 PR 时运行，用于快速验证
+on:
+  pull_request:
+    branches: [ master, main, develop ]
+
+jobs:
+  quick-test:
+    name: Quick Unit Tests
+    runs-on: ubuntu-latest
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: Set up Python 3.11
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+          cache: 'pip'
+
+      - name: Install dependencies
+        run: |
+          python -m pip install --upgrade pip
+          pip install -r requirements-test.txt
+          pip install -r requirements.txt || true
+
+      - name: Run tests
+        run: |
+          pytest tests/test_api.py -k "not Background" -v --tb=short
+
+      - name: Test summary
+        if: always()
+        run: |
+          echo "::notice::Tests completed. Check the logs above for details."

@@ -1,0 +1,38 @@
+# 测试依赖
+# 安装方式: pip install -r requirements-test.txt
+
+# 核心测试框架
+pytest>=7.4.0
+pytest-asyncio>=0.21.0
+pytest-cov>=4.1.0
+pytest-mock>=3.11.0
+
+# FastAPI 和相关依赖（测试 API 端点所需）
+fastapi>=0.119.1
+uvicorn>=0.38.0
+pydantic>=2.11.10
+httpx>=0.24.0
+python-dotenv>=1.1.1
+
+# 其他运行时依赖（不包括重 ML 库）
+requests>=2.32.5
+pillow>=11.3.0
+reportlab>=4.4.4
+jieba>=0.42.1
+soundfile>=0.13.1
+cerebras>=0.0.1
+protobuf>=6.33.0
+google-genai>=1.41.0
+openai>=2.6.0
+yt-dlp>=2025.10.22
+
+# Mock 和测试工具
+responses>=0.23.0
+faker>=19.0.0
+
+# 代码质量检查（可选）
+pytest-flake8>=1.1.1
+pytest-mypy>=0.10.3
+
+# 测试报告
+pytest-html>=3.2.0

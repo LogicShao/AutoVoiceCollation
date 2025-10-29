@@ -83,10 +83,3 @@ def smart_split(txt: str, split_len: int) -> list[str]:
         result.append(current.strip())
 
     return result
-
-
-if __name__ == '__main__':
-    text = "这是一个用于测试的文本，包含一些English words like voice recognition and speech processing。"
-    splits = smart_split(text, 20)
-    for i, part in enumerate(splits):
-        print(f"[{i}:len={len(part)}] {part}")
