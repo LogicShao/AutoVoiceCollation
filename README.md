@@ -151,11 +151,27 @@ Web 界面提供以下功能：
 python api.py
 ```
 
-API 服务默认运行在 `http://0.0.0.0:8000`。
+**新特性：自动端口查找**
+
+- API 服务器启动时会自动检测配置的端口是否可用
+- 如果端口被占用，会自动查找附近的可用端口（最多尝试 50 个）
+- 可在 `.env` 文件中设置 `WEB_SERVER_PORT` 指定端口
+- 默认端口：8000（如果不可用会自动切换）
+
+启动示例输出：
+
+```
+正在启动 AutoVoiceCollation API 服务器...
+访问地址: http://127.0.0.1:8073
+API 文档: http://127.0.0.1:8073/docs
+健康检查: http://127.0.0.1:8073/health
+------------------------------------------------------------
+INFO:     Uvicorn running on http://127.0.0.1:8073 (Press CTRL+C to quit)
+```
 
 #### API 端点
 
-访问 `http://localhost:8000/docs` 查看完整的 API 文档（Swagger UI）。
+访问 `http://localhost:端口号/docs` 查看完整的 API 文档（Swagger UI）。
 
 主要端点：
 - `GET /` - API 信息
@@ -164,8 +180,25 @@ API 服务默认运行在 `http://0.0.0.0:8000`。
 - `POST /api/v1/process/audio` - 处理音频文件
 - `POST /api/v1/process/batch` - 批量处理
 - `POST /api/v1/process/subtitle` - 生成字幕
+- `POST /api/v1/summarize` - 文本总结
 - `GET /api/v1/task/{task_id}` - 查询任务状态
 - `GET /api/v1/download/{task_id}` - 下载处理结果
+
+#### 新特性：时间戳和 URL 追踪
+
+所有任务响应现在包含：
+
+- **`created_at`** - 任务创建时间（ISO格式）
+- **`completed_at`** - 任务完成时间（ISO格式）
+- **`url`** - 处理的视频 URL（B站视频/批量任务）
+- **`filename`** - 上传的文件名（音频/视频文件）
+
+这些信息可用于：
+
+- 计算精确的处理时长
+- 追踪任务来源
+- 监控性能指标
+- 任务日志记录
 
 #### API 使用示例
 
@@ -178,16 +211,21 @@ curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
     "video_url": "https://www.bilibili.com/video/BV1...",
     "llm_api": "deepseek-chat",
     "temperature": 0.1,
-    "max_tokens": 6000
+    "max_tokens": 6000,
+    "text_only": true
   }'
 ```
 
-返回示例：
+返回示例（包含新增字段）：
 ```json
 {
   "task_id": "550e8400-e29b-41d4-a716-446655440000",
   "status": "pending",
-  "message": "任务已提交，正在处理中"
+  "message": "任务已提交，正在处理中",
+  "created_at": "2025-10-29T17:35:00.123456",
+  "url": "https://www.bilibili.com/video/BV1...",
+  "filename": null,
+  "completed_at": null
 }
 ```
 
@@ -197,11 +235,41 @@ curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
 curl "http://localhost:8000/api/v1/task/550e8400-e29b-41d4-a716-446655440000"
 ```
 
-**下载结果：**
+**任务完成后的响应：**
 
-```bash
-curl -O "http://localhost:8000/api/v1/download/550e8400-e29b-41d4-a716-446655440000"
+```json
+{
+  "task_id": "550e8400-e29b-41d4-a716-446655440000",
+  "status": "completed",
+  "message": "处理完成",
+  "created_at": "2025-10-29T17:35:00.123456",
+  "completed_at": "2025-10-29T17:40:30.789012",
+  "url": "https://www.bilibili.com/video/BV1...",
+  "result": {
+    "title": "视频标题",
+    "polished_text": "润色后的文本...",
+    "extract_time": 10.5,
+    "polish_time": 5.2
+  }
+}
 ```
+
+**计算处理时长：**
+
+```python
+from datetime import datetime
+
+created_at = "2025-10-29T17:35:00.123456"
+completed_at = "2025-10-29T17:40:30.789012"
+
+start = datetime.fromisoformat(created_at)
+end = datetime.fromisoformat(completed_at)
+duration = (end - start).total_seconds()
+
+print(f"处理耗时: {duration:.2f} 秒")  # 输出: 330.67 秒
+```
+
+**完整 API 文档：** 请查看 [docs/API_USAGE.md](docs/API_USAGE.md)
 
 ## 配置说明
 
