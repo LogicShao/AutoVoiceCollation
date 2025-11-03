@@ -74,6 +74,18 @@ ASR_MODEL = _get_env("ASR_MODEL", default="paraformer", cast=str)
 OUTPUT_STYLE = _get_env("OUTPUT_STYLE", default="pdf only", cast=str)
 ZIP_OUTPUT_ENABLED = _get_env("ZIP_OUTPUT_ENABLED", default=False, cast=bool)
 
+# ---------- 设备与推理配置 ----------
+# 设备选择：auto, cpu, cuda, cuda:0, cuda:1 等
+# auto 表示自动检测，优先使用 GPU
+DEVICE = _get_env("DEVICE", default="auto", cast=str)
+
+# 是否使用 ONNX 推理：true 或 false
+USE_ONNX = _get_env("USE_ONNX", default=False, cast=bool)
+
+# ONNX 推理提供者优先级（逗号分隔）
+# 可选：CUDAExecutionProvider, CPUExecutionProvider, TensorrtExecutionProvider 等
+ONNX_PROVIDERS = _get_env("ONNX_PROVIDERS", default="", cast=str)
+
 # ---------- LLM ----------
 LLM_SERVER = _get_env("LLM_SERVER", default="Cerebras:Qwen-3-235B-Instruct", cast=str)
 LLM_TEMPERATURE = _get_env("LLM_TEMPERATURE", default=0.1, cast=float, validate=lambda v: 0.0 <= v <= 2.0)
@@ -153,6 +165,9 @@ ALL_CONFIG = {
     "ASR_MODEL": ASR_MODEL,
     "OUTPUT_STYLE": OUTPUT_STYLE,
     "ZIP_OUTPUT_ENABLED": ZIP_OUTPUT_ENABLED,
+    "DEVICE": DEVICE,
+    "USE_ONNX": USE_ONNX,
+    "ONNX_PROVIDERS": ONNX_PROVIDERS,
     "LLM_SERVER": LLM_SERVER,
     "LLM_TEMPERATURE": LLM_TEMPERATURE,
     "LLM_MAX_TOKENS": LLM_MAX_TOKENS,

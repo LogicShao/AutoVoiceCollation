@@ -191,7 +191,7 @@ def bilibili_video_download_process(video_url, llm_api, temperature, max_tokens,
     """
     下载并处理B站视频
     :param video_url: B站视频URL
-    :param llm_api: LLM API服��
+    :param llm_api: LLM API服务
     :param temperature: 温度参数
     :param max_tokens: 最大token数
     :param text_only: 是否只返回纯文本结果（不生成PDF）

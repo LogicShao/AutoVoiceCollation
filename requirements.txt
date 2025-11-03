@@ -20,3 +20,8 @@ pydantic>=2.11.10
 gradio>=5.49.1
 dotenv>=0.9.9
 python-dotenv>=1.1.1
+# ONNX Runtime for model inference (optional, choose one based on your device)
+# For CPU-only inference:
+# onnxruntime>=1.20.0
+# For GPU inference (requires CUDA), uncomment the following line and comment out the CPU version:
+# onnxruntime-gpu>=1.20.0
