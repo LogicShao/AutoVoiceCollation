@@ -54,12 +54,23 @@ class RecursiveMock(MagicMock):
 
 # Mock torch and all its submodules recursively
 mock_torch = RecursiveMock()
+# Configure cuda mock to return proper values for device detection
+# Must configure cuda before assigning to mock_torch
+mock_cuda = Mock()
+mock_cuda.is_available = Mock(return_value=False)
+mock_cuda.device_count = Mock(return_value=0)
+mock_torch.cuda = mock_cuda
 sys.modules['torch'] = mock_torch
 sys.modules['torch.nn'] = RecursiveMock()
 sys.modules['torch.nn.functional'] = RecursiveMock()
 
 # Mock torchaudio
 sys.modules['torchaudio'] = RecursiveMock()
+
+# Mock onnxruntime
+mock_onnxruntime = Mock()
+mock_onnxruntime.get_available_providers = Mock(return_value=['CPUExecutionProvider'])
+sys.modules['onnxruntime'] = mock_onnxruntime
 
 # Mock funasr and all its submodules recursively
 mock_funasr = RecursiveMock()

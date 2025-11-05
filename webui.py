@@ -1,5 +1,6 @@
 import pathlib
 import sys
+import uuid
 
 import gradio as gr
 
@@ -9,6 +10,19 @@ from src.core_process import (
     upload_audio, bilibili_video_download_process,
     process_multiple_urls, process_subtitles
 )
+from src.task_manager import get_task_manager
+
+# 获取任务管理器实例
+task_manager = get_task_manager()
+
+
+# 终止任务的辅助函数
+def stop_task(task_id):
+    """终止指定任务"""
+    if task_id:
+        task_manager.stop_task(task_id)
+        return f"已请求终止任务: {task_id}"
+    return "没有正在运行的任务"
 
 
 # 配置管理函数
@@ -133,6 +147,9 @@ def create_app():
         env_config = load_env_config()
 
         with gr.Tab("输入B站链接"):
+            # 任务ID状态
+            task_id_state2 = gr.State(value=None)
+
             with gr.Row():
                 bilibili_input = gr.Textbox(label="请输入B站视频链接")
             with gr.Row():
@@ -142,20 +159,39 @@ def create_app():
                 # 新增：仅返回纯文本(JSON)开关
                 text_only2 = gr.Checkbox(label="仅返回文本(JSON)",
                                          value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true")
-            bilibili_button = gr.Button("下载并处理")
+            with gr.Row():
+                bilibili_button = gr.Button("下载并处理", variant="primary")
+                stop_button2 = gr.Button("终止任务", variant="stop")
+
             bilibili_output = gr.Textbox(label="输出目录", interactive=False)
             bilibili_time = gr.Textbox(label="下载+识别+润色用时（秒）", interactive=False)
+            stop_status2 = gr.Textbox(label="操作状态", interactive=False, visible=False)
 
             with gr.Row():
                 download_zip2 = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
+            # 包装处理函数以生成和返回 task_id
+            def bilibili_process_wrapper(url, llm_api, temp, tokens, text_only):
+                task_id = str(uuid.uuid4())
+                result = bilibili_video_download_process(url, llm_api, temp, tokens, text_only, task_id)
+                return result + (task_id,)
+
             bilibili_button.click(
-                fn=bilibili_video_download_process,
+                fn=bilibili_process_wrapper,
                 inputs=[bilibili_input, llm_api_dropdown2, temp_slider2, token_slider2, text_only2],
-                outputs=[bilibili_output, bilibili_time, bilibili_time, download_zip2]
+                outputs=[bilibili_output, bilibili_time, bilibili_time, download_zip2, task_id_state2]
+            )
+
+            stop_button2.click(
+                fn=stop_task,
+                inputs=[task_id_state2],
+                outputs=[stop_status2]
             )
 
         with gr.Tab("批量处理B站链接"):
+            # 任务ID状态
+            task_id_state3 = gr.State(value=None)
+
             with gr.Row():
                 url_input = gr.Textbox(label="请输入B站视频链接，每个URL换行分隔")
             with gr.Row():
@@ -165,19 +201,39 @@ def create_app():
                 # 新增：仅返回纯文本(JSON)开关
                 text_only3 = gr.Checkbox(label="仅返回文本(JSON)",
                                          value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true")
-            batch_button = gr.Button("批量下载并处理")
+            with gr.Row():
+                batch_button = gr.Button("批量下载并处理", variant="primary")
+                stop_button3 = gr.Button("终止任务", variant="stop")
+
             batch_output = gr.Textbox(label="输出文件", interactive=False)
             batch_time = gr.Textbox(label="总下载+识别+润色用时（秒）", interactive=False)
+            stop_status3 = gr.Textbox(label="操作状态", interactive=False, visible=False)
+
             with gr.Row():
                 download_zip_batch = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
+            # 包装处理函数以生成和返回 task_id
+            def batch_process_wrapper(urls, llm_api, temp, tokens, text_only):
+                task_id = str(uuid.uuid4())
+                result = process_multiple_urls(urls, llm_api, temp, tokens, text_only, task_id)
+                return result[0:3] + (result[3], task_id)
+
             batch_button.click(
-                fn=process_multiple_urls,
+                fn=batch_process_wrapper,
                 inputs=[url_input, llm_api_dropdown3, temp_slider3, token_slider3, text_only3],
-                outputs=[batch_output, batch_time, batch_time, download_zip_batch]
+                outputs=[batch_output, batch_time, batch_time, download_zip_batch, task_id_state3]
+            )
+
+            stop_button3.click(
+                fn=stop_task,
+                inputs=[task_id_state3],
+                outputs=[stop_status3]
             )
 
         with gr.Tab("上传本地音频文件"):
+            # 任务ID状态
+            task_id_state1 = gr.State(value=None)
+
             with gr.Row():
                 audio_input = gr.File(label="选择本地音频文件（支持mp3/wav格式）")
             with gr.Row():
@@ -187,35 +243,73 @@ def create_app():
                 # 新增：仅返回纯文本(JSON)开关
                 text_only1 = gr.Checkbox(label="仅返回文本(JSON)",
                                          value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true")
-            upload_button = gr.Button("开始处理")
+            with gr.Row():
+                upload_button = gr.Button("开始处理", variant="primary")
+                stop_button1 = gr.Button("终止任务", variant="stop")
+
             upload_output = gr.Textbox(label="输出目录", interactive=False)
             upload_time = gr.Textbox(label="识别+润色用时（秒）", interactive=False)
+            stop_status1 = gr.Textbox(label="操作状态", interactive=False, visible=False)
 
             with gr.Row():
                 download_zip1 = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
+            # 包装处理函数以生成和返回 task_id
+            def upload_process_wrapper(audio_file, llm_api, temp, tokens, text_only):
+                task_id = str(uuid.uuid4())
+                result = upload_audio(audio_file, llm_api, temp, tokens, text_only, task_id)
+                return result + (task_id,)
+
             upload_button.click(
-                fn=upload_audio,
+                fn=upload_process_wrapper,
                 inputs=[audio_input, llm_api_dropdown1, temp_slider1, token_slider1, text_only1],
-                outputs=[upload_output, upload_time, upload_time, download_zip1]
+                outputs=[upload_output, upload_time, upload_time, download_zip1, task_id_state1]
+            )
+
+            stop_button1.click(
+                fn=stop_task,
+                inputs=[task_id_state1],
+                outputs=[stop_status1]
             )
 
         with gr.Tab("上传本地视频文件"):
+            # 任务ID状态
+            task_id_state_video = gr.State(value=None)
+
             with gr.Row():
                 video_input2 = gr.File(label="选择本地视频文件（支持mp4格式）")
-            video_button = gr.Button("提取音频并处理")
+            with gr.Row():
+                video_button = gr.Button("提取音频并处理", variant="primary")
+                stop_button_video = gr.Button("终止任务", variant="stop")
+
             video_output = gr.Textbox(label="输出目录", interactive=False)
             video_time = gr.Textbox(label="提取+识别+润色用时（秒）", interactive=False)
+            stop_status_video = gr.Textbox(label="操作状态", interactive=False, visible=False)
 
             with gr.Row():
                 download_zip_video = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
+            # 包装处理函数以生成和返回 task_id
+            def video_process_wrapper(vf, api, temp, tokens, text_only):
+                if vf:
+                    task_id = str(uuid.uuid4())
+                    result = upload_audio(
+                        extract_audio_from_video(vf), api, temp, tokens, text_only, task_id
+                    )
+                    return result + (task_id,)
+                else:
+                    return ("请上传一个视频文件。", None, None, None, None)
+
             video_button.click(
-                fn=lambda vf, api, temp, tokens, text_only: upload_audio(
-                    extract_audio_from_video(vf), api, temp, tokens, text_only
-                ) if vf else ("请上传一个视频文件。", None, None, None),
+                fn=video_process_wrapper,
                 inputs=[video_input2, llm_api_dropdown1, temp_slider1, token_slider1, text_only1],
-                outputs=[video_output, video_time, video_time, download_zip_video]
+                outputs=[video_output, video_time, video_time, download_zip_video, task_id_state_video]
+            )
+
+            stop_button_video.click(
+                fn=stop_task,
+                inputs=[task_id_state_video],
+                outputs=[stop_status_video]
             )
 
         with gr.Tab("自动添加字幕"):
