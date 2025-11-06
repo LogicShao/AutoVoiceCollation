@@ -50,6 +50,20 @@ class TaskManager:
         with self._flags_lock:
             return self._stop_flags.get(task_id, False)
 
+    def check_cancellation(self, task_id: str) -> None:
+        """
+        检查任务是否被取消，如果被取消则抛出异常
+
+        Args:
+            task_id: 任务ID
+
+        Raises:
+            TaskCancelledException: 任务已被取消
+        """
+        if self.should_stop(task_id):
+            logger.warning(f"Task cancellation detected: {task_id}")
+            raise TaskCancelledException(f"Task {task_id} has been cancelled")
+
     def remove_task(self, task_id: str) -> None:
         """移除任务"""
         with self._flags_lock:

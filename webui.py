@@ -8,7 +8,7 @@ from config import *
 from src.bilibili_downloader import extract_audio_from_video
 from src.core_process import (
     upload_audio, bilibili_video_download_process,
-    process_multiple_urls, process_subtitles
+    process_multiple_urls, generate_subtitles_advanced
 )
 from src.task_manager import get_task_manager
 
@@ -312,16 +312,170 @@ def create_app():
                 outputs=[stop_status_video]
             )
 
-        with gr.Tab("自动添加字幕"):
-            video_input = gr.File(label="选择视频文件（支持mp4格式）")
-            subtitle_button = gr.Button("添加字幕并下载")
-            dot_srt_file = gr.File(label="下载输出字幕文件（.srt）", interactive=False)
-            subtitle_download = gr.File(label="下载带字幕的视频", interactive=False)
+        with gr.Tab("字幕生成"):
+            gr.Markdown("## 🎬 字幕生成工具")
+            gr.Markdown("上传音频或视频文件，自动生成字幕文件。支持多种 ASR 模型和分段策略。")
 
-            subtitle_button.click(
-                fn=process_subtitles,
-                inputs=video_input,
-                outputs=[dot_srt_file, subtitle_download]
+            # 任务ID状态
+            task_id_state_subtitle = gr.State(value=None)
+
+            with gr.Row():
+                media_input = gr.File(label="选择媒体文件（支持音频：mp3/wav/flac 或 视频：mp4/avi/mov）")
+
+            with gr.Accordion("基本设置", open=True):
+                with gr.Row():
+                    file_type = gr.Dropdown(
+                        choices=['srt', 'cc'],
+                        value='srt',
+                        label="字幕格式"
+                    )
+                    asr_model = gr.Dropdown(
+                        choices=['paraformer', 'sense_voice'],
+                        value='paraformer',
+                        label="ASR 模型"
+                    )
+
+                with gr.Row():
+                    segmenter_type = gr.Dropdown(
+                        choices=[
+                            ('仅停顿', 'pause'),
+                            ('标点符号 + 停顿（推荐）', 'punctuation'),
+                            ('LLM 智能分段', 'llm')
+                        ],
+                        value='punctuation',
+                        label="分段策略",
+                        info="punctuation: 优先使用标点符号分段，更自然"
+                    )
+                    output_type = gr.Dropdown(
+                        choices=[
+                            ('仅生成字幕文件', 'subtitle_only'),
+                            ('生成字幕 + 硬编码到视频', 'video_with_subtitle')
+                        ],
+                        value='subtitle_only',
+                        label="输出类型",
+                        info="硬编码仅支持视频文件和 SRT 格式"
+                    )
+
+            with gr.Accordion("高级设置", open=False):
+                with gr.Row():
+                    llm_api_dropdown_subtitle = gr.Dropdown(
+                        choices=LLM_SERVER_SUPPORTED,
+                        value=LLM_SERVER,
+                        label="LLM 服务（用于 LLM 分段）"
+                    )
+
+                with gr.Row():
+                    pause_threshold = gr.Slider(
+                        minimum=0.1,
+                        maximum=2.0,
+                        step=0.1,
+                        value=0.6,
+                        label="停顿阈值（秒）",
+                        info="用于基于停顿的分段"
+                    )
+                    max_chars = gr.Slider(
+                        minimum=10,
+                        maximum=30,
+                        step=1,
+                        value=16,
+                        label="每段最大字符数"
+                    )
+
+                with gr.Row():
+                    batch_size_s = gr.Slider(
+                        minimum=1,
+                        maximum=30,
+                        step=1,
+                        value=5,
+                        label="SenseVoice 批处理大小（秒）",
+                        info="SenseVoice 模型使用"
+                    )
+                    paraformer_chunk_size_s = gr.Slider(
+                        minimum=10,
+                        maximum=120,
+                        step=10,
+                        value=30,
+                        label="Paraformer 分块大小（秒）",
+                        info="Paraformer 模型音频分块大小，影响时间精度"
+                    )
+
+            with gr.Row():
+                subtitle_gen_button = gr.Button("🎬 开始生成字幕", variant="primary", size="lg")
+                stop_button_subtitle = gr.Button("🛑 终止任务", variant="stop")
+
+            with gr.Row():
+                subtitle_status = gr.Textbox(
+                    label="处理状态",
+                    interactive=False,
+                    lines=5
+                )
+
+            with gr.Row():
+                with gr.Column():
+                    subtitle_file_output = gr.File(label="📄 下载字幕文件", interactive=False)
+                with gr.Column():
+                    video_with_subtitle_output = gr.File(label="🎥 下载带字幕视频", interactive=False)
+
+            stop_status_subtitle = gr.Textbox(label="操作状态", interactive=False, visible=False)
+
+            # 包装处理函数以生成和返回 task_id
+            def subtitle_gen_wrapper(
+                    media_file,
+                    file_type,
+                    model,
+                    segmenter_type,
+                    output_type,
+                    llm_api,
+                    pause_threshold,
+                    max_chars,
+                    batch_size_s,
+                    paraformer_chunk_size_s
+            ):
+                if media_file is None:
+                    return "请上传媒体文件", None, None, None
+
+                task_id = str(uuid.uuid4())
+                subtitle_path, video_path, info = generate_subtitles_advanced(
+                    media_file=media_file,
+                    file_type=file_type,
+                    model=model,
+                    segmenter_type=segmenter_type,
+                    output_type=output_type,
+                    api_server=llm_api if segmenter_type == 'llm' else None,
+                    pause_threshold=pause_threshold,
+                    max_chars=max_chars,
+                    batch_size_s=batch_size_s,
+                    paraformer_chunk_size_s=paraformer_chunk_size_s,
+                    task_id=task_id
+                )
+                return info, subtitle_path, video_path, task_id
+
+            subtitle_gen_button.click(
+                fn=subtitle_gen_wrapper,
+                inputs=[
+                    media_input,
+                    file_type,
+                    asr_model,
+                    segmenter_type,
+                    output_type,
+                    llm_api_dropdown_subtitle,
+                    pause_threshold,
+                    max_chars,
+                    batch_size_s,
+                    paraformer_chunk_size_s
+                ],
+                outputs=[
+                    subtitle_status,
+                    subtitle_file_output,
+                    video_with_subtitle_output,
+                    task_id_state_subtitle
+                ]
+            )
+
+            stop_button_subtitle.click(
+                fn=stop_task,
+                inputs=[task_id_state_subtitle],
+                outputs=[stop_status_subtitle]
             )
 
         with gr.Tab("系统配置"):
