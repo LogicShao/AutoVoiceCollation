@@ -1,0 +1,73 @@
+# ================================
+# Docker 构建时忽略的文件
+# ================================
+
+# Git 文件
+.git
+.gitignore
+.gitattributes
+
+# Python 缓存
+__pycache__/
+*.py[cod]
+*$py.class
+*.so
+.Python
+*.egg-info/
+dist/
+build/
+*.egg
+
+# 虚拟环境
+venv/
+env/
+ENV/
+.venv
+
+# IDE 配置
+.vscode/
+.idea/
+*.swp
+*.swo
+*.swn
+.DS_Store
+
+# 环境变量文件（通过挂载卷使用）
+.env
+.env.local
+.env.*.local
+
+# 日志文件
+logs/
+*.log
+
+# 输出和临时文件
+out/
+download/
+temp/
+models/
+
+# 测试文件
+tests/
+.pytest_cache/
+.coverage
+htmlcov/
+.tox/
+
+# 文档
+docs/
+*.md
+!README.md
+
+# Docker 相关
+Dockerfile*
+docker-compose*.yml
+.dockerignore
+
+# GitHub Actions
+.github/
+
+# 其他
+*.bak
+*.tmp
+nul

@@ -14,9 +14,36 @@
 - **多格式输出**: PDF / 图片 / 文本 / SRT 字幕
 - **三种使用方式**: CLI / Web UI / RESTful API
 
-> **性能提示**: 推荐使用 GPU 加速。详细技术文档请参考 [CLAUDE.md](CLAUDE.md)
+> **性能提示**: 推荐使用 GPU 加速。详细开发文档请参考 [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)
 
 ## 快速开始
+
+### 🐳 Docker 部署（推荐）
+
+**最简单的方式 - 一键启动：**
+
+```bash
+# 1. 克隆项目
+git clone https://github.com/LogicShao/AutoVoiceCollation
+cd AutoVoiceCollation
+
+# 2. 配置环境变量
+cp .env.example .env
+# 编辑 .env 文件，填入至少一个 LLM API Key
+
+# 3. 启动服务（自动检测 GPU）
+# Linux/Mac:
+./docker-start.sh start
+
+# Windows:
+docker-start.bat start
+
+# 访问 WebUI: http://localhost:7860
+```
+
+> 📚 **详细的 Docker 部署文档请查看**: [DOCKER.md](docs/DOCKER.md)
+
+### 💻 本地安装
 
 ```bash
 # 1. 克隆并进入项目
@@ -149,7 +176,7 @@ AutoVoiceCollation/
 └── .env.example         # 配置模板
 ```
 
-详细架构说明请参考 [CLAUDE.md](CLAUDE.md)
+详细架构说明请参考 [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)
 
 ## 常见问题
 
@@ -170,6 +197,22 @@ LOCAL_LLM_ENABLED=true
 LLM_SERVER=local:Qwen/Qwen2.5-1.5B-Instruct
 ```
 
+**Q: 如何使用 Docker 部署？**
+
+推荐使用 Docker 部署，可避免环境配置问题：
+
+```bash
+# 快速启动（自动检测 GPU）
+./docker-start.sh start        # Linux/Mac
+docker-start.bat start         # Windows
+
+# 仅使用 CPU
+./docker-start.sh start-cpu    # Linux/Mac
+docker-start.bat start-cpu     # Windows
+```
+
+详细说明请查看 [DOCKER.md](docs/DOCKER.md)
+
 **Q: API 服务如何部署？**
 ```bash
 # 直接运行
@@ -177,13 +220,16 @@ python api.py
 
 # 或使用 uvicorn 指定参数
 uvicorn api:app --host 0.0.0.0 --port 8000
+
+# Docker 部署
+docker compose up -d
 ```
 
 更多问题请查看 [Issues](https://github.com/LogicShao/AutoVoiceCollation/issues) 或提交新 Issue。
 
 ## 贡献与支持
 
-欢迎提交 Issue 和 Pull Request！开发文档请参考 [CLAUDE.md](CLAUDE.md)
+欢迎提交 Issue 和 Pull Request！开发文档请参考 [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)
 
 ## 许可证
 
@@ -198,4 +244,4 @@ MIT License
 
 ---
 
-**如需详细技术文档、架构说明或开发指南，请查看 [CLAUDE.md](CLAUDE.md)**
+**如需详细技术文档、架构说明或开发指南，请查看 [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)**

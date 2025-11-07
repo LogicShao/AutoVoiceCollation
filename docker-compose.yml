@@ -1,0 +1,97 @@
+# ================================
+# AutoVoiceCollation Docker Compose
+# ================================
+
+services:
+  # WebUI 服务
+  autovoicecollation-webui:
+    image: autovoicecollation:latest
+    container_name: avc-webui
+    build:
+      context: .
+      dockerfile: Dockerfile
+
+    # 端口映射（主机端口:容器端口）
+    ports:
+      - "7860:7860"
+
+    # 环境变量配置
+    # 方式1: 直接在这里配置
+    # environment:
+    #   - DEEPSEEK_API_KEY=your_key_here
+    #   - GEMINI_API_KEY=your_key_here
+    #   - LOG_LEVEL=INFO
+
+    # 方式2: 使用 .env 文件（推荐）
+    env_file:
+      - .env
+
+    # 卷挂载：持久化数据和缓存
+    volumes:
+      # 输出目录
+      - ./out:/app/out
+      # 下载目录
+      - ./download:/app/download
+      # 临时文件目录
+      - ./temp:/app/temp
+      # 日志目录
+      - ./logs:/app/logs
+      # 模型缓存目录（加速启动）
+      - ./models:/app/models
+      # 如果需要修改配置，可以挂载 .env 文件
+      # - ./.env:/app/.env
+
+    # GPU 支持（需要安装 nvidia-docker）
+    deploy:
+      resources:
+        reservations:
+          devices:
+            - driver: nvidia
+              count: all  # 使用所有 GPU
+              capabilities: [ gpu ]
+
+    # 重启策略
+    restart: unless-stopped
+
+    # 健康检查
+    healthcheck:
+      test: [ "CMD", "curl", "-f", "http://localhost:7860" ]
+      interval: 30s
+      timeout: 10s
+      retries: 3
+      start_period: 60s
+
+    # 网络模式
+    networks:
+      - avc-network
+
+  # 仅 CPU 版本（不需要 GPU）
+  autovoicecollation-webui-cpu:
+    image: autovoicecollation:cpu
+    container_name: avc-webui-cpu
+    build:
+      context: .
+      dockerfile: Dockerfile.cpu
+
+    ports:
+      - "7861:7860"
+
+    env_file:
+      - .env
+
+    volumes:
+      - ./out:/app/out
+      - ./download:/app/download
+      - ./temp:/app/temp
+      - ./logs:/app/logs
+      - ./models:/app/models
+
+    restart: unless-stopped
+
+    # 禁用此服务（如果不需要 CPU 版本）
+    profiles:
+      - cpu-only
+
+networks:
+  avc-network:
+    driver: bridge
