@@ -163,7 +163,12 @@ def create_app():
                 bilibili_button = gr.Button("下载并处理", variant="primary")
                 stop_button2 = gr.Button("终止任务", variant="stop")
 
-            bilibili_output = gr.Textbox(label="输出目录", interactive=False)
+            # 文本展示区域
+            with gr.Accordion("📝 处理结果文本", open=True):
+                asr_text_output2 = gr.Textbox(label="ASR 识别文本", interactive=False, lines=8)
+                polished_text_output2 = gr.Textbox(label="LLM 润色文本", interactive=False, lines=8)
+                summary_text_output2 = gr.Textbox(label="文本摘要", interactive=False, lines=6)
+
             bilibili_time = gr.Textbox(label="下载+识别+润色用时（秒）", interactive=False)
             stop_status2 = gr.Textbox(label="操作状态", interactive=False, visible=False)
 
@@ -174,12 +179,27 @@ def create_app():
             def bilibili_process_wrapper(url, llm_api, temp, tokens, text_only):
                 task_id = str(uuid.uuid4())
                 result = bilibili_video_download_process(url, llm_api, temp, tokens, text_only, task_id)
-                return result + (task_id,)
+                # result = (result_data, extract_time, polish_time, zip_file)
+                result_data, extract_time, polish_time, zip_file = result
+
+                # 处理返回数据
+                if isinstance(result_data, dict):
+                    asr_text = result_data.get("audio_text", "")
+                    polished_text = result_data.get("polished_text", "")
+                    summary_text = result_data.get("summary_text", "") or "未生成摘要"
+                else:
+                    # 错误情况
+                    asr_text = str(result_data)
+                    polished_text = ""
+                    summary_text = ""
+
+                return asr_text, polished_text, summary_text, extract_time, zip_file, task_id
 
             bilibili_button.click(
                 fn=bilibili_process_wrapper,
                 inputs=[bilibili_input, llm_api_dropdown2, temp_slider2, token_slider2, text_only2],
-                outputs=[bilibili_output, bilibili_time, bilibili_time, download_zip2, task_id_state2]
+                outputs=[asr_text_output2, polished_text_output2, summary_text_output2, bilibili_time, download_zip2,
+                         task_id_state2]
             )
 
             stop_button2.click(
@@ -205,7 +225,7 @@ def create_app():
                 batch_button = gr.Button("批量下载并处理", variant="primary")
                 stop_button3 = gr.Button("终止任务", variant="stop")
 
-            batch_output = gr.Textbox(label="输出文件", interactive=False)
+            batch_status = gr.Textbox(label="批量处理状态", interactive=False, lines=5)
             batch_time = gr.Textbox(label="总下载+识别+润色用时（秒）", interactive=False)
             stop_status3 = gr.Textbox(label="操作状态", interactive=False, visible=False)
 
@@ -216,12 +236,15 @@ def create_app():
             def batch_process_wrapper(urls, llm_api, temp, tokens, text_only):
                 task_id = str(uuid.uuid4())
                 result = process_multiple_urls(urls, llm_api, temp, tokens, text_only, task_id)
-                return result[0:3] + (result[3], task_id)
+                # result = (status_message, total_extract_time, total_polish_time, None, None, None)
+                status_message = result[0]
+                total_time = result[1]
+                return status_message, total_time, task_id
 
             batch_button.click(
                 fn=batch_process_wrapper,
                 inputs=[url_input, llm_api_dropdown3, temp_slider3, token_slider3, text_only3],
-                outputs=[batch_output, batch_time, batch_time, download_zip_batch, task_id_state3]
+                outputs=[batch_status, batch_time, task_id_state3]
             )
 
             stop_button3.click(
@@ -247,7 +270,12 @@ def create_app():
                 upload_button = gr.Button("开始处理", variant="primary")
                 stop_button1 = gr.Button("终止任务", variant="stop")
 
-            upload_output = gr.Textbox(label="输出目录", interactive=False)
+            # 文本展示区域
+            with gr.Accordion("📝 处理结果文本", open=True):
+                asr_text_output1 = gr.Textbox(label="ASR 识别文本", interactive=False, lines=8)
+                polished_text_output1 = gr.Textbox(label="LLM 润色文本", interactive=False, lines=8)
+                summary_text_output1 = gr.Textbox(label="文本摘要", interactive=False, lines=6)
+
             upload_time = gr.Textbox(label="识别+润色用时（秒）", interactive=False)
             stop_status1 = gr.Textbox(label="操作状态", interactive=False, visible=False)
 
@@ -258,12 +286,27 @@ def create_app():
             def upload_process_wrapper(audio_file, llm_api, temp, tokens, text_only):
                 task_id = str(uuid.uuid4())
                 result = upload_audio(audio_file, llm_api, temp, tokens, text_only, task_id)
-                return result + (task_id,)
+                # result = (result_data, extract_time, polish_time, zip_file)
+                result_data, extract_time, polish_time, zip_file = result
+
+                # 处理返回数据
+                if isinstance(result_data, dict):
+                    asr_text = result_data.get("audio_text", "")
+                    polished_text = result_data.get("polished_text", "")
+                    summary_text = result_data.get("summary_text", "") or "未生成摘要"
+                else:
+                    # 错误情况
+                    asr_text = str(result_data)
+                    polished_text = ""
+                    summary_text = ""
+
+                return asr_text, polished_text, summary_text, extract_time, zip_file, task_id
 
             upload_button.click(
                 fn=upload_process_wrapper,
                 inputs=[audio_input, llm_api_dropdown1, temp_slider1, token_slider1, text_only1],
-                outputs=[upload_output, upload_time, upload_time, download_zip1, task_id_state1]
+                outputs=[asr_text_output1, polished_text_output1, summary_text_output1, upload_time, download_zip1,
+                         task_id_state1]
             )
 
             stop_button1.click(
@@ -282,7 +325,12 @@ def create_app():
                 video_button = gr.Button("提取音频并处理", variant="primary")
                 stop_button_video = gr.Button("终止任务", variant="stop")
 
-            video_output = gr.Textbox(label="输出目录", interactive=False)
+            # 文本展示区域
+            with gr.Accordion("📝 处理结果文本", open=True):
+                asr_text_output_video = gr.Textbox(label="ASR 识别文本", interactive=False, lines=8)
+                polished_text_output_video = gr.Textbox(label="LLM 润色文本", interactive=False, lines=8)
+                summary_text_output_video = gr.Textbox(label="文本摘要", interactive=False, lines=6)
+
             video_time = gr.Textbox(label="提取+识别+润色用时（秒）", interactive=False)
             stop_status_video = gr.Textbox(label="操作状态", interactive=False, visible=False)
 
@@ -296,14 +344,29 @@ def create_app():
                     result = upload_audio(
                         extract_audio_from_video(vf), api, temp, tokens, text_only, task_id
                     )
-                    return result + (task_id,)
+                    # result = (result_data, extract_time, polish_time, zip_file)
+                    result_data, extract_time, polish_time, zip_file = result
+
+                    # 处理返回数据
+                    if isinstance(result_data, dict):
+                        asr_text = result_data.get("audio_text", "")
+                        polished_text = result_data.get("polished_text", "")
+                        summary_text = result_data.get("summary_text", "") or "未生成摘要"
+                    else:
+                        # 错误情况
+                        asr_text = str(result_data)
+                        polished_text = ""
+                        summary_text = ""
+
+                    return asr_text, polished_text, summary_text, extract_time, zip_file, task_id
                 else:
-                    return ("请上传一个视频文件。", None, None, None, None)
+                    return "请上传一个视频文件。", "", "", None, None, None
 
             video_button.click(
                 fn=video_process_wrapper,
                 inputs=[video_input2, llm_api_dropdown1, temp_slider1, token_slider1, text_only1],
-                outputs=[video_output, video_time, video_time, download_zip_video, task_id_state_video]
+                outputs=[asr_text_output_video, polished_text_output_video, summary_text_output_video, video_time,
+                         download_zip_video, task_id_state_video]
             )
 
             stop_button_video.click(

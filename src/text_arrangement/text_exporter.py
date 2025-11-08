@@ -157,21 +157,43 @@ def get_font_path() -> str:
     return font_path
 
 
-# 初始化字体
-try:
-    font_ttf_path = get_font_path()
-    pdfmetrics.registerFont(TTFont('ChineseFont', font_ttf_path))
-    addMapping('ChineseFont', 0, 0, 'ChineseFont')  # 正常字体
-    logger.info(f"成功加载字体: {font_ttf_path}")
-except Exception as e:
-    logger.error(f"字体加载失败: {e}")
-    raise
+# 初始化字体（延迟加载，不阻止应用启动）
+_font_initialized = False
+_font_error = None
+
+
+def _ensure_font_loaded():
+    """
+    确保字体已加载，如果失败则抛出异常
+    """
+    global _font_initialized, _font_error
+
+    if _font_initialized:
+        return  # 已加载成功
+
+    if _font_error is not None:
+        raise _font_error  # 之前加载失败
+
+    # 尝试加载字体
+    try:
+        font_ttf_path = get_font_path()
+        pdfmetrics.registerFont(TTFont('ChineseFont', font_ttf_path))
+        addMapping('ChineseFont', 0, 0, 'ChineseFont')  # 正常字体
+        logger.info(f"成功加载字体: {font_ttf_path}")
+        _font_initialized = True
+    except Exception as e:
+        logger.error(f"字体加载失败: {e}")
+        _font_error = e
+        raise
 
 
 def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model: str, LLM_info: str = "") -> str:
     """
     将文本转换为 PDF，并将每页转换为图片
     """
+    # 延迟加载字体（仅在实际需要生成 PDF 时）
+    _ensure_font_loaded()
+
     # TODO: 修复pdf中英文混合的排版问题
     os.makedirs(output_dir, exist_ok=True)
 
@@ -312,13 +334,16 @@ def text_to_one_image(txt: str, output_path: str, title: Optional[str] = None) -
     :param title: 文本标题（可选）
     :return: 输出文件路径
     """
+    # 延迟加载字体（仅在实际需要生成图片时）
+    _ensure_font_loaded()
+
     pre_text = _pre_text.format("")
     if title is None:
         txt = pre_text + txt
     else:
         txt = title + "\n\n" + pre_text + txt
 
-    font_path = font_ttf_path
+    font_path = get_font_path()  # 使用函数获取字体路径而不是全局变量
     font_size = 28
     line_spacing = 12
     paragraph_spacing = 30

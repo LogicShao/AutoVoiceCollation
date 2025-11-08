@@ -31,8 +31,13 @@ RUN apt-get update && apt-get install -y --no-install-recommends \
     libsndfile1 \
     fonts-wqy-zenhei \
     fonts-noto-cjk \
+    fontconfig \
+    && fc-cache -fv \
     && apt-get clean \
     && rm -rf /var/lib/apt/lists/*
+
+# 设置中文字体路径（指向已安装的字体）
+ENV CHINESE_FONT_PATH=/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
 
 # 配置 pip 使用清华大学镜像源（加速安装）
 RUN pip config set global.index-url https://pypi.tuna.tsinghua.edu.cn/simple/ && \

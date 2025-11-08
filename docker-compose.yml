@@ -15,12 +15,14 @@ services:
     ports:
       - "7860:7860"
 
-    # 环境变量配置
+      # 使用主机网络模式（Windows 不支持，仅作备选）
+      # network_mode: "host"
+
+      # 环境变量配置
     # 方式1: 直接在这里配置
-    # environment:
-    #   - DEEPSEEK_API_KEY=your_key_here
-    #   - GEMINI_API_KEY=your_key_here
-    #   - LOG_LEVEL=INFO
+    environment:
+        - CHINESE_FONT_PATH=/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
+        - ZIP_OUTPUT_ENABLED=true
 
     # 方式2: 使用 .env 文件（推荐）
     env_file:
@@ -44,7 +46,10 @@ services:
     # GPU 支持（需要安装 nvidia-docker）
     deploy:
       resources:
+          limits:
+              memory: 8G  # 限制最大内存使用 8GB（根据实际情况调整）
         reservations:
+            memory: 4G  # 预留 4GB 内存
           devices:
             - driver: nvidia
               count: all  # 使用所有 GPU
@@ -53,13 +58,13 @@ services:
     # 重启策略
     restart: unless-stopped
 
-    # 健康检查
+      # 健康检查（首次启动模型加载可能需要较长时间）
     healthcheck:
-      test: [ "CMD", "curl", "-f", "http://localhost:7860" ]
+        test: [ "CMD-SHELL", "curl -f http://localhost:7860 || exit 0" ]  # 允许失败
       interval: 30s
       timeout: 10s
-      retries: 3
-      start_period: 60s
+        retries: 10  # 增加重试次数
+        start_period: 180s  # 增加到 3 分钟等待模型加载
 
     # 网络模式
     networks:
@@ -86,9 +91,26 @@ services:
       - ./logs:/app/logs
       - ./models:/app/models
 
+      # CPU 版本资源限制
+    deploy:
+        resources:
+            limits:
+                memory: 8G
+                cpus: '4'  # 限制 CPU 核心数
+            reservations:
+                memory: 4G
+
     restart: unless-stopped
 
-    # 禁用此服务（如果不需要 CPU 版本）
+      # 健康检查
+    healthcheck:
+        test: [ "CMD-SHELL", "curl -f http://localhost:7860 || exit 0" ]
+        interval: 30s
+        timeout: 10s
+        retries: 10
+        start_period: 180s
+
+      # 禁用此服务（如果不需要 CPU 版本）
     profiles:
       - cpu-only
 

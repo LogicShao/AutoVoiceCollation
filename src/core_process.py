@@ -126,7 +126,9 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
                 "extract_time": extract_time,
                 "polish_time": polish_time,
                 "audio_text": audio_text,
-                "polished_text": polished_text
+                "polished_text": polished_text,
+                "summary_text": None,
+                "output_dir": output_dir
             }
             json_file_path = os.path.join(output_dir, "result.json")
             with open(json_file_path, "w", encoding="utf-8") as f:
@@ -153,7 +155,16 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
         logger.info(f"Summary text saved to {md_file_path}")
         zip_file = zip_output_dir(output_dir)
         logger.info('all done')
-        return output_dir, extract_time, polish_time, zip_file
+
+        # 构建返回数据，包含文本内容和输出路径
+        result_data = {
+            "title": audio_file.title,
+            "output_dir": output_dir,
+            "audio_text": audio_text,
+            "polished_text": polished_text,
+            "summary_text": summary_text
+        }
+        return result_data, extract_time, polish_time, zip_file
 
     except TaskCancelledException as e:
         logger.warning(f"Task cancelled: {e}")
