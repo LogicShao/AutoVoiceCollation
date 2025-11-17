@@ -45,14 +45,23 @@ python api.py
 
 ```bash
 # 一键启动（自动检测 GPU/CPU）
-./docker-start.sh start           # Linux/Mac
-docker-start.bat start            # Windows
+./scripts/docker-start.sh start       # Linux/Mac
+docker-start.bat start                # Windows
 
-# 手动启动
-docker compose build
-docker compose up -d
+# 手动启动 - CPU 版本（推荐，无需 NVIDIA GPU）
+docker compose --profile cpu-only build
+docker compose --profile cpu-only up -d
+# 访问: http://localhost:7861
+
+# 手动启动 - GPU 版本（需要 nvidia-docker）
+docker compose --profile gpu build
+docker compose --profile gpu up -d
+# 访问: http://localhost:7860
+
+# 通用操作
 docker compose logs -f            # 查看日志
 docker compose down               # 停止服务
+docker compose ps                 # 查看容器状态
 ```
 
 ### 测试
@@ -62,6 +71,8 @@ pytest tests/test_api.py::test_name -v   # 运行单个测试
 pytest --cov=src tests/                   # 测试覆盖率
 pytest -m "not slow and not integration"  # 跳过慢速/集成测试
 pytest --lf                               # 仅运行上次失败的测试
+pytest -s                                 # 显示打印输出（已在 pytest.ini 中默认启用）
+pytest -k "test_pattern"                  # 运行匹配模式的测试
 ```
 
 ### 常用开发任务
@@ -74,9 +85,31 @@ tail -f logs/AutoVoiceCollation.log  # 查看日志
 ./test-mirrors.bat                # 测试镜像源速度
 ./diagnose-network.bat            # 网络诊断
 ./add-firewall-rule.bat           # 添加防火墙规则
+
+# Docker 辅助脚本（Linux/Mac）
+./scripts/docker-start.sh start       # 自动检测 GPU 并启动
+./scripts/docker-start.sh start-cpu   # 强制 CPU 模式
+./scripts/docker-start.sh logs        # 查看日志
+./scripts/docker-start.sh clean       # 清理容器和镜像
+./scripts/verify-font.sh              # 验证容器字体配置
+./scripts/test-mirrors.sh             # 测试 Ubuntu 镜像源速度
 ```
 
 ## 核心架构
+
+### 数据流处理管道
+
+```
+输入源 → 下载/上传 → ASR 转录 → 文本分段 → LLM 润色 → 格式化导出
+  ↓          ↓          ↓         ↓         ↓          ↓
+BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
+或本地文件  downloader  audio_text text.py  by_llm.py  (PDF/图片/字幕)
+         .py         .py                 (异步)
+```
+
+**关键检查点**（任务取消）:
+- `process_audio()` 在每个主要步骤前调用 `task_manager.should_stop()`
+- 捕获 `TaskCancelledException` 以清理资源
 
 ### 关键模块
 
@@ -88,6 +121,8 @@ tail -f logs/AutoVoiceCollation.log  # 查看日志
 - **`src/subtitle_generator.py`**: 字幕生成和视频硬编码（支持 SRT 格式和字幕烧录）
 - **`src/task_manager.py`**: 任务终止系统（单例模式），支持用户主动取消任务
 - **`src/device_manager.py`**: 设备检测和管理（CPU/GPU 自动检测，ONNX Runtime 配置）
+- **`src/logger.py`**: 统一日志系统，支持彩色输出和第三方库日志级别控制
+- **`src/bilibili_downloader.py`**: B站视频下载（使用 yt-dlp），包含 `BiliVideoFile` 数据类
 
 ### 配置系统（config.py）
 
@@ -120,7 +155,9 @@ tail -f logs/AutoVoiceCollation.log  # 查看日志
     - 创建任务: `create_task(task_id)`
     - 请求停止: `stop_task(task_id)`
     - 检查取消: `check_cancellation(task_id)` - 抛出 `TaskCancelledException`
+    - 查询状态: `should_stop(task_id)` - 返回布尔值
 - **集成位置**: 在 `core_process.py` 的关键步骤（下载、ASR、LLM）插入检查点
+- **异常处理**: 所有处理流程都应捕获 `TaskCancelledException` 以优雅地终止任务
 
 ### LLM 集成策略（query_llm.py）
 
@@ -156,11 +193,34 @@ tail -f logs/AutoVoiceCollation.log  # 查看日志
     - 支持自定义提供者配置（通过 `.env` 的 `ONNX_PROVIDERS`）
 - **调试工具**: `print_device_info()` - 打印 PyTorch/CUDA/ONNX Runtime 版本信息
 
+### 输出文件结构
+
+处理完成后，输出目录结构如下（以 `out/video_name/` 为例）：
+
+```
+out/video_name/
+├── video_info.txt              # 视频元数据（标题、UP主、时长等）
+├── audio_transcription.txt     # ASR 原始转录文本
+├── polish_text.txt             # LLM 润色后的文本
+├── summary_text.md             # 内容摘要（如启用）
+├── output.pdf                  # 最终 PDF 输出（根据 OUTPUT_STYLE 配置）
+├── output_images/              # 图片输出（如启用）
+│   ├── page_1.png
+│   └── ...
+├── subtitle.srt                # 字幕文件（如生成）
+└── video_with_subtitle.mp4     # 带字幕视频（如生成）
+```
+
+**配置控制** (`.env`):
+- `OUTPUT_STYLE`: `pdf_only`, `pdf_with_img`, `img_only`, `text_only`
+- `ZIP_OUTPUT_ENABLED`: 是否自动打包为 ZIP
+
 ## 开发规范
 
 ### 代码风格
 
 - **命名**: 函数 `snake_case`，类 `PascalCase`，常量 `UPPER_CASE`
+- **类型提示**: 推荐使用类型注解，参考 `query_llm.py` 中的 `LLMQueryParams` dataclass
 - **日志**:
   ```python
   from src.logger import get_logger
@@ -170,8 +230,12 @@ tail -f logs/AutoVoiceCollation.log  # 查看日志
   logger.info("一般流程信息")
   logger.error("错误信息", exc_info=True)  # 包含堆栈跟踪
   ```
-- **异常处理**: 始终捕获异常并记录详细日志
+- **异常处理**:
+    - 始终捕获异常并记录详细日志
+    - 使用 `TaskCancelledException` 处理任务取消
+    - 在 API 端点中返回合适的 HTTP 状态码
 - **注释语言**: 与现有代码库保持一致（主要为中文）
+- **文档字符串**: 函数/类应包含 docstring，说明参数、返回值和可能的异常
 
 ### 添加新 LLM 服务
 
@@ -196,6 +260,66 @@ tail -f logs/AutoVoiceCollation.log  # 查看日志
     - `conftest.py` 自动 mock 重型依赖（torch, funasr, transformers）
     - 使用 `pytest-mock` 或 `responses` 库 mock 外部 API
     - LLM API mock 返回固定响应（避免真实 API 调用）
+- **环境隔离**: 测试使用独立的临时目录（`/tmp/autovoicecollation_test_*`）
+- **字体处理**: 测试环境自动创建 fake 字体文件避免 PDF 生成错误
+
+### 性能优化指南
+
+**ASR 性能优化**:
+- **GPU 加速**: 确保 `DEVICE=auto` 或 `DEVICE=cuda`，使用 `nvidia-smi` 监控 GPU 使用
+- **ONNX Runtime**: 启用 `USE_ONNX=true` 可提高推理速度（需安装 `onnxruntime-gpu`）
+- **批处理大小**: 调整 `src/extract_audio_text.py` 中的 `batch_size_s` 参数（默认 300 秒）
+- **模型选择**: SenseVoice 速度更快但精度略低，Paraformer 精度高但需更多显存
+
+**LLM 性能优化**:
+- **异步调用**: 确保 `ASYNC_FLAG=true` 启用并发 LLM 请求（默认启用）
+- **速率限制**: 调整 `polish_by_llm.py` 中的 `RateLimiter` 参数（默认 10 req/min）
+- **文本分段**: 调整 `SPLIT_LIMIT` 配置（默认 6000 字符），避免超过 LLM token 限制
+- **提供商选择**: Cerebras 最快，Gemini 性价比高，DeepSeek 深度推理强
+- **本地 LLM**: 使用 `local:*` 模型避免网络延迟，但需强大的本地算力
+
+**系统级优化**:
+- **缓存模型**: 设置 `MODEL_DIR=./models` 避免重复下载 FunASR 模型
+- **并行处理**: API 模式天然支持多任务并发（FastAPI `BackgroundTasks`）
+- **输出格式**: `OUTPUT_STYLE=text_only` 最快，`pdf_with_img` 最慢
+- **禁用功能**: 不需要时关闭 `DISABLE_LLM_POLISH=true` 或 `DISABLE_LLM_SUMMARY=true`
+
+### 调试技巧
+
+**日志调试**:
+```bash
+# 调整日志级别（在 .env 中）
+LOG_LEVEL=DEBUG              # 详细调试信息
+THIRD_PARTY_LOG_LEVEL=DEBUG  # 第三方库日志（FunASR, transformers 等）
+
+# 实时查看日志
+tail -f logs/AutoVoiceCollation.log
+
+# 日志输出控制
+LOG_CONSOLE_OUTPUT=true      # 控制台输出
+LOG_COLORED_OUTPUT=true      # 彩色日志
+```
+
+**常见调试场景**:
+1. **ASR 识别问题**:
+   - 检查 `audio_transcription.txt` 原始输出
+   - 验证音频格式和采样率
+   - 尝试切换 `ASR_MODEL` (paraformer ↔ sense_voice)
+
+2. **LLM 调用失败**:
+   - 检查 API Key 是否有效: `src/load_api_key.py` 会在启动时验证
+   - 查看日志中的 HTTP 错误码和响应内容
+   - 使用 `DEBUG_FLAG=true` 启用详细的 API 请求日志
+
+3. **Docker 容器问题**:
+   - 查看容器日志: `docker compose logs -f`
+   - 进入容器调试: `docker exec -it avc-webui bash`
+   - 验证环境变量: `docker exec avc-webui printenv`
+
+4. **GPU 未被使用**:
+   - 运行设备检测: `python -c "from src.device_manager import print_device_info; print_device_info()"`
+   - 检查 NVIDIA 驱动: `nvidia-smi`
+   - 验证 PyTorch CUDA: `python -c "import torch; print(torch.cuda.is_available())"`
 
 ## 常见问题处理
 

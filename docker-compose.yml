@@ -46,10 +46,10 @@ services:
     # GPU 支持（需要安装 nvidia-docker）
     deploy:
       resources:
-          limits:
-              memory: 8G  # 限制最大内存使用 8GB（根据实际情况调整）
+        limits:
+          memory: 8G  # 限制最大内存使用 8GB（根据实际情况调整）
         reservations:
-            memory: 4G  # 预留 4GB 内存
+          memory: 4G  # 预留 4GB 内存
           devices:
             - driver: nvidia
               count: all  # 使用所有 GPU
@@ -58,17 +58,21 @@ services:
     # 重启策略
     restart: unless-stopped
 
-      # 健康检查（首次启动模型加载可能需要较长时间）
+    # 健康检查（首次启动模型加载可能需要较长时间）
     healthcheck:
-        test: [ "CMD-SHELL", "curl -f http://localhost:7860 || exit 0" ]  # 允许失败
+      test: [ "CMD-SHELL", "curl -f http://localhost:7860 || exit 0" ]  # 允许失败
       interval: 30s
       timeout: 10s
-        retries: 10  # 增加重试次数
-        start_period: 180s  # 增加到 3 分钟等待模型加载
+      retries: 10  # 增加重试次数
+      start_period: 180s  # 增加到 3 分钟等待模型加载
 
     # 网络模式
     networks:
       - avc-network
+
+    # 仅当显式启动 GPU 版本时使用
+    profiles:
+      - gpu
 
   # 仅 CPU 版本（不需要 GPU）
   autovoicecollation-webui-cpu:
@@ -91,26 +95,26 @@ services:
       - ./logs:/app/logs
       - ./models:/app/models
 
-      # CPU 版本资源限制
+    # CPU 版本资源限制
     deploy:
-        resources:
-            limits:
-                memory: 8G
-                cpus: '4'  # 限制 CPU 核心数
-            reservations:
-                memory: 4G
+      resources:
+        limits:
+          memory: 8G
+          cpus: '4'  # 限制 CPU 核心数
+        reservations:
+          memory: 4G
 
     restart: unless-stopped
 
-      # 健康检查
+    # 健康检查
     healthcheck:
-        test: [ "CMD-SHELL", "curl -f http://localhost:7860 || exit 0" ]
-        interval: 30s
-        timeout: 10s
-        retries: 10
-        start_period: 180s
+      test: [ "CMD-SHELL", "curl -f http://localhost:7860 || exit 0" ]
+      interval: 30s
+      timeout: 10s
+      retries: 10
+      start_period: 180s
 
-      # 禁用此服务（如果不需要 CPU 版本）
+    # 禁用此服务（如果不需要 CPU 版本）
     profiles:
       - cpu-only
 

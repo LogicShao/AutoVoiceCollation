@@ -18,8 +18,15 @@ ENV PYTHONUNBUFFERED=1 \
 # - 阿里云：mirrors.aliyun.com
 # - 中科大：mirrors.ustc.edu.cn
 # - 网易：mirrors.163.com
-RUN sed -i 's@//.*archive.ubuntu.com@//mirrors.tuna.tsinghua.edu.cn@g' /etc/apt/sources.list && \
-    sed -i 's@//.*security.ubuntu.com@//mirrors.tuna.tsinghua.edu.cn@g' /etc/apt/sources.list
+# 兼容新旧版本的 Ubuntu APT 源配置
+RUN if [ -f /etc/apt/sources.list ]; then \
+        sed -i 's@//.*archive.ubuntu.com@//mirrors.tuna.tsinghua.edu.cn@g' /etc/apt/sources.list && \
+        sed -i 's@//.*security.ubuntu.com@//mirrors.tuna.tsinghua.edu.cn@g' /etc/apt/sources.list; \
+    fi && \
+    if [ -f /etc/apt/sources.list.d/ubuntu.sources ]; then \
+        sed -i 's@URIs: http://archive.ubuntu.com@URIs: http://mirrors.tuna.tsinghua.edu.cn@g' /etc/apt/sources.list.d/ubuntu.sources && \
+        sed -i 's@URIs: http://security.ubuntu.com@URIs: http://mirrors.tuna.tsinghua.edu.cn@g' /etc/apt/sources.list.d/ubuntu.sources; \
+    fi
 
 # 安装系统依赖（FFmpeg 和其他必需工具）
 RUN apt-get update && apt-get install -y --no-install-recommends \
