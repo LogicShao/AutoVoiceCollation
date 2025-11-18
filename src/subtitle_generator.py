@@ -1059,7 +1059,7 @@ def hard_encode_dot_srt_file(
 if __name__ == "__main__":
     import sys
     from src.bilibili_downloader import extract_audio_from_video, download_bilibili_video
-    from config import DOWNLOAD_DIR
+    from src.config import DOWNLOAD_DIR
 
     # 获取视频
     use_local = input("是否使用本地视频? (y/n): ").strip().lower()

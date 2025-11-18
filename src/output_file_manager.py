@@ -1,7 +1,7 @@
 import os
 import shutil
 
-from config import OUTPUT_DIR
+from src.config import OUTPUT_DIR
 from src.logger import get_logger
 
 logger = get_logger(__name__)

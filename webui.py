@@ -4,7 +4,7 @@ import uuid
 
 import gradio as gr
 
-from config import *
+from src.config import *
 from src.bilibili_downloader import extract_audio_from_video
 from src.core_process import (
     upload_audio, bilibili_video_download_process,
@@ -23,6 +23,14 @@ def stop_task(task_id):
         task_manager.stop_task(task_id)
         return f"已请求终止任务: {task_id}"
     return "没有正在运行的任务"
+
+
+# 生成并创建任务ID
+def generate_task_id():
+    """生成新的任务ID并在任务管理器中创建"""
+    task_id = str(uuid.uuid4())
+    task_manager.create_task(task_id)
+    return task_id
 
 
 # 配置管理函数
@@ -170,14 +178,16 @@ def create_app():
                 summary_text_output2 = gr.Textbox(label="文本摘要", interactive=False, lines=6)
 
             bilibili_time = gr.Textbox(label="下载+识别+润色用时（秒）", interactive=False)
-            stop_status2 = gr.Textbox(label="操作状态", interactive=False, visible=False)
+            stop_status2 = gr.Textbox(label="终止状态", interactive=False)
 
             with gr.Row():
                 download_zip2 = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
-            # 包装处理函数以生成和返回 task_id
-            def bilibili_process_wrapper(url, llm_api, temp, tokens, text_only):
-                task_id = str(uuid.uuid4())
+            # 包装处理函数（接收 task_id 作为参数）
+            def bilibili_process_wrapper(url, llm_api, temp, tokens, text_only, task_id):
+                # task_id 已在外部生成并创建
+                yield "处理中...", "", "", "", None
+
                 result = bilibili_video_download_process(url, llm_api, temp, tokens, text_only, task_id)
                 # result = (result_data, extract_time, polish_time, zip_file)
                 result_data, extract_time, polish_time, zip_file = result
@@ -193,13 +203,17 @@ def create_app():
                     polished_text = ""
                     summary_text = ""
 
-                return asr_text, polished_text, summary_text, extract_time, zip_file, task_id
+                yield asr_text, polished_text, summary_text, extract_time, zip_file
 
+            # 先生成 task_id，再启动处理（确保 task_id 已保存到状态，方便终止）
             bilibili_button.click(
+                fn=generate_task_id,
+                inputs=[],
+                outputs=[task_id_state2]
+            ).then(
                 fn=bilibili_process_wrapper,
-                inputs=[bilibili_input, llm_api_dropdown2, temp_slider2, token_slider2, text_only2],
-                outputs=[asr_text_output2, polished_text_output2, summary_text_output2, bilibili_time, download_zip2,
-                         task_id_state2]
+                inputs=[bilibili_input, llm_api_dropdown2, temp_slider2, token_slider2, text_only2, task_id_state2],
+                outputs=[asr_text_output2, polished_text_output2, summary_text_output2, bilibili_time, download_zip2]
             )
 
             stop_button2.click(
@@ -227,24 +241,31 @@ def create_app():
 
             batch_status = gr.Textbox(label="批量处理状态", interactive=False, lines=5)
             batch_time = gr.Textbox(label="总下载+识别+润色用时（秒）", interactive=False)
-            stop_status3 = gr.Textbox(label="操作状态", interactive=False, visible=False)
+            stop_status3 = gr.Textbox(label="终止状态", interactive=False)
 
             with gr.Row():
                 download_zip_batch = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
-            # 包装处理函数以生成和返回 task_id
-            def batch_process_wrapper(urls, llm_api, temp, tokens, text_only):
-                task_id = str(uuid.uuid4())
+            # 包装处理函数（接收 task_id 作为参数）
+            def batch_process_wrapper(urls, llm_api, temp, tokens, text_only, task_id):
+                # task_id 已在外部生成并创建
+                yield "批量处理中...", ""
+
                 result = process_multiple_urls(urls, llm_api, temp, tokens, text_only, task_id)
                 # result = (status_message, total_extract_time, total_polish_time, None, None, None)
                 status_message = result[0]
                 total_time = result[1]
-                return status_message, total_time, task_id
+                yield status_message, total_time
 
+            # 先生成 task_id，再启动处理（确保 task_id 已保存到状态，方便终止）
             batch_button.click(
+                fn=generate_task_id,
+                inputs=[],
+                outputs=[task_id_state3]
+            ).then(
                 fn=batch_process_wrapper,
-                inputs=[url_input, llm_api_dropdown3, temp_slider3, token_slider3, text_only3],
-                outputs=[batch_status, batch_time, task_id_state3]
+                inputs=[url_input, llm_api_dropdown3, temp_slider3, token_slider3, text_only3, task_id_state3],
+                outputs=[batch_status, batch_time]
             )
 
             stop_button3.click(
@@ -277,14 +298,16 @@ def create_app():
                 summary_text_output1 = gr.Textbox(label="文本摘要", interactive=False, lines=6)
 
             upload_time = gr.Textbox(label="识别+润色用时（秒）", interactive=False)
-            stop_status1 = gr.Textbox(label="操作状态", interactive=False, visible=False)
+            stop_status1 = gr.Textbox(label="终止状态", interactive=False)
 
             with gr.Row():
                 download_zip1 = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
-            # 包装处理函数以生成和返回 task_id
-            def upload_process_wrapper(audio_file, llm_api, temp, tokens, text_only):
-                task_id = str(uuid.uuid4())
+            # 包装处理函数（接收 task_id 作为参数）
+            def upload_process_wrapper(audio_file, llm_api, temp, tokens, text_only, task_id):
+                # task_id 已在外部生成并创建
+                yield "处理中...", "", "", "", None
+
                 result = upload_audio(audio_file, llm_api, temp, tokens, text_only, task_id)
                 # result = (result_data, extract_time, polish_time, zip_file)
                 result_data, extract_time, polish_time, zip_file = result
@@ -300,13 +323,17 @@ def create_app():
                     polished_text = ""
                     summary_text = ""
 
-                return asr_text, polished_text, summary_text, extract_time, zip_file, task_id
+                yield asr_text, polished_text, summary_text, extract_time, zip_file
 
+            # 先生成 task_id，再启动处理（确保 task_id 已保存到状态，方便终止）
             upload_button.click(
+                fn=generate_task_id,
+                inputs=[],
+                outputs=[task_id_state1]
+            ).then(
                 fn=upload_process_wrapper,
-                inputs=[audio_input, llm_api_dropdown1, temp_slider1, token_slider1, text_only1],
-                outputs=[asr_text_output1, polished_text_output1, summary_text_output1, upload_time, download_zip1,
-                         task_id_state1]
+                inputs=[audio_input, llm_api_dropdown1, temp_slider1, token_slider1, text_only1, task_id_state1],
+                outputs=[asr_text_output1, polished_text_output1, summary_text_output1, upload_time, download_zip1]
             )
 
             stop_button1.click(
@@ -332,15 +359,17 @@ def create_app():
                 summary_text_output_video = gr.Textbox(label="文本摘要", interactive=False, lines=6)
 
             video_time = gr.Textbox(label="提取+识别+润色用时（秒）", interactive=False)
-            stop_status_video = gr.Textbox(label="操作状态", interactive=False, visible=False)
+            stop_status_video = gr.Textbox(label="终止状态", interactive=False)
 
             with gr.Row():
                 download_zip_video = gr.File(label="下载打包结果（ZIP）", interactive=False)
 
-            # 包装处理函数以生成和返回 task_id
-            def video_process_wrapper(vf, api, temp, tokens, text_only):
+            # 包装处理函数（接收 task_id 作为参数）
+            def video_process_wrapper(vf, api, temp, tokens, text_only, task_id):
                 if vf:
-                    task_id = str(uuid.uuid4())
+                    # task_id 已在外部生成并创建
+                    yield "提取音频并处理中...", "", "", "", None
+
                     result = upload_audio(
                         extract_audio_from_video(vf), api, temp, tokens, text_only, task_id
                     )
@@ -358,15 +387,21 @@ def create_app():
                         polished_text = ""
                         summary_text = ""
 
-                    return asr_text, polished_text, summary_text, extract_time, zip_file, task_id
+                    total_time = extract_time + polish_time if isinstance(polish_time, (int, float)) else extract_time
+                    yield asr_text, polished_text, summary_text, total_time, zip_file
                 else:
-                    return "请上传一个视频文件。", "", "", None, None, None
+                    yield "请上传一个视频文件。", "", "", None, None
 
+            # 先生成 task_id，再启动处理（确保 task_id 已保存到状态，方便终止）
             video_button.click(
+                fn=generate_task_id,
+                inputs=[],
+                outputs=[task_id_state_video]
+            ).then(
                 fn=video_process_wrapper,
-                inputs=[video_input2, llm_api_dropdown1, temp_slider1, token_slider1, text_only1],
+                inputs=[video_input2, llm_api_dropdown1, temp_slider1, token_slider1, text_only1, task_id_state_video],
                 outputs=[asr_text_output_video, polished_text_output_video, summary_text_output_video, video_time,
-                         download_zip_video, task_id_state_video]
+                         download_zip_video]
             )
 
             stop_button_video.click(
@@ -479,9 +514,9 @@ def create_app():
                 with gr.Column():
                     video_with_subtitle_output = gr.File(label="🎥 下载带字幕视频", interactive=False)
 
-            stop_status_subtitle = gr.Textbox(label="操作状态", interactive=False, visible=False)
+            stop_status_subtitle = gr.Textbox(label="终止状态", interactive=False)
 
-            # 包装处理函数以生成和返回 task_id
+            # 包装处理函数（接收 task_id 作为参数）
             def subtitle_gen_wrapper(
                     media_file,
                     file_type,
@@ -492,12 +527,16 @@ def create_app():
                     pause_threshold,
                     max_chars,
                     batch_size_s,
-                    paraformer_chunk_size_s
+                    paraformer_chunk_size_s,
+                    task_id
             ):
                 if media_file is None:
-                    return "请上传媒体文件", None, None, None
+                    yield "请上传媒体文件", None, None
+                    return
 
-                task_id = str(uuid.uuid4())
+                # task_id 已在外部生成并创建
+                yield "正在生成字幕...", None, None
+
                 subtitle_path, video_path, info = generate_subtitles_advanced(
                     media_file=media_file,
                     file_type=file_type,
@@ -511,9 +550,14 @@ def create_app():
                     paraformer_chunk_size_s=paraformer_chunk_size_s,
                     task_id=task_id
                 )
-                return info, subtitle_path, video_path, task_id
+                yield info, subtitle_path, video_path
 
+            # 先生成 task_id，再启动处理（确保 task_id 已保存到状态，方便终止）
             subtitle_gen_button.click(
+                fn=generate_task_id,
+                inputs=[],
+                outputs=[task_id_state_subtitle]
+            ).then(
                 fn=subtitle_gen_wrapper,
                 inputs=[
                     media_input,
@@ -525,13 +569,13 @@ def create_app():
                     pause_threshold,
                     max_chars,
                     batch_size_s,
-                    paraformer_chunk_size_s
+                    paraformer_chunk_size_s,
+                    task_id_state_subtitle
                 ],
                 outputs=[
                     subtitle_status,
                     subtitle_file_output,
-                    video_with_subtitle_output,
-                    task_id_state_subtitle
+                    video_with_subtitle_output
                 ]
             )
 

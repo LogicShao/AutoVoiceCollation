@@ -108,12 +108,15 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
 ```
 
 **关键检查点**（任务取消）:
-- `process_audio()` 在每个主要步骤前调用 `task_manager.should_stop()`
+- 每个长时间运行的操作都必须传入 `task_id` 参数并在关键点检查取消
+- `process_audio()` 在每个主要步骤前调用 `task_manager.should_stop(task_id)`
+- `extract_audio_text()` 在模型加载前后都检查取消（`task_manager.check_cancellation(task_id)`）
+- `polish_text()` 在处理每个文本段落前检查取消
 - 捕获 `TaskCancelledException` 以清理资源
 
 ### 关键模块
 
-- **`config.py`**: 环境变量加载和配置管理（类型转换、验证）
+- **`src/config.py`**: 环境变量加载和配置管理（类型转换、验证）
 - **`src/core_process.py`**: 流程编排入口，包含 `process_audio()`, `bilibili_video_download_process()`
 - **`src/extract_audio_text.py`**: ASR 识别（FunASR），支持 Paraformer 和 SenseVoice 模型
 - **`src/text_arrangement/query_llm.py`**: LLM 统一接口（策略模式），路由到不同 LLM 提供商
@@ -124,9 +127,9 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
 - **`src/logger.py`**: 统一日志系统，支持彩色输出和第三方库日志级别控制
 - **`src/bilibili_downloader.py`**: B站视频下载（使用 yt-dlp），包含 `BiliVideoFile` 数据类
 
-### 配置系统（config.py）
+### 配置系统（src/config.py）
 
-- **加载机制**: `.env` 文件通过 `_get_env()` 函数加载，支持类型转换（`bool`, `int`, `float`, `Path`）和自定义验证
+- **加载机��**: `.env` 文件通过 `_get_env()` 函数加载，支持类型转换（`bool`, `int`, `float`, `Path`）和自定义验证
 - **关键配置**:
     - `ASR_MODEL`: `paraformer`（高精度）或 `sense_voice`（快速/多语言）
     - `LLM_SERVER`: 当前使用的 LLM 服务（支持：`deepseek-chat`, `gemini-2.0-flash`, `qwen3-plus`, `Cerebras:*`, `local:*`）
@@ -148,7 +151,7 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
     - `GET /api/v1/download/{task_id}` - 下载结果文件
 - **异步处理**: 使用 FastAPI `BackgroundTasks` 启动后台任务
 
-### 任务终止系统（task_manager.py）
+### 任务终止系统（src/task_manager.py）
 
 - **设计模式**: 单例模式，通过 `get_task_manager()` 获取全局实例
 - **功能**:
@@ -156,10 +159,17 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
     - 请求停止: `stop_task(task_id)`
     - 检查取消: `check_cancellation(task_id)` - 抛出 `TaskCancelledException`
     - 查询状态: `should_stop(task_id)` - 返回布尔值
-- **集成位置**: 在 `core_process.py` 的关键步骤（下载、ASR、LLM）插入检查点
+- **集成位置**:
+    - `core_process.py`: 在下载、ASR、LLM、导出等步骤之间
+    - `extract_audio_text.py`: 在模型加载前后、推理前
+    - `polish_by_llm.py`: 在处理每个文本段落前（同步和异步模式）
 - **异常处理**: 所有处理流程都应捕获 `TaskCancelledException` 以优雅地终止任务
+- **关键实现细节**:
+    - 长时间运行的操作（如模型加载）后必须再次检查取消
+    - 在循环中处理批量数据时，每次迭代前都应检查取消
+    - 异步处理中，在 `await` 操作前检查取消
 
-### LLM 集成策略（query_llm.py）
+### LLM 集成策略（src/text_arrangement/query_llm.py）
 
 - **支持的服务**:
     - DeepSeek (`deepseek-chat`, `deepseek-reasoner`)
@@ -173,7 +183,7 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
     - 重试机制: 最多 3 次重试，指数退避 30 秒
 - **文本分段**: `split_text.py` 按 `SPLIT_LIMIT` 切分长文本（默认 6000 字符）
 
-### 字幕生成系统（subtitle_generator.py）
+### 字幕生成系统（src/subtitle_generator.py）
 
 - **核心流程**:
     1. ASR 时间戳识别（SenseVoice 或 Paraformer 的时间戳模式）
@@ -185,7 +195,7 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
     - `generate_subtitle_file()` - 生成 SRT 字幕文件
     - `encode_subtitle_to_video()` - 将字幕烧录到视频
 
-### 设备管理（device_manager.py）
+### 设备管理（src/device_manager.py）
 
 - **自动检测**: `detect_device(device_config)` 支持 `"auto"`, `"cpu"`, `"cuda"`, `"cuda:0"` 等
 - **ONNX Runtime**:
@@ -208,7 +218,7 @@ out/video_name/
 │   ├── page_1.png
 │   └── ...
 ├── subtitle.srt                # 字幕文件（如生成）
-└── video_with_subtitle.mp4     # 带字幕视频（如生成）
+���── video_with_subtitle.mp4     # 带字幕视频（如生成）
 ```
 
 **配置控制** (`.env`):
@@ -239,7 +249,7 @@ out/video_name/
 
 ### 添加新 LLM 服务
 
-1. 在 `config.py` 中：
+1. 在 `src/config.py` 中：
     - 添加 `NEW_LLM_API_KEY = _get_env("NEW_LLM_API_KEY", ...)`
     - 更新 `LLM_SERVER_SUPPORTED` 列表
 2. 在 `src/text_arrangement/query_llm.py` 中：
@@ -247,6 +257,59 @@ out/video_name/
     - 实现 `query_new_llm(params: LLMQueryParams) -> str` 函数
     - 在 `query_llm()` 中添加路由分支
 3. 更新 `.env.example` 和相关文档
+
+### 实现任务取消支持
+
+**原则**: 所有长时间运行的操作都必须支持任务取消
+
+**步骤**:
+
+1. **函数签名**: 添加可选的 `task_id: Optional[str] = None` 参数
+2. **检查点设置**: 在以下位置检查取消：
+   - 长时间操作**前**（如模型加载前）
+   - 长时间操作**后**（如模型加载后、推理前）
+   - 循环中每次迭代前
+   - 异步操作前
+3. **异常传播**: 捕获 `TaskCancelledException` 后向上传播，不要吞掉异常
+4. **资源清理**: 在 `finally` 块中调用 `task_manager.remove_task(task_id)`
+
+**示例**:
+```python
+from typing import Optional
+from src.task_manager import get_task_manager, TaskCancelledException
+
+task_manager = get_task_manager()
+
+def long_running_function(input_data: str, task_id: Optional[str] = None) -> str:
+    """支持任务取消的长时间运行函数"""
+    try:
+        # 检查点 1: 操作前
+        if task_id:
+            task_manager.check_cancellation(task_id)
+
+        # 长时间操作（如加载模型）
+        model = load_heavy_model()
+
+        # 检查点 2: 长时间操作后
+        if task_id:
+            task_manager.check_cancellation(task_id)
+
+        # 批量处理
+        for item in data_items:
+            # 检查点 3: 循环中
+            if task_id:
+                task_manager.check_cancellation(task_id)
+            process_item(item)
+
+        return result
+    except TaskCancelledException:
+        # 向上传播取消异常
+        raise
+    finally:
+        # 清理任务
+        if task_id:
+            task_manager.remove_task(task_id)
+```
 
 ### 测试编写
 
@@ -259,67 +322,9 @@ out/video_name/
 - **Mock 策略**:
     - `conftest.py` 自动 mock 重型依赖（torch, funasr, transformers）
     - 使用 `pytest-mock` 或 `responses` 库 mock 外部 API
-    - LLM API mock 返回固定响应（避免真实 API 调用）
+    - LLM API mock 返回固定响应��避免真实 API 调用）
 - **环境隔离**: 测试使用独立的临时目录（`/tmp/autovoicecollation_test_*`）
 - **字体处理**: 测试环境自动创建 fake 字体文件避免 PDF 生成错误
-
-### 性能优化指南
-
-**ASR 性能优化**:
-- **GPU 加速**: 确保 `DEVICE=auto` 或 `DEVICE=cuda`，使用 `nvidia-smi` 监控 GPU 使用
-- **ONNX Runtime**: 启用 `USE_ONNX=true` 可提高推理速度（需安装 `onnxruntime-gpu`）
-- **批处理大小**: 调整 `src/extract_audio_text.py` 中的 `batch_size_s` 参数（默认 300 秒）
-- **模型选择**: SenseVoice 速度更快但精度略低，Paraformer 精度高但需更多显存
-
-**LLM 性能优化**:
-- **异步调用**: 确保 `ASYNC_FLAG=true` 启用并发 LLM 请求（默认启用）
-- **速率限制**: 调整 `polish_by_llm.py` 中的 `RateLimiter` 参数（默认 10 req/min）
-- **文本分段**: 调整 `SPLIT_LIMIT` 配置（默认 6000 字符），避免超过 LLM token 限制
-- **提供商选择**: Cerebras 最快，Gemini 性价比高，DeepSeek 深度推理强
-- **本地 LLM**: 使用 `local:*` 模型避免网络延迟，但需强大的本地算力
-
-**系统级优化**:
-- **缓存模型**: 设置 `MODEL_DIR=./models` 避免重复下载 FunASR 模型
-- **并行处理**: API 模式天然支持多任务并发（FastAPI `BackgroundTasks`）
-- **输出格式**: `OUTPUT_STYLE=text_only` 最快，`pdf_with_img` 最慢
-- **禁用功能**: 不需要时关闭 `DISABLE_LLM_POLISH=true` 或 `DISABLE_LLM_SUMMARY=true`
-
-### 调试技巧
-
-**日志调试**:
-```bash
-# 调整日志级别（在 .env 中）
-LOG_LEVEL=DEBUG              # 详细调试信息
-THIRD_PARTY_LOG_LEVEL=DEBUG  # 第三方库日志（FunASR, transformers 等）
-
-# 实时查看日志
-tail -f logs/AutoVoiceCollation.log
-
-# 日志输出控制
-LOG_CONSOLE_OUTPUT=true      # 控制台输出
-LOG_COLORED_OUTPUT=true      # 彩色日志
-```
-
-**常见调试场景**:
-1. **ASR 识别问题**:
-   - 检查 `audio_transcription.txt` 原始输出
-   - 验证音频格式和采样率
-   - 尝试切换 `ASR_MODEL` (paraformer ↔ sense_voice)
-
-2. **LLM 调用失败**:
-   - 检查 API Key 是否有效: `src/load_api_key.py` 会在启动时验证
-   - 查看日志中的 HTTP 错误码和响应内容
-   - 使用 `DEBUG_FLAG=true` 启用详细的 API 请求日志
-
-3. **Docker 容器问题**:
-   - 查看容器日志: `docker compose logs -f`
-   - 进入容器调试: `docker exec -it avc-webui bash`
-   - 验证环境变量: `docker exec avc-webui printenv`
-
-4. **GPU 未被使用**:
-   - 运行设备检测: `python -c "from src.device_manager import print_device_info; print_device_info()"`
-   - 检查 NVIDIA 驱动: `nvidia-smi`
-   - 验证 PyTorch CUDA: `python -c "import torch; print(torch.cuda.is_available())"`
 
 ## 常见问题处理
 
@@ -374,6 +379,24 @@ LOG_COLORED_OUTPUT=true      # 彩色日志
 3. 仅运行失败测试: `pytest --lf`
 4. 检查日志: `logs/AutoVoiceCollation.log`
 5. CI 环境: 确保 `tests/conftest.py` 中的 mock 配置正确
+
+### 任务无法取消
+
+**症状**: 点击 WebUI 的"终止任务"按钮后任务继续运行
+
+**排查步骤**:
+
+1. 检查日志中是否有 `Task stop requested: {task_id}` 消息
+2. 查看任务是否在长时间操作中（如模型加载、ASR 推理、LLM 调用）
+3. 确认相关函数是否传入了 `task_id` 参数
+
+**常见原因**:
+
+- 函数未传入 `task_id` 参数
+- 长时间操作后缺少取消检查点
+- 捕获了 `TaskCancelledException` 但未向上传播
+
+**解决方案**: 参考"实现任务取消支持"章节
 
 ## 重要约定
 

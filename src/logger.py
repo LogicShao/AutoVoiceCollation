@@ -103,7 +103,7 @@ def get_logger(name: str) -> logging.Logger:
     # 如果 logger 还没有配置，使用默认配置
     if not logger.handlers:
         # 从配置文件读取日志配置
-        from config import LOG_LEVEL, LOG_FILE, LOG_CONSOLE_OUTPUT, LOG_COLORED_OUTPUT
+        from src.config import LOG_LEVEL, LOG_FILE, LOG_CONSOLE_OUTPUT, LOG_COLORED_OUTPUT
         return setup_logger(
             name=name,
             log_level=LOG_LEVEL,

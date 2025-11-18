@@ -4,7 +4,7 @@ from typing import Optional, Any
 
 from dotenv import load_dotenv
 
-project_root = Path(__file__).resolve().parent
+project_root = Path(__file__).resolve().parent.parent
 dotenv_path = project_root / ".env"
 if dotenv_path.exists():
     print("load dotenv on", dotenv_path)

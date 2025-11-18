@@ -5,13 +5,16 @@ import os
 import threading
 import time
 from collections import deque
+from typing import Optional
 
-from config import OUTPUT_DIR
+from src.config import OUTPUT_DIR
 from src.logger import get_logger
 from src.text_arrangement.query_llm import LLMQueryParams, query_llm, is_local_llm, LLMApiSupported
 from src.text_arrangement.split_text import split_text_by_sentences
+from src.task_manager import get_task_manager, TaskCancelledException
 
 logger = get_logger(__name__)
+task_manager = get_task_manager()
 
 MAX_RETRIES = 3
 RETRY_BACKOFF = 30
@@ -92,9 +95,9 @@ class RateLimiter:
 
 
 def polish_text(txt: str, api_service: str, temperature: float, split_len: int, max_tokens: int,
-                debug_flag: bool, async_flag: bool = True) -> str:
+                debug_flag: bool, async_flag: bool = True, task_id: Optional[str] = None) -> str:
     """
-    异步润色函数，支持每分钟请求限制 + 最大并发数控制 + 异常重试。
+    异步润��函数，支持每分钟请求限制 + 最大并发数控制 + 异常重试。
     :param txt: 要润色的文本
     :param api_service: 使用的API服务（deepseek 或 gemini）
     :param temperature: 温度参数
@@ -102,6 +105,7 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     :param max_tokens: 最大令牌数
     :param debug_flag: 是否开启调试模式
     :param async_flag: 是否使用异步方式
+    :param task_id: 任务ID，用于终止控制
     :return: 润色后的文本
     """
     assert split_len <= max_tokens * 0.7, "分段长度不能超过最大令牌数的70%，可能导致输出不完整。"
@@ -117,6 +121,10 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
         logger.info("Running in synchronous mode.")
         polish_chunks = []
         for i, chunk in enumerate(split_text):
+            # 检查任务是否被取消
+            if task_id:
+                task_manager.check_cancellation(task_id)
+
             logger.info(f"processing chunk {i + 1}/{len(split_text)}")
             polish_chunks.append(polish_each_text(chunk, api_service, temperature, max_tokens))
             logger.info(f"Chunk {i + 1} polished successfully.")
@@ -125,15 +133,26 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     logger.info("Running in asynchronous mode.")
     rate_limiter = RateLimiter(MAX_REQUESTS_PER_MINUTE)
 
-    async def safe_polish(chunk: str, task_id: int):
-        logger.info(f"Processing chunk {task_id + 1}/{len(split_text)}")
+    async def safe_polish(chunk: str, chunk_id: int):
+        # 检查任务是否被取消
+        if task_id:
+            task_manager.check_cancellation(task_id)
+
+        logger.info(f"Processing chunk {chunk_id + 1}/{len(split_text)}")
         for attempt in range(1, MAX_RETRIES + 1):
             try:
+                # 在每次重试前检查任务是否被取消
+                if task_id:
+                    task_manager.check_cancellation(task_id)
+
                 await rate_limiter.wait_for_slot()  # ⏳ 等待速率许可
                 ret = await loop.run_in_executor(executor, polish_each_text, chunk, api_service, temperature,
                                                  max_tokens)
-                logger.info(f"Chunk {task_id + 1} polished successfully.")
+                logger.info(f"Chunk {chunk_id + 1} polished successfully.")
                 return ret
+            except TaskCancelledException:
+                # 如果任务被取消，直接向上传播异常
+                raise
             except Exception as e:
                 logging.warning(f"Error polishing chunk (attempt {attempt}): {e}")
                 if attempt < MAX_RETRIES:
@@ -144,11 +163,11 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     async def polish_all():
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
-        async def sem_safe_polish(chunk, task_id):
+        async def sem_safe_polish(chunk, chunk_id):
             async with semaphore:
-                return await safe_polish(chunk, task_id)
+                return await safe_polish(chunk, chunk_id)
 
-        tasks = [sem_safe_polish(chunk, task_id) for task_id, chunk in enumerate(split_text)]
+        tasks = [sem_safe_polish(chunk, chunk_id) for chunk_id, chunk in enumerate(split_text)]
         results = await asyncio.gather(*tasks)
         return results
 
@@ -177,12 +196,19 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
         logger.warning(
             "Detected running asyncio loop in current thread. Falling back to thread-based synchronous processing for polishing.")
 
-        def sync_safe_polish(chunk: str, task_id: int):
+        def sync_safe_polish(chunk: str, chunk_id: int):
             for attempt in range(1, MAX_RETRIES + 1):
                 try:
+                    # 检查任务是否被取消
+                    if task_id:
+                        task_manager.check_cancellation(task_id)
+
                     # 使用同步速率限制
                     rate_limiter.wait_for_slot_sync()
                     return polish_each_text(chunk, api_service, temperature, max_tokens)
+                except TaskCancelledException:
+                    # 如果任务被取消，直接向上传播异常
+                    raise
                 except Exception as e:
                     logging.warning(f"Error polishing chunk (attempt {attempt}): {e}")
                     if attempt < MAX_RETRIES:
@@ -191,7 +217,7 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
             return chunk
 
         with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
-            futures = [executor.submit(sync_safe_polish, chunk, task_id) for task_id, chunk in enumerate(split_text)]
+            futures = [executor.submit(sync_safe_polish, chunk, chunk_id) for chunk_id, chunk in enumerate(split_text)]
             # 保持输入顺序
             polished_chunks = [f.result() for f in futures]
 

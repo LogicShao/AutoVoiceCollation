@@ -21,12 +21,15 @@ jobs:
 
       - name: Install dependencies
         run: |
+          python -m venv venv
+          source venv/bin/activate || . venv/Scripts/activate
           python -m pip install --upgrade pip
           pip install -r requirements-test.txt
           pip install -r requirements.txt || true
 
       - name: Run tests
         run: |
+          source venv/bin/activate || . venv/Scripts/activate
           pytest tests/test_api.py -k "not Background" -v --tb=short
 
       - name: Test summary

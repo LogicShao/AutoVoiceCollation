@@ -1,7 +1,7 @@
 import argparse
 import sys
 
-from config import *
+from src.config import *
 from src.Timer import Timer
 from src.bilibili_downloader import download_bilibili_audio, BiliVideoFile, new_local_bili_file
 from src.core_process import (

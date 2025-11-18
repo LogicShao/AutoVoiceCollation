@@ -2,12 +2,14 @@ from typing import Optional
 
 from funasr import AutoModel
 
-from config import MODEL_DIR, THIRD_PARTY_LOG_LEVEL, DEVICE, USE_ONNX, ONNX_PROVIDERS
+from src.config import MODEL_DIR, THIRD_PARTY_LOG_LEVEL, DEVICE, USE_ONNX, ONNX_PROVIDERS
 from src.logger import get_logger, configure_third_party_loggers
 from src.text_arrangement.split_text import clean_asr_text
 from src.device_manager import detect_device, get_onnx_providers
+from src.task_manager import get_task_manager, TaskCancelledException
 
 logger = get_logger(__name__)
+task_manager = get_task_manager()
 
 # 配置第三方库日志级别，避免输出过多信息
 configure_third_party_loggers(THIRD_PARTY_LOG_LEVEL)
@@ -108,11 +110,22 @@ def get_paraformer_model() -> AutoModel:
     return _model_paraformer
 
 
-def extract_audio_text_by_sense_voice(input_audio_path: str) -> str:
+def extract_audio_text_by_sense_voice(input_audio_path: str, task_id: Optional[str] = None) -> str:
     """
     提取音频文本 (SenseVoiceSmall)
+    :param input_audio_path: 输入音频文件路径
+    :param task_id: 任务ID，用于终止控制
     """
+    # 检查任务是否被取消（模型加载前）
+    if task_id:
+        task_manager.check_cancellation(task_id)
+
     model = get_sense_voice_model()
+
+    # 再次检查任务是否被取消（模型加载后、推理前）
+    if task_id:
+        task_manager.check_cancellation(task_id)
+
     try:
         res = model.generate(
             input=input_audio_path,
@@ -129,11 +142,22 @@ def extract_audio_text_by_sense_voice(input_audio_path: str) -> str:
         raise RuntimeError(f"Failed to extract audio text with SenseVoice: {e}")
 
 
-def extract_audio_text_by_paraformer(input_audio_path: str) -> str:
+def extract_audio_text_by_paraformer(input_audio_path: str, task_id: Optional[str] = None) -> str:
     """
     提取音频文本 (Paraformer)
+    :param input_audio_path: 输入音频文件路径
+    :param task_id: 任务ID，用于终止控制
     """
+    # 检查任务是否被取消（模型加载前）
+    if task_id:
+        task_manager.check_cancellation(task_id)
+
     model = get_paraformer_model()
+
+    # 再次检查任务是否被取消（模型加载后、推理前）
+    if task_id:
+        task_manager.check_cancellation(task_id)
+
     try:
         res = model.generate(
             input=input_audio_path,
@@ -144,20 +168,22 @@ def extract_audio_text_by_paraformer(input_audio_path: str) -> str:
         raise RuntimeError(f"Failed to extract audio text with Paraformer: {e}")
 
 
-def extract_audio_text(input_audio_path: str, model_type: str = "paraformer") -> str:
+def extract_audio_text(input_audio_path: str, model_type: str = "paraformer", task_id: Optional[str] = None) -> str:
     """
     提取音频文本
     :param input_audio_path: 输入音频文件路径
     :param model_type: 模型类型 ("sense_voice" 或 "paraformer")
+    :param task_id: 任务ID，用于终止控制
     :return: 提取的文本
     :raises ValueError: 不支持的模型类型
     :raises RuntimeError: 模型加载或推理失败
+    :raises TaskCancelledException: 任务被取消
     """
     logger.info(f"Extracting text from audio: {input_audio_path} using model: {model_type}")
 
     if model_type == "sense_voice":
-        return extract_audio_text_by_sense_voice(input_audio_path)
+        return extract_audio_text_by_sense_voice(input_audio_path, task_id)
     elif model_type == "paraformer":
-        return extract_audio_text_by_paraformer(input_audio_path)
+        return extract_audio_text_by_paraformer(input_audio_path, task_id)
     else:
         raise ValueError(f"Unsupported model type: {model_type}. Supported types: 'sense_voice', 'paraformer'")

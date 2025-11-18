@@ -4,7 +4,7 @@ import time
 import pytest
 import requests
 
-from config import LLM_SERVER, LLM_SERVER_SUPPORTED
+from src.config import LLM_SERVER, LLM_SERVER_SUPPORTED
 
 BASE_URL = os.getenv('API_BASE_URL', 'http://127.0.0.1:8000')
 # Default timeout for waiting task completion (seconds); can be overridden via env

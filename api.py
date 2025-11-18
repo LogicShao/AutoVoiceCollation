@@ -13,7 +13,7 @@ from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
 from fastapi.responses import FileResponse
 from pydantic import BaseModel, Field
 
-from config import *
+from src.config import *
 from src.core_process import (
     upload_audio, bilibili_video_download_process,
     process_multiple_urls, process_subtitles

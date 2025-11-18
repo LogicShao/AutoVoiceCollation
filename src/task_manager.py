@@ -36,6 +36,11 @@ class TaskManager:
             self._stop_flags[task_id] = False
             logger.debug(f"Task created: {task_id}")
 
+    def task_exists(self, task_id: str) -> bool:
+        """检查任务是否存在"""
+        with self._flags_lock:
+            return task_id in self._stop_flags
+
     def stop_task(self, task_id: str) -> None:
         """请求停止指定任务"""
         with self._flags_lock:

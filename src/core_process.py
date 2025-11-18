@@ -1,7 +1,7 @@
 import shutil
 import uuid
 
-from config import *
+from src.config import *
 from src.Timer import Timer
 from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_video, BiliVideoFile, \
     new_local_bili_file
@@ -50,8 +50,9 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
     if task_id is None:
         task_id = str(uuid.uuid4())
 
-    # 创建任务
-    task_manager.create_task(task_id)
+    # 创建任务（仅在任务不存在时创建，避免重复创建）
+    if not task_manager.task_exists(task_id):
+        task_manager.create_task(task_id)
 
     try:
         # 输入验证
@@ -87,7 +88,7 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
             raise TaskCancelledException(f"Task {task_id} was cancelled during setup")
 
         timer.start()
-        audio_text = extract_audio_text(input_audio_path=audio_file.path, model_type=ASR_MODEL)
+        audio_text = extract_audio_text(input_audio_path=audio_file.path, model_type=ASR_MODEL, task_id=task_id)
         text_file_path = os.path.join(output_dir, "audio_transcription.txt")
         with open(text_file_path, "w", encoding="utf-8") as f:
             f.write(audio_text)
@@ -101,7 +102,7 @@ def process_audio(audio_file: BiliVideoFile, llm_api: str, temperature: float, m
             timer.start()
             polished_text = polish_text(audio_text, api_service=llm_api, split_len=round(max_tokens * 0.7),
                                         temperature=temperature, max_tokens=max_tokens, debug_flag=DEBUG_FLAG,
-                                        async_flag=ASYNC_FLAG)
+                                        async_flag=ASYNC_FLAG, task_id=task_id)
             polish_text_file_path = os.path.join(output_dir, "polish_text.txt")
             audio_file.save_in_text(polished_text, llm_api, temperature, ASR_MODEL, polish_text_file_path)
             polish_time = timer.stop()
@@ -190,8 +191,9 @@ def process_multiple_urls(urls: str, llm_api=LLM_SERVER, temperature=LLM_TEMPERA
     if task_id is None:
         task_id = str(uuid.uuid4())
 
-    # 创建任务
-    task_manager.create_task(task_id)
+    # 创建任务（仅在任务不存在时创建，避免重复创建）
+    if not task_manager.task_exists(task_id):
+        task_manager.create_task(task_id)
 
     try:
         # 输入验证
@@ -295,8 +297,9 @@ def generate_subtitles_advanced(
     if task_id is None:
         task_id = str(uuid.uuid4())
 
-    # 创建任务
-    task_manager.create_task(task_id)
+    # 创建任务（仅在任务不存在时创建，避免重复创建）
+    if not task_manager.task_exists(task_id):
+        task_manager.create_task(task_id)
 
     try:
         logger.info(f"开始生成字幕，任务ID: {task_id}")
@@ -436,8 +439,9 @@ def bilibili_video_download_process(video_url, llm_api, temperature, max_tokens,
     if task_id is None:
         task_id = str(uuid.uuid4())
 
-    # 创建任务
-    task_manager.create_task(task_id)
+    # 创建任务（仅在任务不存在时创建，避免重复创建）
+    if not task_manager.task_exists(task_id):
+        task_manager.create_task(task_id)
 
     try:
         if not video_url or not video_url.startswith("http"):
