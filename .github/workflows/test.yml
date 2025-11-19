@@ -28,6 +28,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
+        shell: bash
         run: |
           python -m venv venv
           source venv/bin/activate || . venv/Scripts/activate
@@ -36,6 +37,7 @@ jobs:
           pip install -r requirements.txt || true
 
       - name: Run unit tests
+        shell: bash
         run: |
           source venv/bin/activate || . venv/Scripts/activate
           pytest tests/test_api.py -k "not Background" --maxfail=10
@@ -43,6 +45,7 @@ jobs:
 
       - name: Generate coverage report
         if: matrix.os == 'ubuntu-latest' && matrix.python-version == '3.11'
+        shell: bash
         run: |
           source venv/bin/activate || . venv/Scripts/activate
           pytest tests/test_api.py -k "not Background" --cov=api --cov=src --cov-report=xml --cov-report=term-missing

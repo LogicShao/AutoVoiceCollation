@@ -20,6 +20,7 @@ jobs:
           cache: 'pip'
 
       - name: Install dependencies
+        shell: bash
         run: |
           python -m venv venv
           source venv/bin/activate || . venv/Scripts/activate
@@ -28,6 +29,7 @@ jobs:
           pip install -r requirements.txt || true
 
       - name: Run tests
+        shell: bash
         run: |
           source venv/bin/activate || . venv/Scripts/activate
           pytest tests/test_api.py -k "not Background" -v --tb=short
