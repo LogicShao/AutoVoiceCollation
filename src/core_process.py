@@ -1,12 +1,13 @@
 import shutil
 import uuid
 
-from src.config import *
 from src.Timer import Timer
 from src.bilibili_downloader import download_bilibili_audio, extract_audio_from_video, BiliVideoFile, \
     new_local_bili_file
+from src.config import *
 from src.extract_audio_text import extract_audio_text
 from src.logger import get_logger
+from src.process_history import get_history_manager
 from src.subtitle_generator import (
     hard_encode_dot_srt_file,
     gen_timestamped_text_file,
@@ -21,6 +22,7 @@ from src.text_arrangement.text_exporter import text_to_img_or_pdf
 
 logger = get_logger(__name__)
 task_manager = get_task_manager()
+history_manager = get_history_manager()
 
 
 def zip_output_dir(output_dir: str) -> str:
@@ -223,18 +225,29 @@ def process_multiple_urls(urls: str, llm_api=LLM_SERVER, temperature=LLM_TEMPERA
                 if task_manager.should_stop(task_id):
                     raise TaskCancelledException(f"Batch task {task_id} was cancelled")
 
-                output_dir, extract_time, polish_time, zip_file = process_audio(
+                result_data, extract_time, polish_time, zip_file = process_audio(
                     audio_file, llm_api, temperature, max_tokens, text_only, task_id
                 )
-                if ZIP_OUTPUT_ENABLED:
-                    all_output_dirs.append(zip_file)
+
+                # 处理返回结果（可能是字典或字符串）
+                if isinstance(result_data, dict):
+                    output_dir = result_data.get("output_dir", "")
+                    if ZIP_OUTPUT_ENABLED and zip_file:
+                        all_output_dirs.append(zip_file)
+                    else:
+                        all_output_dirs.append(output_dir)
                 else:
-                    all_output_dirs.append(output_dir)
+                    # 错误情况（如任务取消），result_data 是字符串
+                    all_output_dirs.append(str(result_data))
+
                 total_extract_time += extract_time + download_time
                 total_polish_time += polish_time
             else:
                 raise ValueError(f"Invalid URL: {url}")
-        return "\n".join(all_output_dirs), total_extract_time, total_polish_time, None, None, None
+
+        # 过滤空字符串，并确保所有元素都是字符串
+        valid_output_dirs = [str(d) for d in all_output_dirs if d]
+        return "\n".join(valid_output_dirs), total_extract_time, total_polish_time, None, None, None
 
     except TaskCancelledException as e:
         logger.warning(f"Batch task cancelled: {e}")

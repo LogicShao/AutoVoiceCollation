@@ -4,8 +4,8 @@ import uuid
 
 import gradio as gr
 
-from src.config import *
 from src.bilibili_downloader import extract_audio_from_video
+from src.config import *
 from src.core_process import (
     upload_audio, bilibili_video_download_process,
     process_multiple_urls, generate_subtitles_advanced
@@ -227,7 +227,8 @@ def create_app():
             task_id_state3 = gr.State(value=None)
 
             with gr.Row():
-                url_input = gr.Textbox(label="请输入B站视频链接，每个URL换行分隔")
+                url_input = gr.Textbox(label="请输入B站视频链接，每个URL换行分隔", lines=5,
+                                       placeholder="示例:\nhttps://www.bilibili.com/video/BV1...\nhttps://www.bilibili.com/video/BV2...")
             with gr.Row():
                 llm_api_dropdown3 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
                 temp_slider3 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
