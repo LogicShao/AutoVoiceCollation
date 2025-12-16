@@ -1,0 +1,205 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+    <meta charset="UTF-8">
+    <meta content="width=device-width, initial-scale=1.0" name="viewport">
+    <title>AutoVoiceCollation - 音视频转文本系统</title>
+    <link href="/assets/icon.svg" rel="icon" type="image/svg+xml">
+    <link href="/dist/css/output.css" rel="stylesheet">
+    <script defer src="https://cdn.jsdelivr.net/npm/alpinejs@3.x.x/dist/cdn.min.js"></script>
+</head>
+<body class="bg-gray-50 min-h-screen">
+<!-- 导航栏 -->
+<nav class="bg-white shadow-sm border-b">
+    <div class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8">
+        <div class="flex justify-between h-16">
+            <div class="flex items-center">
+                <img alt="Logo" class="h-8 w-8 mr-3" src="/assets/icon.svg">
+                <h1 class="text-xl font-bold text-gray-900">AutoVoiceCollation</h1>
+            </div>
+            <div class="flex items-center space-x-4">
+                <a class="text-gray-600 hover:text-gray-900" href="#">文档</a>
+                <a class="text-gray-600 hover:text-gray-900" href="/docs">API</a>
+            </div>
+        </div>
+    </div>
+</nav>
+
+<!-- 主内容区 -->
+<main class="max-w-7xl mx-auto px-4 sm:px-6 lg:px-8 py-8" x-data="app">
+    <!-- 标签页导航 -->
+    <div class="bg-white rounded-lg shadow mb-6">
+        <div class="border-b border-gray-200">
+            <nav aria-label="Tabs" class="-mb-px flex space-x-8 px-6">
+                <button :class="currentTab === 'bilibili' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        @click="currentTab = 'bilibili'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    B站视频
+                </button>
+                <button :class="currentTab === 'upload' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        @click="currentTab = 'upload'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    本地文件
+                </button>
+                <button :class="currentTab === 'batch' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        @click="currentTab = 'batch'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    批量处理
+                </button>
+                <button :class="currentTab === 'subtitle' ? 'border-blue-500 text-blue-600' : 'border-transparent text-gray-500 hover:text-gray-700 hover:border-gray-300'"
+                        @click="currentTab = 'subtitle'"
+                        class="whitespace-nowrap py-4 px-1 border-b-2 font-medium text-sm">
+                    字幕生成
+                </button>
+            </nav>
+        </div>
+
+        <!-- B站视频处理 -->
+        <div class="p-6" x-show="currentTab === 'bilibili'">
+            <form @submit.prevent="processBilibili" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">B站视频链接</label>
+                    <input class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="https://www.bilibili.com/video/BV..." required
+                           type="url"
+                           x-model="biliUrl">
+                </div>
+                <button :disabled="processing" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                        type="submit">
+                    <span x-show="!processing">开始处理</span>
+                    <span x-show="processing">处理中...</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- 本地文件上传 -->
+        <div class="p-6" x-show="currentTab === 'upload'">
+            <form @submit.prevent="uploadAudio" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">选择音频/视频文件</label>
+                    <div
+                        class="mt-1 flex justify-center px-6 pt-5 pb-6 border-2 border-gray-300 border-dashed rounded-lg hover:border-blue-400 transition-colors">
+                        <div class="space-y-1 text-center">
+                            <svg class="mx-auto h-12 w-12 text-gray-400" fill="none" stroke="currentColor"
+                                 viewBox="0 0 48 48">
+                                <path
+                                    d="M28 8H12a4 4 0 00-4 4v20m32-12v8m0 0v8a4 4 0 01-4 4H12a4 4 0 01-4-4v-4m32-4l-3.172-3.172a4 4 0 00-5.656 0L28 28M8 32l9.172-9.172a4 4 0 015.656 0L28 28m0 0l4 4m4-24h8m-4-4v8m-12 4h.02"
+                                    stroke-linecap="round" stroke-linejoin="round" stroke-width="2"/>
+                            </svg>
+                            <div class="flex text-sm text-gray-600">
+                                <label
+                                    class="relative cursor-pointer bg-white rounded-md font-medium text-blue-600 hover:text-blue-500">
+                                    <span>上传文件</span>
+                                    <input @change="handleFileSelect" accept="audio/*,video/*" class="sr-only"
+                                           type="file">
+                                </label>
+                                <p class="pl-1">或拖拽到此处</p>
+                            </div>
+                            <p class="text-xs text-gray-500">支持 MP3, MP4, WAV, M4A 等格式</p>
+                        </div>
+                    </div>
+                    <p class="mt-2 text-sm text-gray-600" x-show="selectedFile"
+                       x-text="'已选择: ' + (selectedFile ? selectedFile.name : '')"></p>
+                </div>
+                <button :disabled="!selectedFile || processing" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                        type="submit">
+                    <span x-show="!processing">开始处理</span>
+                    <span x-show="processing">处理中...</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- 批量处理 -->
+        <div class="p-6" x-show="currentTab === 'batch'">
+            <form @submit.prevent="processBatch" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">B站视频链接列表（每行一个）</label>
+                    <textarea class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm" placeholder="https://www.bilibili.com/video/BV1...&#10;https://www.bilibili.com/video/BV2...&#10;https://www.bilibili.com/video/BV3..." required
+                              rows="8"
+                              x-model="batchUrls"></textarea>
+                </div>
+                <button :disabled="processing" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                        type="submit">
+                    <span x-show="!processing">批量处理</span>
+                    <span x-show="processing">处理中...</span>
+                </button>
+            </form>
+        </div>
+
+        <!-- 字幕生成 -->
+        <div class="p-6" x-show="currentTab === 'subtitle'">
+            <form @submit.prevent="generateSubtitle" class="space-y-4">
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">视频文件路径</label>
+                    <input class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="D:/videos/example.mp4" required
+                           type="text"
+                           x-model="videoPath">
+                </div>
+                <div>
+                    <label class="block text-sm font-medium text-gray-700 mb-2">字幕文本路径（可选）</label>
+                    <input class="w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent" placeholder="留空将自动使用 ASR 识别"
+                           type="text"
+                           x-model="subtitleText">
+                </div>
+                <button :disabled="processing" class="w-full bg-blue-600 text-white px-6 py-3 rounded-lg hover:bg-blue-700 disabled:bg-gray-400 disabled:cursor-not-allowed transition-colors"
+                        type="submit">
+                    <span x-show="!processing">生成字幕</span>
+                    <span x-show="processing">生成中...</span>
+                </button>
+            </form>
+        </div>
+    </div>
+
+    <!-- 任务状态显示 -->
+    <div class="bg-white rounded-lg shadow p-6 mb-6" x-show="currentTask">
+        <div class="flex justify-between items-start mb-4">
+            <h3 class="text-lg font-medium text-gray-900">任务状态</h3>
+            <button :disabled="!canCancel" @click="cancelTask"
+                    class="text-red-600 hover:text-red-700 text-sm font-medium disabled:text-gray-400 disabled:cursor-not-allowed">
+                取消任务
+            </button>
+        </div>
+        <div class="space-y-3">
+            <div class="flex items-center">
+                <span class="text-sm font-medium text-gray-700 w-24">任务ID:</span>
+                <span class="text-sm text-gray-900 font-mono" x-text="currentTask?.task_id"></span>
+            </div>
+            <div class="flex items-center">
+                <span class="text-sm font-medium text-gray-700 w-24">状态:</span>
+                <span :class="getStatusColor(currentTask?.status)" class="text-sm" x-text="currentTask?.status"></span>
+            </div>
+            <div x-show="currentTask?.progress">
+                <div class="flex items-center mb-2">
+                    <span class="text-sm font-medium text-gray-700 w-24">进度:</span>
+                    <span class="text-sm text-gray-900" x-text="currentTask?.progress"></span>
+                </div>
+                <div class="w-full bg-gray-200 rounded-full h-2">
+                    <div :style="`width: ${currentTask?.progress || 0}%`"
+                         class="bg-blue-600 h-2 rounded-full transition-all duration-300"></div>
+                </div>
+            </div>
+        </div>
+    </div>
+
+    <!-- 结果显示 -->
+    <div class="bg-white rounded-lg shadow p-6" x-show="result">
+        <h3 class="text-lg font-medium text-gray-900 mb-4">处理结果</h3>
+        <div class="space-y-2">
+            <template :key="key" x-for="(value, key) in result">
+                <div class="flex items-start">
+                    <span class="text-sm font-medium text-gray-700 w-32" x-text="key + ':'"></span>
+                    <span class="text-sm text-gray-900" x-text="value"></span>
+                </div>
+            </template>
+        </div>
+        <div class="mt-4" x-show="result?.output_dir">
+            <a :href="`/api/v1/download/${currentTask?.task_id}`"
+               class="inline-block bg-green-600 text-white px-6 py-2 rounded-lg hover:bg-green-700 transition-colors">
+                下载结果
+            </a>
+        </div>
+    </div>
+</main>
+
+<script src="/src/js/main.js"></script>
+</body>
+</html>

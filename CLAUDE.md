@@ -93,6 +93,15 @@ tail -f logs/AutoVoiceCollation.log  # 查看日志
 ./scripts/docker-start.sh clean       # 清理容器和镜像
 ./scripts/verify-font.sh              # 验证容器字体配置
 ./scripts/test-mirrors.sh             # 测试 Ubuntu 镜像源速度
+
+# 前端开发
+npm install                        # 安装前端依赖
+npm run dev                       # 开发模式（监听 CSS 变化）
+npm run build                     # 构建生产版本
+
+# 代码质量检查
+pytest --cov=src tests/           # 测试覆盖率
+python -m mypy src/               # 类型检查（如果配置了 mypy）
 ```
 
 ## 核心架构
@@ -343,7 +352,7 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 
 - 修改 `Dockerfile` 第 21-22 行切换 pip 镜像源（清华/阿里云/中科大）
 - 设置代理: `.env` 中配置 `HTTP_PROXY` 和 `HTTPS_PROXY`
-- 详见 `docs/DOCKER_NETWORK_WINDOWS.md` 和 `docs/DOCKER_NETWORK_FIX.md`
+- 详见 `docs/DOCKER_NETWORK_TROUBLESHOOTING.md`（统一网络问题解决方案）
 
 ### GPU 内存不足（CUDA OOM）
 
@@ -411,5 +420,60 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 - **外部依赖**: FFmpeg（系统级）、中文字体（Linux 需安装 `fonts-wqy-zenhei`）、yt-dlp（B站下载）
 
 ---
+
+## 架构演进建议
+
+### 1. 模块重构（可选）
+
+考虑将 `src/` 目录重构为更清晰的结构：
+
+```
+src/
+├── core/           # 核心业务逻辑
+│   ├── process/    # 处理流程
+│   ├── models/     # 数据模型
+│   └── exceptions/ # 异常定义
+├── services/       # 外部服务集成
+│   ├── asr/        # ASR 服务
+│   ├── llm/        # LLM 服务
+│   └── storage/    # 存储服务
+├── utils/          # 工具类
+│   ├── config/     # 配置管理
+│   ├── logging/    # 日志系统
+│   └── device/     # 设备管理
+└── api/           # API 层
+    ├── endpoints/  # API 端点
+    └── middleware/ # 中间件
+```
+
+### 2. 配置管理增强
+
+- 使用 Pydantic 进行配置验证
+- 支持多环境配置（development, testing, production）
+- 添加配置热重载支持
+
+### 3. 错误处理统一
+
+- 创建统一的错误处理中间件
+- 定义项目级别的异常类
+- 实现全局异常处理器
+
+### 4. 测试优化
+
+- 增加集成测试覆盖率
+- 添加性能测试和负载测试
+- 使用 pytest-xdist 并行运行测试
+
+### 5. 监控和可观测性
+
+- 添加 Prometheus 指标
+- 集成结构化日志（JSON 格式）
+- 添加分布式追踪支持
+
+### 6. 前端现代化
+
+- 考虑使用现代前端框架（Vue.js/React）
+- 添加状态管理
+- 优化构建流程和代码分割
 
 **详细开发文档**: `docs/DEVELOPER_GUIDE.md` | **API 文档**: `docs/API_USAGE.md` | **Docker 文档**: `docs/DOCKER.md`

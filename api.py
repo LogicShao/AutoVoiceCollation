@@ -10,7 +10,8 @@ from typing import List
 
 import uvicorn
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
-from fastapi.responses import FileResponse
+from fastapi.responses import FileResponse, HTMLResponse
+from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.config import *
@@ -26,6 +27,11 @@ app = FastAPI(
     description="自动语音识别和文本整理服务API",
     version="1.0.0"
 )
+
+# 挂载静态文件目录
+app.mount("/dist", StaticFiles(directory="frontend/dist"), name="dist")
+app.mount("/src", StaticFiles(directory="frontend/src"), name="src")
+app.mount("/assets", StaticFiles(directory="assets"), name="assets")
 
 # 任务状态存储（简单的内存存储，生产环境应使用数据库）
 # 每个任务的结构：
@@ -92,9 +98,22 @@ class ProcessResult(BaseModel):
 
 
 # API端点
-@app.get("/")
+@app.get("/", response_class=HTMLResponse)
 async def root():
-    """根端点，返回API信息"""
+    """根端点，返回前端页面"""
+    try:
+        with open("frontend/src/index.html", "r", encoding="utf-8") as f:
+            return f.read()
+    except FileNotFoundError:
+        return HTMLResponse(
+            content="<h1>前端文件未找到</h1><p>请先运行 <code>npm run build</code> 构建前端资源</p>",
+            status_code=500
+        )
+
+
+@app.get("/api")
+async def api_info():
+    """API信息端点"""
     return {
         "name": "AutoVoiceCollation API",
         "version": "1.0.0",

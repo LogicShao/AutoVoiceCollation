@@ -294,7 +294,7 @@ exec "$@"
 ## 相关文档
 
 - [Docker 容器崩溃故障排除](DOCKER_CRASH_TROUBLESHOOTING.md)
-- [Docker 网络问题解决](DOCKER_NETWORK_FIX.md)
+- [Docker 网络问题解决](DOCKER_NETWORK_TROUBLESHOOTING.md)
 - [Docker 部署指南](DOCKER.md)
 
 ---
