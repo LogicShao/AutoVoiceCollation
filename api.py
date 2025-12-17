@@ -5,6 +5,7 @@ FastAPI 服务接口
 import shutil
 import socket
 import uuid
+import traceback
 from datetime import datetime
 from typing import List
 
@@ -20,6 +21,11 @@ from src.core_process import (
     process_multiple_urls, process_subtitles
 )
 from src.text_arrangement.summary_by_llm import summarize_text
+from src.api.middleware import register_exception_handlers
+from src.logger import get_logger
+
+# 创建logger
+logger = get_logger(__name__)
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -27,6 +33,9 @@ app = FastAPI(
     description="自动语音识别和文本整理服务API",
     version="1.0.0"
 )
+
+# 注册统一异常处理器
+register_exception_handlers(app)
 
 # 挂载静态文件目录
 app.mount("/dist", StaticFiles(directory="frontend/dist"), name="dist")
@@ -373,11 +382,15 @@ async def process_bilibili_task(task_id: str, video_url: str, llm_api: str, temp
             })
             tasks[task_id] = task_data
     except Exception as e:
+        logger.error(f"B站视频处理失败 (task_id={task_id}, url={video_url}): {e}", exc_info=True)
+        logger.error(f"完整堆栈:\n{traceback.format_exc()}")
+
         task_data = tasks[task_id].copy()
         task_data.update({
             "status": "failed",
             "message": f"处理失败: {str(e)}",
-            "completed_at": datetime.now().isoformat()
+            "completed_at": datetime.now().isoformat(),
+            "error_detail": str(e) + "\n" + traceback.format_exc()
         })
         tasks[task_id] = task_data
 

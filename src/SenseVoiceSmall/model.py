@@ -22,16 +22,20 @@ class SinusoidalPositionEncoder(torch.nn.Module):
         pass
 
     def encode(
-            self, positions: torch.Tensor = None, depth: int = None, dtype: torch.dtype = torch.float32
+        self,
+        positions: torch.Tensor = None,
+        depth: int = None,
+        dtype: torch.dtype = torch.float32,
     ):
         batch_size = positions.size(0)
         positions = positions.type(dtype)
         device = positions.device
-        log_timescale_increment = torch.log(torch.tensor([10000], dtype=dtype, device=device)) / (
-                depth / 2 - 1
-        )
+        log_timescale_increment = torch.log(
+            torch.tensor([10000], dtype=dtype, device=device)
+        ) / (depth / 2 - 1)
         inv_timescales = torch.exp(
-            torch.arange(depth / 2, device=device).type(dtype) * (-log_timescale_increment)
+            torch.arange(depth / 2, device=device).type(dtype)
+            * (-log_timescale_increment)
         )
         inv_timescales = torch.reshape(inv_timescales, [batch_size, -1])
         scaled_time = torch.reshape(positions, [1, -1, 1]) * torch.reshape(
@@ -82,17 +86,17 @@ class MultiHeadedAttentionSANM(nn.Module):
     """
 
     def __init__(
-            self,
-            n_head,
-            in_feat,
-            n_feat,
-            dropout_rate,
-            kernel_size,
-            sanm_shfit=0,
-            lora_list=None,
-            lora_rank=8,
-            lora_alpha=16,
-            lora_dropout=0.1,
+        self,
+        n_head,
+        in_feat,
+        n_feat,
+        dropout_rate,
+        kernel_size,
+        sanm_shfit=0,
+        lora_list=None,
+        lora_rank=8,
+        lora_alpha=16,
+        lora_dropout=0.1,
     ):
         """Construct an MultiHeadedAttention object."""
         super().__init__()
@@ -250,8 +254,8 @@ class MultiHeadedAttentionSANM(nn.Module):
                 cache["k"] = torch.cat((cache["k"], k_h_stride), dim=2)
                 cache["v"] = torch.cat((cache["v"], v_h_stride), dim=2)
                 if look_back != -1:
-                    cache["k"] = cache["k"][:, :, -(look_back * chunk_size[1]):, :]
-                    cache["v"] = cache["v"][:, :, -(look_back * chunk_size[1]):, :]
+                    cache["k"] = cache["k"][:, :, -(look_back * chunk_size[1]) :, :]
+                    cache["v"] = cache["v"][:, :, -(look_back * chunk_size[1]) :, :]
             else:
                 cache_tmp = {
                     "k": k_h[:, :, : -(chunk_size[2]), :],
@@ -293,15 +297,15 @@ def sequence_mask(lengths, maxlen=None, dtype=torch.float32, device=None):
 
 class EncoderLayerSANM(nn.Module):
     def __init__(
-            self,
-            in_size,
-            size,
-            self_attn,
-            feed_forward,
-            dropout_rate,
-            normalize_before=True,
-            concat_after=False,
-            stochastic_depth_rate=0.0,
+        self,
+        in_size,
+        size,
+        self_attn,
+        feed_forward,
+        dropout_rate,
+        normalize_before=True,
+        concat_after=False,
+        stochastic_depth_rate=0.0,
     ):
         """Construct an EncoderLayer object."""
         super(EncoderLayerSANM, self).__init__()
@@ -319,7 +323,9 @@ class EncoderLayerSANM(nn.Module):
         self.stochastic_depth_rate = stochastic_depth_rate
         self.dropout_rate = dropout_rate
 
-    def forward(self, x, mask, cache=None, mask_shfit_chunk=None, mask_att_chunk_encoder=None):
+    def forward(
+        self, x, mask, cache=None, mask_shfit_chunk=None, mask_att_chunk_encoder=None
+    ):
         """Compute encoded features.
 
         Args:
@@ -443,28 +449,28 @@ class SenseVoiceEncoderSmall(nn.Module):
     """
 
     def __init__(
-            self,
-            input_size: int,
-            output_size: int = 256,
-            attention_heads: int = 4,
-            linear_units: int = 2048,
-            num_blocks: int = 6,
-            tp_blocks: int = 0,
-            dropout_rate: float = 0.1,
-            positional_dropout_rate: float = 0.1,
-            attention_dropout_rate: float = 0.0,
-            stochastic_depth_rate: float = 0.0,
-            input_layer: Optional[str] = "conv2d",
-            pos_enc_class=SinusoidalPositionEncoder,
-            normalize_before: bool = True,
-            concat_after: bool = False,
-            positionwise_layer_type: str = "linear",
-            positionwise_conv_kernel_size: int = 1,
-            padding_idx: int = -1,
-            kernel_size: int = 11,
-            sanm_shfit: int = 0,
-            selfattention_layer_type: str = "sanm",
-            **kwargs,
+        self,
+        input_size: int,
+        output_size: int = 256,
+        attention_heads: int = 4,
+        linear_units: int = 2048,
+        num_blocks: int = 6,
+        tp_blocks: int = 0,
+        dropout_rate: float = 0.1,
+        positional_dropout_rate: float = 0.1,
+        attention_dropout_rate: float = 0.0,
+        stochastic_depth_rate: float = 0.0,
+        input_layer: Optional[str] = "conv2d",
+        pos_enc_class=SinusoidalPositionEncoder,
+        normalize_before: bool = True,
+        concat_after: bool = False,
+        positionwise_layer_type: str = "linear",
+        positionwise_conv_kernel_size: int = 1,
+        padding_idx: int = -1,
+        kernel_size: int = 11,
+        sanm_shfit: int = 0,
+        selfattention_layer_type: str = "sanm",
+        **kwargs,
     ):
         super().__init__()
         self._output_size = output_size
@@ -544,9 +550,9 @@ class SenseVoiceEncoderSmall(nn.Module):
         return self._output_size
 
     def forward(
-            self,
-            xs_pad: torch.Tensor,
-            ilens: torch.Tensor,
+        self,
+        xs_pad: torch.Tensor,
+        ilens: torch.Tensor,
     ):
         """Embed positions in tensor."""
         masks = sequence_mask(ilens, device=ilens.device)[:, None, :]
@@ -582,24 +588,23 @@ class SenseVoiceSmall(nn.Module):
     """CTC-attention hybrid Encoder-Decoder model"""
 
     def __init__(
-            self,
-            specaug: str = None,
-            specaug_conf: dict = None,
-            normalize: str = None,
-            normalize_conf: dict = None,
-            encoder: str = None,
-            encoder_conf: dict = None,
-            ctc_conf: dict = None,
-            input_size: int = 80,
-            vocab_size: int = -1,
-            ignore_id: int = -1,
-            blank_id: int = 0,
-            sos: int = 1,
-            eos: int = 2,
-            length_normalized_loss: bool = False,
-            **kwargs,
+        self,
+        specaug: str = None,
+        specaug_conf: dict = None,
+        normalize: str = None,
+        normalize_conf: dict = None,
+        encoder: str = None,
+        encoder_conf: dict = None,
+        ctc_conf: dict = None,
+        input_size: int = 80,
+        vocab_size: int = -1,
+        ignore_id: int = -1,
+        blank_id: int = 0,
+        sos: int = 1,
+        eos: int = 2,
+        length_normalized_loss: bool = False,
+        **kwargs,
     ):
-
         super().__init__()
 
         if specaug is not None:
@@ -631,12 +636,35 @@ class SenseVoiceSmall(nn.Module):
         self.length_normalized_loss = length_normalized_loss
         self.encoder_output_size = encoder_output_size
 
-        self.lid_dict = {"auto": 0, "zh": 3, "en": 4, "yue": 7, "ja": 11, "ko": 12, "nospeech": 13}
-        self.lid_int_dict = {24884: 3, 24885: 4, 24888: 7, 24892: 11, 24896: 12, 24992: 13}
+        self.lid_dict = {
+            "auto": 0,
+            "zh": 3,
+            "en": 4,
+            "yue": 7,
+            "ja": 11,
+            "ko": 12,
+            "nospeech": 13,
+        }
+        self.lid_int_dict = {
+            24884: 3,
+            24885: 4,
+            24888: 7,
+            24892: 11,
+            24896: 12,
+            24992: 13,
+        }
         self.textnorm_dict = {"withitn": 14, "woitn": 15}
         self.textnorm_int_dict = {25016: 14, 25017: 15}
-        self.embed = torch.nn.Embedding(7 + len(self.lid_dict) + len(self.textnorm_dict), input_size)
-        self.emo_dict = {"unk": 25009, "happy": 25001, "sad": 25002, "angry": 25003, "neutral": 25004}
+        self.embed = torch.nn.Embedding(
+            7 + len(self.lid_dict) + len(self.textnorm_dict), input_size
+        )
+        self.emo_dict = {
+            "unk": 25009,
+            "happy": 25001,
+            "sad": 25002,
+            "angry": 25003,
+            "neutral": 25004,
+        }
 
         self.criterion_att = LabelSmoothingLoss(
             size=self.vocab_size,
@@ -648,17 +676,20 @@ class SenseVoiceSmall(nn.Module):
     @staticmethod
     def from_pretrained(model: str = None, **kwargs):
         from funasr import AutoModel
-        model, kwargs = AutoModel.build_model(model=model, trust_remote_code=True, **kwargs)
+
+        model, kwargs = AutoModel.build_model(
+            model=model, trust_remote_code=True, **kwargs
+        )
 
         return model, kwargs
 
     def forward(
-            self,
-            speech: torch.Tensor,
-            speech_lengths: torch.Tensor,
-            text: torch.Tensor,
-            text_lengths: torch.Tensor,
-            **kwargs,
+        self,
+        speech: torch.Tensor,
+        speech_lengths: torch.Tensor,
+        text: torch.Tensor,
+        text_lengths: torch.Tensor,
+        **kwargs,
     ):
         """Encoder + Decoder + Calc loss
         Args:
@@ -693,8 +724,12 @@ class SenseVoiceSmall(nn.Module):
 
         loss = loss_ctc + loss_rich
         # Collect total loss stats
-        stats["loss_ctc"] = torch.clone(loss_ctc.detach()) if loss_ctc is not None else None
-        stats["loss_rich"] = torch.clone(loss_rich.detach()) if loss_rich is not None else None
+        stats["loss_ctc"] = (
+            torch.clone(loss_ctc.detach()) if loss_ctc is not None else None
+        )
+        stats["loss_rich"] = (
+            torch.clone(loss_rich.detach()) if loss_rich is not None else None
+        )
         stats["loss"] = torch.clone(loss.detach()) if loss is not None else None
         stats["acc_rich"] = acc_rich
 
@@ -705,11 +740,11 @@ class SenseVoiceSmall(nn.Module):
         return loss, stats, weight
 
     def encode(
-            self,
-            speech: torch.Tensor,
-            speech_lengths: torch.Tensor,
-            text: torch.Tensor,
-            **kwargs,
+        self,
+        speech: torch.Tensor,
+        speech_lengths: torch.Tensor,
+        text: torch.Tensor,
+        **kwargs,
     ):
         """Frontend + Encoder. Note that this method is used by asr_inference.py
         Args:
@@ -727,16 +762,27 @@ class SenseVoiceSmall(nn.Module):
             speech, speech_lengths = self.normalize(speech, speech_lengths)
 
         lids = torch.LongTensor(
-            [[self.lid_int_dict[int(lid)] if torch.rand(1) > 0.2 and int(lid) in self.lid_int_dict else 0] for lid in
-             text[:, 0]]).to(speech.device)
+            [
+                [
+                    self.lid_int_dict[int(lid)]
+                    if torch.rand(1) > 0.2 and int(lid) in self.lid_int_dict
+                    else 0
+                ]
+                for lid in text[:, 0]
+            ]
+        ).to(speech.device)
         language_query = self.embed(lids)
 
-        styles = torch.LongTensor([[self.textnorm_int_dict[int(style)]] for style in text[:, 3]]).to(speech.device)
+        styles = torch.LongTensor(
+            [[self.textnorm_int_dict[int(style)]] for style in text[:, 3]]
+        ).to(speech.device)
         style_query = self.embed(styles)
         speech = torch.cat((style_query, speech), dim=1)
         speech_lengths += 1
 
-        event_emo_query = self.embed(torch.LongTensor([[1, 2]]).to(speech.device)).repeat(speech.size(0), 1, 1)
+        event_emo_query = self.embed(
+            torch.LongTensor([[1, 2]]).to(speech.device)
+        ).repeat(speech.size(0), 1, 1)
         input_query = torch.cat((language_query, event_emo_query), dim=1)
         speech = torch.cat((input_query, speech), dim=1)
         speech_lengths += 3
@@ -746,11 +792,11 @@ class SenseVoiceSmall(nn.Module):
         return encoder_out, encoder_out_lens
 
     def _calc_ctc_loss(
-            self,
-            encoder_out: torch.Tensor,
-            encoder_out_lens: torch.Tensor,
-            ys_pad: torch.Tensor,
-            ys_pad_lens: torch.Tensor,
+        self,
+        encoder_out: torch.Tensor,
+        encoder_out_lens: torch.Tensor,
+        ys_pad: torch.Tensor,
+        ys_pad_lens: torch.Tensor,
     ):
         # Calc CTC loss
         loss_ctc = self.ctc(encoder_out, encoder_out_lens, ys_pad, ys_pad_lens)
@@ -763,9 +809,9 @@ class SenseVoiceSmall(nn.Module):
         return loss_ctc, cer_ctc
 
     def _calc_rich_ce_loss(
-            self,
-            encoder_out: torch.Tensor,
-            ys_pad: torch.Tensor,
+        self,
+        encoder_out: torch.Tensor,
+        ys_pad: torch.Tensor,
     ):
         decoder_out = self.ctc.ctc_lo(encoder_out)
         # 2. Compute attention loss
@@ -779,18 +825,18 @@ class SenseVoiceSmall(nn.Module):
         return loss_rich, acc_rich
 
     def inference(
-            self,
-            data_in,
-            data_lengths=None,
-            key: list = ["wav_file_tmp_name"],
-            tokenizer=None,
-            frontend=None,
-            **kwargs,
+        self,
+        data_in,
+        data_lengths=None,
+        key: list = ["wav_file_tmp_name"],
+        tokenizer=None,
+        frontend=None,
+        **kwargs,
     ):
-
         meta_data = {}
         if (
-                isinstance(data_in, torch.Tensor) and kwargs.get("data_type", "sound") == "fbank"
+            isinstance(data_in, torch.Tensor)
+            and kwargs.get("data_type", "sound") == "fbank"
         ):  # fbank
             speech, speech_lengths = data_in, data_lengths
             if len(speech.shape) < 3:
@@ -810,12 +856,17 @@ class SenseVoiceSmall(nn.Module):
             time2 = time.perf_counter()
             meta_data["load_data"] = f"{time2 - time1:0.3f}"
             speech, speech_lengths = extract_fbank(
-                audio_sample_list, data_type=kwargs.get("data_type", "sound"), frontend=frontend
+                audio_sample_list,
+                data_type=kwargs.get("data_type", "sound"),
+                frontend=frontend,
             )
             time3 = time.perf_counter()
             meta_data["extract_feat"] = f"{time3 - time2:0.3f}"
             meta_data["batch_data_time"] = (
-                    speech_lengths.sum().item() * frontend.frame_shift * frontend.lfr_n / 1000
+                speech_lengths.sum().item()
+                * frontend.frame_shift
+                * frontend.lfr_n
+                / 1000
             )
 
         speech = speech.to(device=kwargs["device"])
@@ -840,9 +891,9 @@ class SenseVoiceSmall(nn.Module):
         speech = torch.cat((textnorm_query, speech), dim=1)
         speech_lengths += 1
 
-        event_emo_query = self.embed(torch.LongTensor([[1, 2]]).to(speech.device)).repeat(
-            speech.size(0), 1, 1
-        )
+        event_emo_query = self.embed(
+            torch.LongTensor([[1, 2]]).to(speech.device)
+        ).repeat(speech.size(0), 1, 1)
         input_query = torch.cat((language_query, event_emo_query), dim=1)
         speech = torch.cat((input_query, speech), dim=1)
         speech_lengths += 3
@@ -884,23 +935,32 @@ class SenseVoiceSmall(nn.Module):
 
             if output_timestamp:
                 from itertools import groupby
+
                 timestamp = []
                 tokens = tokenizer.text2tokens(text)[4:]
 
-                logits_speech = self.ctc.softmax(encoder_out)[i, 4:encoder_out_lens[i].item(), :]
+                logits_speech = self.ctc.softmax(encoder_out)[
+                    i, 4 : encoder_out_lens[i].item(), :
+                ]
 
                 pred = logits_speech.argmax(-1).cpu()
                 logits_speech[pred == self.blank_id, self.blank_id] = 0
 
                 align = ctc_forced_align(
                     logits_speech.unsqueeze(0).float(),
-                    torch.Tensor(token_int[4:]).unsqueeze(0).long().to(logits_speech.device),
+                    torch.Tensor(token_int[4:])
+                    .unsqueeze(0)
+                    .long()
+                    .to(logits_speech.device),
                     (encoder_out_lens - 4).long(),
-                    torch.tensor(len(token_int) - 4).unsqueeze(0).long().to(logits_speech.device),
+                    torch.tensor(len(token_int) - 4)
+                    .unsqueeze(0)
+                    .long()
+                    .to(logits_speech.device),
                     ignore_id=self.ignore_id,
                 )
 
-                pred = groupby(align[0, :encoder_out_lens[0]])
+                pred = groupby(align[0, : encoder_out_lens[0]])
                 _start = 0
                 token_id = 0
                 ts_max = encoder_out_lens[i] - 4

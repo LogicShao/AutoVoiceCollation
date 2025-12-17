@@ -22,12 +22,12 @@ def export_rebuild_model(model, **kwargs):
 
 
 def export_forward(
-        self,
-        speech: torch.Tensor,
-        speech_lengths: torch.Tensor,
-        language: torch.Tensor,
-        textnorm: torch.Tensor,
-        **kwargs,
+    self,
+    speech: torch.Tensor,
+    speech_lengths: torch.Tensor,
+    language: torch.Tensor,
+    textnorm: torch.Tensor,
+    **kwargs,
 ):
     # speech = speech.to(device="cuda")
     # speech_lengths = speech_lengths.to(device="cuda")

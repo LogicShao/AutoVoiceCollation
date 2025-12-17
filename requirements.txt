@@ -17,6 +17,7 @@ yt-dlp>=2025.10.22
 uvicorn>=0.38.0
 fastapi>=0.119.1
 pydantic>=2.11.10
+pydantic-settings>=2.0.0
 gradio>=5.49.1
 dotenv>=0.9.9
 python-dotenv>=1.1.1

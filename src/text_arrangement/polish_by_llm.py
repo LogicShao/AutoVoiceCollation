@@ -9,12 +9,18 @@ from typing import Optional
 
 from src.config import OUTPUT_DIR
 from src.logger import get_logger
-from src.text_arrangement.query_llm import LLMQueryParams, query_llm, is_local_llm, LLMApiSupported
+from src.services.llm import (
+    LLMQueryParams,
+    query_llm,
+    is_local_llm,
+    LLMProvider,
+)
 from src.text_arrangement.split_text import split_text_by_sentences
-from src.task_manager import get_task_manager, TaskCancelledException
+from src.core.exceptions import TaskCancelledException
+from src.task_manager import get_task_manager
 
+# 初始化logger
 logger = get_logger(__name__)
-task_manager = get_task_manager()
 
 MAX_RETRIES = 3
 RETRY_BACKOFF = 30
@@ -31,7 +37,9 @@ system_prompt = """你是一个高级语言处理助手，专注于文本清理�
 """
 
 
-def polish_each_text(txt: str, api_server: str, temperature: float, max_tokens: int) -> str:
+def polish_each_text(
+    txt: str, api_server: str, temperature: float, max_tokens: int
+) -> str:
     """
     根据API服务选择对应的润色函数
     :param txt: 要润色的文本
@@ -40,17 +48,21 @@ def polish_each_text(txt: str, api_server: str, temperature: float, max_tokens: 
     :param max_tokens: 最大令牌数
     :return: 润色后的文本
     """
-    prompt = (f"以下是语音识别的原始文本：\n{txt}\n\n"
-              f"请你仅仅输出整理后的文本，不要增加多余的文字，"
-              f"也不要使用任何markdown形式的文字，只使用plain text的形式。")
+    prompt = (
+        f"以下是语音识别的原始文本：\n{txt}\n\n"
+        f"请你仅仅输出整理后的文本，不要增加多余的文字，"
+        f"也不要使用任何markdown形式的文字，只使用plain text的形式。"
+    )
 
-    return query_llm(LLMQueryParams(
-        content=prompt,
-        system_instruction=system_prompt,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        api_server=LLMApiSupported(api_server)
-    ))
+    return query_llm(
+        LLMQueryParams(
+            content=prompt,
+            system_instruction=system_prompt,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_server=LLMProvider(api_server),
+        )
+    )
 
 
 class RateLimiter:
@@ -94,8 +106,16 @@ class RateLimiter:
             time.sleep(sleep_time)
 
 
-def polish_text(txt: str, api_service: str, temperature: float, split_len: int, max_tokens: int,
-                debug_flag: bool, async_flag: bool = True, task_id: Optional[str] = None) -> str:
+def polish_text(
+    txt: str,
+    api_service: str,
+    temperature: float,
+    split_len: int,
+    max_tokens: int,
+    debug_flag: bool,
+    async_flag: bool = True,
+    task_id: Optional[str] = None,
+) -> str:
     """
     异步润��函数，支持每分钟请求限制 + 最大并发数控制 + 异常重试。
     :param txt: 要润色的文本
@@ -108,15 +128,21 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     :param task_id: 任务ID，用于终止控制
     :return: 润色后的文本
     """
-    assert split_len <= max_tokens * 0.7, "分段长度不能超过最大令牌数的70%，可能导致输出不完整。"
+    assert split_len <= max_tokens * 0.7, (
+        "分段长度不能超过最大令牌数的70%，可能导致输出不完整。"
+    )
 
+    # 获取 task_manager 实例
+    task_manager = get_task_manager() if task_id else None
     # TODO: 改进异步调用
     logger.info(f"Using {api_service} API for polishing text.")
-    logger.info(f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}")
+    logger.info(
+        f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}"
+    )
     split_text = split_text_by_sentences(txt, split_len=split_len)
     logger.info(f"Splitting text into {len(split_text)} chunks for processing.")
 
-    if not async_flag or api_service == 'gemini' or is_local_llm(api_service):
+    if not async_flag or api_service == "gemini" or is_local_llm(api_service):
         # 如果不使用异步方式，直接调用同步函数
         logger.info("Running in synchronous mode.")
         polish_chunks = []
@@ -126,7 +152,9 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
                 task_manager.check_cancellation(task_id)
 
             logger.info(f"processing chunk {i + 1}/{len(split_text)}")
-            polish_chunks.append(polish_each_text(chunk, api_service, temperature, max_tokens))
+            polish_chunks.append(
+                polish_each_text(chunk, api_service, temperature, max_tokens)
+            )
             logger.info(f"Chunk {i + 1} polished successfully.")
         return "\n\n".join(polish_chunks).strip()
 
@@ -146,8 +174,14 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
                     task_manager.check_cancellation(task_id)
 
                 await rate_limiter.wait_for_slot()  # ⏳ 等待速率许可
-                ret = await loop.run_in_executor(executor, polish_each_text, chunk, api_service, temperature,
-                                                 max_tokens)
+                ret = await loop.run_in_executor(
+                    executor,
+                    polish_each_text,
+                    chunk,
+                    api_service,
+                    temperature,
+                    max_tokens,
+                )
                 logger.info(f"Chunk {chunk_id + 1} polished successfully.")
                 return ret
             except TaskCancelledException:
@@ -167,7 +201,10 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
             async with semaphore:
                 return await safe_polish(chunk, chunk_id)
 
-        tasks = [sem_safe_polish(chunk, chunk_id) for chunk_id, chunk in enumerate(split_text)]
+        tasks = [
+            sem_safe_polish(chunk, chunk_id)
+            for chunk_id, chunk in enumerate(split_text)
+        ]
         results = await asyncio.gather(*tasks)
         return results
 
@@ -194,7 +231,8 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
     else:
         # 回退到线程池中的同步实现（保留速率限制与重试）
         logger.warning(
-            "Detected running asyncio loop in current thread. Falling back to thread-based synchronous processing for polishing.")
+            "Detected running asyncio loop in current thread. Falling back to thread-based synchronous processing for polishing."
+        )
 
         def sync_safe_polish(chunk: str, chunk_id: int):
             for attempt in range(1, MAX_RETRIES + 1):
@@ -216,14 +254,21 @@ def polish_text(txt: str, api_service: str, temperature: float, split_len: int, 
             logging.error(f"Failed to process chunk after {MAX_RETRIES} attempts.")
             return chunk
 
-        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
-            futures = [executor.submit(sync_safe_polish, chunk, chunk_id) for chunk_id, chunk in enumerate(split_text)]
+        with concurrent.futures.ThreadPoolExecutor(
+            max_workers=MAX_CONCURRENT_REQUESTS
+        ) as executor:
+            futures = [
+                executor.submit(sync_safe_polish, chunk, chunk_id)
+                for chunk_id, chunk in enumerate(split_text)
+            ]
             # 保持输入顺序
             polished_chunks = [f.result() for f in futures]
 
     if debug_flag:
         debug_text = ""
-        for i, polished, original in zip(range(len(polished_chunks)), polished_chunks, split_text):
+        for i, polished, original in zip(
+            range(len(polished_chunks)), polished_chunks, split_text
+        ):
             debug_text += f"Chunk {i + 1}:\n"
             debug_text += f"Original: {original}\n"
             debug_text += f"Polished: {polished}\n\n"

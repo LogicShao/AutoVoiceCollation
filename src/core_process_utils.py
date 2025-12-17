@@ -1,6 +1,7 @@
 """
 核心处理流程的辅助工具函数
 """
+
 from typing import Optional, Dict, Any
 
 from src.logger import get_logger
@@ -27,7 +28,9 @@ def check_bilibili_processed(video_url: str) -> Optional[ProcessRecord]:
 
     if history_manager.check_processed(identifier):
         record = history_manager.get_record(identifier)
-        logger.info(f"检测到已处理过的视频: {identifier}, 上次处理时间: {record.last_processed}")
+        logger.info(
+            f"检测到已处理过的视频: {identifier}, 上次处理时间: {record.last_processed}"
+        )
         return record
 
     return None
@@ -38,7 +41,7 @@ def record_bilibili_process(
     title: str,
     output_dir: str,
     config: Dict[str, Any],
-    outputs: Dict[str, str]
+    outputs: Dict[str, str],
 ) -> ProcessRecord:
     """
     记录B站视频处理历史
@@ -59,7 +62,7 @@ def record_bilibili_process(
             title=title,
             output_dir=output_dir,
             config=config,
-            outputs=outputs
+            outputs=outputs,
         )
         logger.info(f"已记录B站视频处理历史: {record.identifier}")
         return record
@@ -74,7 +77,7 @@ def record_local_file_process(
     title: str,
     output_dir: str,
     config: Dict[str, Any],
-    outputs: Dict[str, str]
+    outputs: Dict[str, str],
 ) -> Optional[ProcessRecord]:
     """
     记录本地文件处理历史
@@ -97,7 +100,7 @@ def record_local_file_process(
             title=title,
             output_dir=output_dir,
             config=config,
-            outputs=outputs
+            outputs=outputs,
         )
         logger.info(f"已记录本地文件处理历史: {record.identifier}")
         return record
@@ -121,15 +124,17 @@ def build_output_files_dict(output_dir: str, text_only: bool = False) -> Dict[st
 
     outputs = {
         "audio_transcription": os.path.join(output_dir, "audio_transcription.txt"),
-        "polish_text": os.path.join(output_dir, "polish_text.txt")
+        "polish_text": os.path.join(output_dir, "polish_text.txt"),
     }
 
     if not text_only:
-        outputs.update({
-            "summary_text": os.path.join(output_dir, "summary_text.md"),
-            "pdf_file": os.path.join(output_dir, "output.pdf"),
-            "result_json": os.path.join(output_dir, "result.json")
-        })
+        outputs.update(
+            {
+                "summary_text": os.path.join(output_dir, "summary_text.md"),
+                "pdf_file": os.path.join(output_dir, "output.pdf"),
+                "result_json": os.path.join(output_dir, "result.json"),
+            }
+        )
     else:
         outputs["result_json"] = os.path.join(output_dir, "result.json")
 

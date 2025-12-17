@@ -14,8 +14,13 @@ def copy_output_files(audio_name: str):
     destination_dir = os.path.join(OUTPUT_DIR, audio_name)
     os.makedirs(destination_dir, exist_ok=True)
 
-    file_names = ['audio_transcription.txt', 'polish_text.txt', 'summary_text.md', 'output.pdf',
-                  'debug_polished_text.txt']
+    file_names = [
+        "audio_transcription.txt",
+        "polish_text.txt",
+        "summary_text.md",
+        "output.pdf",
+        "debug_polished_text.txt",
+    ]
 
     for file_name in file_names:
         source_file = os.path.join(OUTPUT_DIR, file_name)
@@ -39,8 +44,13 @@ def move_output_files(audio_name: str):
         destination_dir = destination_dir + f"_{index}"
     os.makedirs(destination_dir)
 
-    file_names = ['audio_transcription.txt', 'polish_text.txt', 'summary_text.md', 'output.pdf',
-                  'debug_polished_text.txt']
+    file_names = [
+        "audio_transcription.txt",
+        "polish_text.txt",
+        "summary_text.md",
+        "output.pdf",
+        "debug_polished_text.txt",
+    ]
 
     for file_name in file_names:
         source_file = os.path.join(OUTPUT_DIR, file_name)

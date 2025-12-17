@@ -30,7 +30,7 @@ class TestRootEndpoints:
 
     def test_root_endpoint(self, client):
         """测试根端点返回 API 信息"""
-        response = client.get("/")
+        response = client.get("/api")
         assert response.status_code == 200
         data = response.json()
         assert data["name"] == "AutoVoiceCollation API"

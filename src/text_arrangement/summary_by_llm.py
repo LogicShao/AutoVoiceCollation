@@ -1,5 +1,5 @@
 from src.logger import get_logger
-from src.text_arrangement.query_llm import LLMQueryParams, query_llm
+from src.services.llm import LLMQueryParams, query_llm
 
 logger = get_logger(__name__)
 
@@ -17,14 +17,16 @@ prompt_template = """请基于以下 ASR 转写文本（仅作换行和少量错
 {title}
 {text}
 
-在引言中以高度凝练的段落点明研究切入点与核心命题；  
-在主体部分，每段依次完成“细致解读→辩证批判→结构性／主体性拓展”；  
-在结论中回扣标题，揭示研究所得的深层洞见，并在最后一笔中自然勾勒未来研究或实践的潜在脉络。  
+在引言中以高度凝练的段落点明研究切入点与核心命题；
+在主体部分，每段依次完成“细致解读→辩证批判→结构性／主体性拓展”；
+在结论中回扣标题，揭示研究所得的深层洞见，并在最后一笔中自然勾勒未来研究或实践的潜在脉络。
 
 请务必保持学术严谨与哲学厚度，避免任何面向用户的元提示或建议语句。"""
 
 
-def summarize_text(txt: str, api_server: str, temperature: float, max_tokens: int, title: str = '') -> str:
+def summarize_text(
+    txt: str, api_server: str, temperature: float, max_tokens: int, title: str = ""
+) -> str:
     """
     根据API服务选择对应的总结函数
     :param txt: 要总结的文本
@@ -36,12 +38,16 @@ def summarize_text(txt: str, api_server: str, temperature: float, max_tokens: in
     """
     prompt = prompt_template.format(text=txt, title=f"标题:{title}")
 
-    logger.info(f"Summarizing text with API server: {api_server}, temperature: {temperature}, max_tokens: {max_tokens}")
+    logger.info(
+        f"Summarizing text with API server: {api_server}, temperature: {temperature}, max_tokens: {max_tokens}"
+    )
 
-    return query_llm(LLMQueryParams(
-        content=prompt,
-        system_instruction=system_instruction,
-        temperature=temperature,
-        max_tokens=max_tokens,
-        api_server=api_server
-    ))
+    return query_llm(
+        LLMQueryParams(
+            content=prompt,
+            system_instruction=system_instruction,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_server=api_server,
+        )
+    )

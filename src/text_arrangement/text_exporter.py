@@ -123,7 +123,7 @@ def find_chinese_font() -> Optional[str]:
             # 递归搜索（限制深度为2，避免性能问题）
             for root, dirs, files in os.walk(font_dir):
                 # 限制搜索深度
-                depth = root[len(font_dir):].count(os.sep)
+                depth = root[len(font_dir) :].count(os.sep)
                 if depth >= 2:
                     dirs.clear()
                     continue
@@ -177,8 +177,8 @@ def _ensure_font_loaded():
     # 尝试加载字体
     try:
         font_ttf_path = get_font_path()
-        pdfmetrics.registerFont(TTFont('ChineseFont', font_ttf_path))
-        addMapping('ChineseFont', 0, 0, 'ChineseFont')  # 正常字体
+        pdfmetrics.registerFont(TTFont("ChineseFont", font_ttf_path))
+        addMapping("ChineseFont", 0, 0, "ChineseFont")  # 正常字体
         logger.info(f"成功加载字体: {font_ttf_path}")
         _font_initialized = True
     except Exception as e:
@@ -187,7 +187,14 @@ def _ensure_font_loaded():
         raise
 
 
-def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model: str, LLM_info: str = "") -> str:
+def text_to_pdf(
+    txt: str,
+    with_img: bool,
+    title: str,
+    output_dir: str,
+    ASR_model: str,
+    LLM_info: str = "",
+) -> str:
     """
     将文本转换为 PDF，并将每页转换为图片
     """
@@ -208,8 +215,8 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
 
     # 样式定义
     normal_style = ParagraphStyle(
-        name='Normal',
-        fontName='ChineseFont',
+        name="Normal",
+        fontName="ChineseFont",
         fontSize=font_size,
         leading=leading,
         firstLineIndent=18,
@@ -218,8 +225,8 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
     )
 
     pre_style = ParagraphStyle(
-        name='PreText',
-        fontName='ChineseFont',
+        name="PreText",
+        fontName="ChineseFont",
         fontSize=font_size - 1,
         leading=font_size * 1.1,
         textColor=colors.gray,
@@ -228,12 +235,12 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
     )
 
     title_style = ParagraphStyle(
-        name='Title',
-        fontName='ChineseFont',
+        name="Title",
+        fontName="ChineseFont",
         fontSize=font_size + 4,
         leading=font_size + 6,
         alignment=TA_CENTER,
-        spaceAfter=20
+        spaceAfter=20,
     )
 
     # 构造内容
@@ -248,7 +255,8 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
     # 正文处理
     paragraphs = [
         Paragraph(line.strip(), normal_style)
-        for line in txt.strip().split('\n') if line.strip()
+        for line in txt.strip().split("\n")
+        if line.strip()
     ]
     story.extend(paragraphs)
 
@@ -259,7 +267,7 @@ def text_to_pdf(txt: str, with_img: bool, title: str, output_dir: str, ASR_model
         leftMargin=margin_x,
         rightMargin=margin_x,
         topMargin=margin_y,
-        bottomMargin=margin_y
+        bottomMargin=margin_y,
     )
 
     doc.build(story)
@@ -295,7 +303,7 @@ def get_display_width(txt: str) -> int:
     """
     width = 0
     for ch in txt:
-        if '\u4e00' <= ch <= '\u9fff' or ch in '，。！、？：“”‘’（）《》【】':
+        if "\u4e00" <= ch <= "\u9fff" or ch in "，。！、？：“”‘’（）《》【】":
             width += 2
         else:
             width += 1
@@ -310,10 +318,12 @@ def wrap_text_by_display_width(txt: str, max_width: int) -> list:
     :return: 换行后的文本列表
     """
     lines = []
-    line = ''
+    line = ""
     line_width = 0
     for ch in txt:
-        ch_width = 2 if '\u4e00' <= ch <= '\u9fff' or ch in '，。！？：“”‘’（）《》【】' else 1
+        ch_width = (
+            2 if "\u4e00" <= ch <= "\u9fff" or ch in "，。！？：“”‘’（）《》【】" else 1
+        )
         if line_width + ch_width > max_width:
             lines.append(line)
             line = ch
@@ -347,17 +357,19 @@ def text_to_one_image(txt: str, output_path: str, title: Optional[str] = None) -
     font_size = 28
     line_spacing = 12
     paragraph_spacing = 30
-    indent_spaces = '　　'
+    indent_spaces = "　　"
     max_display_width = 56  # 每行最大显示宽度：28个中文或等效宽度
 
-    paragraphs = [indent_spaces + line.strip() for line in txt.strip().split('\n') if line.strip()]
+    paragraphs = [
+        indent_spaces + line.strip() for line in txt.strip().split("\n") if line.strip()
+    ]
     font = ImageFont.truetype(font_path, font_size)
     lines = []
 
     for para in paragraphs:
         wrapped_lines = wrap_text_by_display_width(para, max_display_width)
         lines.extend(wrapped_lines)
-        lines.append('')
+        lines.append("")
 
     image_height = (font_size + line_spacing) * len(lines) + paragraph_spacing
     max_width = 1000
@@ -373,7 +385,7 @@ def text_to_one_image(txt: str, output_path: str, title: Optional[str] = None) -
             y += font_size + line_spacing
 
     os.makedirs(output_path, exist_ok=True)
-    filename = 'output.png'
+    filename = "output.png"
     output_file_path = os.path.join(output_path, filename)
     image.save(output_file_path)
     logger.info(f"文本已保存为图片：{output_file_path}")
@@ -381,8 +393,14 @@ def text_to_one_image(txt: str, output_path: str, title: Optional[str] = None) -
     return output_file_path
 
 
-def text_to_img_or_pdf(txt: str, output_style: str, output_path: str, ASR_model: str, title: Optional[str] = None,
-                       LLM_info: str = "") -> str:
+def text_to_img_or_pdf(
+    txt: str,
+    output_style: str,
+    output_path: str,
+    ASR_model: str,
+    title: Optional[str] = None,
+    LLM_info: str = "",
+) -> str:
     """
     将文本转换为图片或PDF
     :param txt: 文本内容
@@ -392,9 +410,15 @@ def text_to_img_or_pdf(txt: str, output_style: str, output_path: str, ASR_model:
     :param LLM_info: LLM信息（可选）
     :return: 输出文件路径
     """
-    if output_style == 'pdf_with_img':
-        return text_to_pdf(txt, with_img=True, title=title, output_dir=output_path, LLM_info=LLM_info,
-                           ASR_model=ASR_model)
+    if output_style == "pdf_with_img":
+        return text_to_pdf(
+            txt,
+            with_img=True,
+            title=title,
+            output_dir=output_path,
+            LLM_info=LLM_info,
+            ASR_model=ASR_model,
+        )
     elif output_style == 'pdf_only':
         return text_to_pdf(txt, with_img=False, title=title, output_dir=output_path, LLM_info=LLM_info,
                            ASR_model=ASR_model)

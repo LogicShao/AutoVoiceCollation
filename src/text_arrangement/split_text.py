@@ -43,7 +43,7 @@ def clean_asr_text(asr_result_text: str):
 
 
 def is_chinese(char: str) -> bool:
-    return '\u4e00' <= char <= '\u9fff'
+    return "\u4e00" <= char <= "\u9fff"
 
 
 def smart_split(txt: str, split_len: int) -> list[str]:
@@ -69,8 +69,8 @@ def smart_split(txt: str, split_len: int) -> list[str]:
 
             # 如果找到了合适的断点
             if j > 0:
-                result.append(current[:j + 1].strip())
-                txt = current[j + 1:] + txt[i + 1:]
+                result.append(current[: j + 1].strip())
+                txt = current[j + 1 :] + txt[i + 1 :]
                 current = ""
                 i = -1  # 从头开始处理剩下的 txt
             else:

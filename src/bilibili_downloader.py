@@ -22,8 +22,8 @@ _pre_text = (
 
 
 class FileType(enum.Enum):
-    ONLINE = 'online'
-    LOCAL = 'local'
+    ONLINE = "online"
+    LOCAL = "local"
 
 
 @dataclass
@@ -56,14 +56,22 @@ class BiliVideoFile:
             "title": self.title,
             "file_type": self.file_type.value,
         }
-        with open(json_file_path, 'w', encoding='utf-8') as f:
+        with open(json_file_path, "w", encoding="utf-8") as f:
             json.dump(data, f, ensure_ascii=False, indent=4)
 
-    def save_in_text(self, polish_text: str, llm_api_server: str, temperature: float, asr_model: str,
-                     text_file_path: str):
-        pre_text = _pre_text.format(ASR_model=asr_model, LLM_api=llm_api_server, temperature=temperature)
+    def save_in_text(
+        self,
+        polish_text: str,
+        llm_api_server: str,
+        temperature: float,
+        asr_model: str,
+        text_file_path: str,
+    ):
+        pre_text = _pre_text.format(
+            ASR_model=asr_model, LLM_api=llm_api_server, temperature=temperature
+        )
         pre_text += "\n\n{}".format(self.url)
-        with open(text_file_path, 'w', encoding='utf-8') as f:
+        with open(text_file_path, "w", encoding="utf-8") as f:
             if self.title:
                 f.write(f"{self.title}\n\n")
             f.write(f"{pre_text}\n\n")
@@ -93,9 +101,13 @@ def _find_downloaded_file(video_id: str, resolved_dir: str, ext: str) -> Optiona
 
 
 # ========== 下载视频 ==========
-def download_bilibili_video(video_url, output_format='mp4',
-                            output_dir: str | None = None,
-                            retries: int = 3, delay: float = 3.0) -> BiliVideoFile:
+def download_bilibili_video(
+    video_url,
+    output_format="mp4",
+    output_dir: str | None = None,
+    retries: int = 3,
+    delay: float = 3.0,
+) -> BiliVideoFile:
     for attempt in range(1, retries + 1):
         try:
             logger.info(f"尝试第 {attempt} 次下载视频：{video_url}")
@@ -106,19 +118,20 @@ def download_bilibili_video(video_url, output_format='mp4',
     raise RuntimeError("视频下载失败，已达最大重试次数。")
 
 
-def _download_bilibili_video_once(video_url, output_format='mp4',
-                                  output_dir: str | None = None) -> BiliVideoFile:
-    output_file_path = {'path': None}
+def _download_bilibili_video_once(
+    video_url, output_format="mp4", output_dir: str | None = None
+) -> BiliVideoFile:
+    output_file_path = {"path": None}
 
     resolved_dir = os.path.abspath(os.getcwd() if output_dir is None else output_dir)
     os.makedirs(resolved_dir, exist_ok=True)
-    output_template = os.path.join(resolved_dir, '%(id)s.%(ext)s')
+    output_template = os.path.join(resolved_dir, "%(id)s.%(ext)s")
 
-    with YoutubeDL({'quiet': True}) as ydl:
+    with YoutubeDL({"quiet": True}) as ydl:
         info_dict = ydl.extract_info(video_url, download=False)
 
-    video_id = info_dict.get('id')
-    title = info_dict.get('title')
+    video_id = info_dict.get("id")
+    title = info_dict.get("title")
 
     existing = _find_downloaded_file(video_id, resolved_dir, output_format)
     if existing and os.path.isfile(existing):
@@ -126,16 +139,16 @@ def _download_bilibili_video_once(video_url, output_format='mp4',
         return BiliVideoFile(url=video_url, path=existing, title=title)
 
     def hook(d):
-        if d.get('status') == 'finished' and 'filename' in d:
-            output_file_path['path'] = d['filename']
+        if d.get("status") == "finished" and "filename" in d:
+            output_file_path["path"] = d["filename"]
 
     ydl_opts = {
-        'format': 'bv+ba/best',
-        'outtmpl': output_template,
-        'progress_hooks': [hook],
-        'noplaylist': True,
-        'quiet': False,
-        'restrictfilenames': True,
+        "format": "bv+ba/best",
+        "outtmpl": output_template,
+        "progress_hooks": [hook],
+        "noplaylist": True,
+        "quiet": False,
+        "restrictfilenames": True,
     }
 
     with YoutubeDL(ydl_opts) as ydl:
@@ -146,8 +159,8 @@ def _download_bilibili_video_once(video_url, output_format='mp4',
         logger.info(f"下载成功，文件路径：{found}")
         return BiliVideoFile(url=video_url, path=found, title=title)
 
-    if output_file_path['path']:
-        base_no_ext = os.path.splitext(os.path.basename(output_file_path['path']))[0]
+    if output_file_path["path"]:
+        base_no_ext = os.path.splitext(os.path.basename(output_file_path["path"]))[0]
         candidate = os.path.join(resolved_dir, base_no_ext + f".{output_format}")
         if os.path.isfile(candidate):
             return BiliVideoFile(url=video_url, path=candidate, title=title)
@@ -156,9 +169,13 @@ def _download_bilibili_video_once(video_url, output_format='mp4',
 
 
 # ========== 下载音频 ==========
-def download_bilibili_audio(video_url, output_format='mp3',
-                            output_dir: str | None = None,
-                            retries: int = 3, delay: float = 3.0) -> BiliVideoFile:
+def download_bilibili_audio(
+    video_url,
+    output_format="mp3",
+    output_dir: str | None = None,
+    retries: int = 3,
+    delay: float = 3.0,
+) -> BiliVideoFile:
     for attempt in range(1, retries + 1):
         try:
             logger.info(f"尝试第 {attempt} 次下载：{video_url}")
@@ -169,19 +186,20 @@ def download_bilibili_audio(video_url, output_format='mp3',
     raise RuntimeError("音频下载失败，已达最大重试次数。")
 
 
-def _download_bilibili_audio_once(video_url, output_format='mp3',
-                                  output_dir: str | None = None) -> BiliVideoFile:
-    output_file_path = {'path': None}
+def _download_bilibili_audio_once(
+    video_url, output_format="mp3", output_dir: str | None = None
+) -> BiliVideoFile:
+    output_file_path = {"path": None}
 
     resolved_dir = os.path.abspath(os.getcwd() if output_dir is None else output_dir)
     os.makedirs(resolved_dir, exist_ok=True)
-    output_template = os.path.join(resolved_dir, '%(id)s.%(ext)s')
+    output_template = os.path.join(resolved_dir, "%(id)s.%(ext)s")
 
-    with YoutubeDL({'quiet': True}) as ydl:
+    with YoutubeDL({"quiet": True}) as ydl:
         info_dict = ydl.extract_info(video_url, download=False)
 
-    video_id = info_dict.get('id')
-    title = info_dict.get('title')
+    video_id = info_dict.get("id")
+    title = info_dict.get("title")
 
     existing = _find_downloaded_file(video_id, resolved_dir, output_format)
     if existing and os.path.isfile(existing):
@@ -189,21 +207,23 @@ def _download_bilibili_audio_once(video_url, output_format='mp3',
         return BiliVideoFile(url=video_url, path=existing, title=title)
 
     def hook(d):
-        if d.get('status') == 'finished' and 'filename' in d:
-            output_file_path['path'] = d['filename']
+        if d.get("status") == "finished" and "filename" in d:
+            output_file_path["path"] = d["filename"]
 
     ydl_opts = {
-        'format': 'ba',
-        'outtmpl': output_template,
-        'postprocessors': [{
-            'key': 'FFmpegExtractAudio',
-            'preferredcodec': output_format,
-            'preferredquality': '192',
-        }],
-        'progress_hooks': [hook],
-        'noplaylist': True,
-        'quiet': False,
-        'restrictfilenames': True,
+        "format": "ba",
+        "outtmpl": output_template,
+        "postprocessors": [
+            {
+                "key": "FFmpegExtractAudio",
+                "preferredcodec": output_format,
+                "preferredquality": "192",
+            }
+        ],
+        "progress_hooks": [hook],
+        "noplaylist": True,
+        "quiet": False,
+        "restrictfilenames": True,
     }
 
     with YoutubeDL(ydl_opts) as ydl:
@@ -214,8 +234,8 @@ def _download_bilibili_audio_once(video_url, output_format='mp3',
         logger.info(f"音频下载并转换成功：{found}")
         return BiliVideoFile(url=video_url, path=found, title=title)
 
-    if output_file_path['path']:
-        base_no_ext = os.path.splitext(os.path.basename(output_file_path['path']))[0]
+    if output_file_path["path"]:
+        base_no_ext = os.path.splitext(os.path.basename(output_file_path["path"]))[0]
         candidate = os.path.join(resolved_dir, base_no_ext + f".{output_format}")
         if os.path.isfile(candidate):
             return BiliVideoFile(url=video_url, path=candidate, title=title)
@@ -223,7 +243,9 @@ def _download_bilibili_audio_once(video_url, output_format='mp3',
     raise RuntimeError("未能捕获输出文件路径，请检查下载流程。")
 
 
-def extract_audio_from_video(video_path: str, output_format: str = 'mp3', output_dir: str | None = None) -> str:
+def extract_audio_from_video(
+    video_path: str, output_format: str = "mp3", output_dir: str | None = None
+) -> str:
     """
     从视频中提取音频并保存为指定格式。
 
@@ -244,12 +266,14 @@ def extract_audio_from_video(video_path: str, output_format: str = 'mp3', output
 
     # 构造 ffmpeg 命令
     command = [
-        'ffmpeg',
-        '-i', video_path,
-        '-vn',  # 不导出视频
-        '-acodec', 'libmp3lame' if output_format == 'mp3' else 'pcm_s16le',
-        '-y',  # 覆盖已存在文件
-        audio_path
+        "ffmpeg",
+        "-i",
+        video_path,
+        "-vn",  # 不导出视频
+        "-acodec",
+        "libmp3lame" if output_format == "mp3" else "pcm_s16le",
+        "-y",  # 覆盖已存在文件
+        audio_path,
     ]
 
     logger.info(f"开始提取音频：{audio_path}")

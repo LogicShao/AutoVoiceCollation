@@ -7,7 +7,8 @@ import time
 
 import pytest
 
-from src.task_manager import TaskManager, get_task_manager, TaskCancelledException
+from src.core.exceptions import TaskCancelledException
+from src.task_manager import TaskManager, get_task_manager
 
 
 class TestTaskManager:

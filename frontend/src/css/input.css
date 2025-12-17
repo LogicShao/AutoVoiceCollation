@@ -4,31 +4,31 @@
 
 /* 自定义样式 */
 @layer components {
-    .btn-primary {
-        @apply bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors;
-    }
+  .btn-primary {
+    @apply bg-blue-600 text-white px-6 py-2 rounded-lg hover:bg-blue-700 transition-colors;
+  }
 
-    .btn-secondary {
-        @apply bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors;
-    }
+  .btn-secondary {
+    @apply bg-gray-200 text-gray-800 px-6 py-2 rounded-lg hover:bg-gray-300 transition-colors;
+  }
 
-    .input-field {
-        @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent;
-    }
+  .input-field {
+    @apply w-full px-4 py-2 border border-gray-300 rounded-lg focus:ring-2 focus:ring-blue-500 focus:border-transparent;
+  }
 }
 
 /* 平滑滚动 */
 html {
-    scroll-behavior: smooth;
+  scroll-behavior: smooth;
 }
 
 /* 加载动画 */
 @keyframes spin {
-    to {
-        transform: rotate(360deg);
-    }
+  to {
+    transform: rotate(360deg);
+  }
 }
 
 .animate-spin {
-    animation: spin 1s linear infinite;
+  animation: spin 1s linear infinite;
 }

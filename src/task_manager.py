@@ -2,16 +2,19 @@
 任务管理模块
 用于控制任务的终止和状态
 """
+
 import threading
 from typing import Dict
 
 from src.logger import get_logger
+from src.core.exceptions import TaskCancelledException
 
 logger = get_logger(__name__)
 
 
 class TaskManager:
     """任务管理器，使用单例模式"""
+
     _instance = None
     _lock = threading.Lock()
 
@@ -67,7 +70,7 @@ class TaskManager:
         """
         if self.should_stop(task_id):
             logger.warning(f"Task cancellation detected: {task_id}")
-            raise TaskCancelledException(f"Task {task_id} has been cancelled")
+            raise TaskCancelledException(task_id)
 
     def remove_task(self, task_id: str) -> None:
         """移除任务"""
@@ -91,7 +94,3 @@ def get_task_manager() -> TaskManager:
     """获取任务管理器实例"""
     return _task_manager
 
-
-class TaskCancelledException(Exception):
-    """任务被取消异常"""
-    pass

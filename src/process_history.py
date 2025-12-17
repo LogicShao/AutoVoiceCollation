@@ -2,6 +2,7 @@
 处理历史管理模块
 用于跟踪已处理的音视频文件，避免重复处理
 """
+
 import hashlib
 import json
 import re
@@ -18,6 +19,7 @@ logger = get_logger(__name__)
 @dataclass
 class ProcessRecord:
     """处理记录数据类"""
+
     identifier: str  # 唯一标识符（BV号、文件hash等）
     record_type: str  # 类型：bilibili, local_audio, local_video
     url: Optional[str]  # B站链接（如果是B站视频）
@@ -33,7 +35,7 @@ class ProcessRecord:
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> 'ProcessRecord':
+    def from_dict(cls, data: Dict[str, Any]) -> "ProcessRecord":
         """从字典创建实例"""
         return cls(**data)
 
@@ -56,7 +58,9 @@ class ProcessHistoryManager:
 
         # 默认历史文件路径
         if history_file is None:
-            history_file = Path(__file__).parent.parent / "out" / ".process_history.json"
+            history_file = (
+                Path(__file__).parent.parent / "out" / ".process_history.json"
+            )
 
         self.history_file = Path(history_file)
         self.version = "1.0"
@@ -78,7 +82,7 @@ class ProcessHistoryManager:
             return
 
         try:
-            with open(self.history_file, 'r', encoding='utf-8') as f:
+            with open(self.history_file, "r", encoding="utf-8") as f:
                 data = json.load(f)
 
             self.version = data.get("version", "1.0")
@@ -95,7 +99,7 @@ class ProcessHistoryManager:
             logger.error(f"加载历史记录失败: {e}", exc_info=True)
             # 创建备份
             if self.history_file.exists():
-                backup_path = self.history_file.with_suffix('.json.backup')
+                backup_path = self.history_file.with_suffix(".json.backup")
                 self.history_file.rename(backup_path)
                 logger.warning(f"已创建备份: {backup_path}")
             self.records = {}
@@ -108,10 +112,10 @@ class ProcessHistoryManager:
                 "records": {
                     identifier: record.to_dict()
                     for identifier, record in self.records.items()
-                }
+                },
             }
 
-            with open(self.history_file, 'w', encoding='utf-8') as f:
+            with open(self.history_file, "w", encoding="utf-8") as f:
                 json.dump(data, f, ensure_ascii=False, indent=2)
 
             logger.debug(f"历史记录已保存: {len(self.records)} 条")
@@ -128,12 +132,12 @@ class ProcessHistoryManager:
             return None
 
         # 提取 BV 号
-        bv_match = re.search(r'BV[a-zA-Z0-9]+', url)
+        bv_match = re.search(r"BV[a-zA-Z0-9]+", url)
         if bv_match:
             return bv_match.group(0)
 
         # 提取 AV 号
-        av_match = re.search(r'av(\d+)', url, re.IGNORECASE)
+        av_match = re.search(r"av(\d+)", url, re.IGNORECASE)
         if av_match:
             return f"av{av_match.group(1)}"
 
@@ -149,15 +153,15 @@ class ProcessHistoryManager:
             path = Path(file_path)
             if not path.exists():
                 # 如果文件不存在，仅使用文件名
-                return hashlib.md5(path.name.encode('utf-8')).hexdigest()[:16]
+                return hashlib.md5(path.name.encode("utf-8")).hexdigest()[:16]
 
             # 使用文件名、大小和修改时间生成标识符
             file_info = f"{path.name}_{path.stat().st_size}_{path.stat().st_mtime}"
-            return hashlib.md5(file_info.encode('utf-8')).hexdigest()[:16]
+            return hashlib.md5(file_info.encode("utf-8")).hexdigest()[:16]
         except Exception as e:
             logger.error(f"生成文件标识符失败: {e}")
             # 降级方案：仅使用文件名
-            return hashlib.md5(Path(file_path).name.encode('utf-8')).hexdigest()[:16]
+            return hashlib.md5(Path(file_path).name.encode("utf-8")).hexdigest()[:16]
 
     def check_processed(self, identifier: str) -> bool:
         """检查标识符是否已被处理过"""
@@ -179,7 +183,9 @@ class ProcessHistoryManager:
             existing.config = record.config
             existing.outputs = record.outputs
             existing.process_count += 1
-            logger.info(f"更新处理记录: {identifier}，处理次数: {existing.process_count}")
+            logger.info(
+                f"更新处理记录: {identifier}，处理次数: {existing.process_count}"
+            )
         else:
             # 添加新记录
             self.records[identifier] = record
@@ -209,7 +215,7 @@ class ProcessHistoryManager:
         title: str,
         output_dir: str,
         config: Dict[str, Any],
-        outputs: Dict[str, str]
+        outputs: Dict[str, str],
     ) -> ProcessRecord:
         """
         从B站视频信息创建处理记录
@@ -227,7 +233,7 @@ class ProcessHistoryManager:
         identifier = self.extract_bilibili_id(url)
         if not identifier:
             # 如果无法提取BV号，使用URL的hash作为标识符
-            identifier = hashlib.md5(url.encode('utf-8')).hexdigest()[:16]
+            identifier = hashlib.md5(url.encode("utf-8")).hexdigest()[:16]
             logger.warning(f"无法从URL提取BV号，使用hash作为标识符: {identifier}")
 
         record = ProcessRecord(
@@ -239,7 +245,7 @@ class ProcessHistoryManager:
             last_processed=datetime.now().isoformat(),
             config=config,
             outputs=outputs,
-            process_count=1
+            process_count=1,
         )
 
         self.add_record(record)
@@ -252,7 +258,7 @@ class ProcessHistoryManager:
         title: str,
         output_dir: str,
         config: Dict[str, Any],
-        outputs: Dict[str, str]
+        outputs: Dict[str, str],
     ) -> ProcessRecord:
         """
         从本地文件信息创建处理记录
@@ -279,7 +285,7 @@ class ProcessHistoryManager:
             last_processed=datetime.now().isoformat(),
             config=config,
             outputs=outputs,
-            process_count=1
+            process_count=1,
         )
 
         self.add_record(record)
@@ -288,9 +294,15 @@ class ProcessHistoryManager:
     def get_statistics(self) -> Dict[str, Any]:
         """获取处理统计信息"""
         total_count = len(self.records)
-        bilibili_count = sum(1 for r in self.records.values() if r.record_type == "bilibili")
-        local_audio_count = sum(1 for r in self.records.values() if r.record_type == "local_audio")
-        local_video_count = sum(1 for r in self.records.values() if r.record_type == "local_video")
+        bilibili_count = sum(
+            1 for r in self.records.values() if r.record_type == "bilibili"
+        )
+        local_audio_count = sum(
+            1 for r in self.records.values() if r.record_type == "local_audio"
+        )
+        local_video_count = sum(
+            1 for r in self.records.values() if r.record_type == "local_video"
+        )
         total_process_count = sum(r.process_count for r in self.records.values())
 
         return {
@@ -298,7 +310,7 @@ class ProcessHistoryManager:
             "bilibili_videos": bilibili_count,
             "local_audios": local_audio_count,
             "local_videos": local_video_count,
-            "total_processes": total_process_count
+            "total_processes": total_process_count,
         }
 
 
