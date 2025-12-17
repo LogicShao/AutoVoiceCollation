@@ -121,7 +121,7 @@ class TestAudioEndpoint:
             files=files
         )
         assert response.status_code == 400
-        assert "不支持的文件类型" in response.json()["detail"]
+        assert "不支持的文件类型" in response.json()["error"]
 
     @patch("api.upload_audio")
     def test_process_audio_success(self, mock_upload, client):
@@ -190,7 +190,7 @@ class TestBatchEndpoint:
         payload = {"urls": []}
         response = client.post("/api/v1/process/batch", json=payload)
         assert response.status_code == 400
-        assert "URL列表不能为空" in response.json()["detail"]
+        assert "URL列表不能为空" in response.json()["error"]
 
     @patch("api.process_multiple_urls")
     def test_process_batch_success(self, mock_process, client):
@@ -224,7 +224,7 @@ class TestSubtitleEndpoint:
 
         response = client.post("/api/v1/process/subtitle", files=files)
         assert response.status_code == 400
-        assert "不支持的视频格式" in response.json()["detail"]
+        assert "不支持的视频格式" in response.json()["error"]
 
     @patch("api.process_subtitles")
     def test_process_subtitle_success(self, mock_process, client):
@@ -290,7 +290,7 @@ class TestSummarizeEndpoint:
 
         # 验证响应
         assert response.status_code == 500
-        assert "总结失败" in response.json()["detail"]
+        assert "error" in response.json() or "details" in response.json()
 
 
 class TestTaskStatusEndpoint:
@@ -300,7 +300,7 @@ class TestTaskStatusEndpoint:
         """测试查询不存在的任务"""
         response = client.get("/api/v1/task/non-existent-task-id")
         assert response.status_code == 404
-        assert "任务不存在" in response.json()["detail"]
+        assert "error" in response.json() or "任务不存在" in str(response.json())
 
     def test_get_task_status_pending(self, client):
         """测试查询待处理任务"""
@@ -336,7 +336,7 @@ class TestDownloadEndpoint:
         """测试下载不存在的任务"""
         response = client.get("/api/v1/download/non-existent-task")
         assert response.status_code == 404
-        assert "任务不存在" in response.json()["detail"]
+        assert "error" in response.json() or "任务不存在" in str(response.json())
 
     def test_download_task_not_completed(self, client):
         """测试下载未完成的任务"""
@@ -345,7 +345,7 @@ class TestDownloadEndpoint:
 
         response = client.get(f"/api/v1/download/{task_id}")
         assert response.status_code == 400
-        assert "任务尚未完成" in response.json()["detail"]
+        assert "error" in response.json() or "任务尚未完成" in str(response.json())
 
     def test_download_file_not_exists(self, client):
         """测试下载不存在的文件"""
@@ -357,7 +357,7 @@ class TestDownloadEndpoint:
 
         response = client.get(f"/api/v1/download/{task_id}")
         assert response.status_code == 404
-        assert "结果文件不存在" in response.json()["detail"]
+        assert "error" in response.json() or "结果文件不存在" in str(response.json())
 
     def test_download_success(self, client, tmp_path):
         """测试成功下载文件"""

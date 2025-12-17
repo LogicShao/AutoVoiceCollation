@@ -4,7 +4,7 @@
 
 from typing import Optional, Dict, Any
 
-from src.logger import get_logger
+from src.utils.logging.logger import get_logger
 from src.process_history import get_history_manager, ProcessRecord
 
 logger = get_logger(__name__)

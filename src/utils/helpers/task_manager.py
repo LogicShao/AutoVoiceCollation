@@ -6,7 +6,7 @@
 import threading
 from typing import Dict
 
-from src.logger import get_logger
+from src.utils.logging.logger import get_logger
 from src.core.exceptions import TaskCancelledException
 
 logger = get_logger(__name__)

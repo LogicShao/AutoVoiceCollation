@@ -8,10 +8,9 @@ from typing import Optional
 
 from funasr import AutoModel
 
-from .base import BaseASRService
+from src.utils.config import get_config
 
-# 延迟导入配置，避免循环导入
-import src.config as config
+from .base import BaseASRService
 
 
 class ParaformerService(BaseASRService):
@@ -26,8 +25,9 @@ class ParaformerService(BaseASRService):
             onnx_providers: ONNX执行提供者列表
         """
         super().__init__()
+        config = get_config()
         self.device = device
-        self.onnx_providers = onnx_providers if config.USE_ONNX else None
+        self.onnx_providers = onnx_providers if config.asr.use_onnx else None
 
     def load_model(self):
         """加载Paraformer模型"""
@@ -35,6 +35,7 @@ class ParaformerService(BaseASRService):
             return
 
         try:
+            config = get_config()
             self.logger.info("Loading Paraformer model...")
 
             model_kwargs = {
@@ -47,7 +48,7 @@ class ParaformerService(BaseASRService):
                 "device": self.device,
                 "disable_update": True,
                 "model_hub": "huggingface",
-                "cache_dir": config.MODEL_DIR,
+                "cache_dir": str(config.paths.model_dir) if config.paths.model_dir else None,
             }
 
             # 如果启用ONNX且有可用提供者

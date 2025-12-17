@@ -8,7 +8,7 @@ import uuid
 from abc import ABC, abstractmethod
 from typing import Optional
 
-from src.logger import get_logger
+from src.utils.logging.logger import get_logger
 
 
 class BaseProcessor(ABC):
@@ -17,7 +17,7 @@ class BaseProcessor(ABC):
     def __init__(self):
         self.logger = get_logger(self.__class__.__name__)
         # 延迟导入避免循环依赖
-        from src.task_manager import get_task_manager
+        from src.utils.helpers.task_manager import get_task_manager
 
         self.task_manager = get_task_manager()
 

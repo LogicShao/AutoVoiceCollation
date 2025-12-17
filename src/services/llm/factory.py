@@ -12,13 +12,14 @@ from google import genai
 from google.genai import types
 from openai import OpenAI
 
-from src.logger import get_logger
+from src.utils.logging.logger import get_logger
 from .models import LLMQueryParams, is_local_llm
-
-# 延迟导入配置
-import src.config as config
+from src.utils.config import get_config
 
 logger = get_logger(__name__)
+
+# 获取配置
+config = get_config()
 
 # ============= 客户端初始化 =============
 
@@ -211,7 +212,7 @@ def _init_local_llm():
     if _local_llm_initialized:
         return
 
-    if not config.LOCAL_LLM_ENABLED:
+    if not config.llm.local_llm_enabled:
         _local_llm_initialized = True
         return
 

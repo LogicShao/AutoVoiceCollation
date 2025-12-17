@@ -7,8 +7,8 @@ import time
 from collections import deque
 from typing import Optional
 
-from src.config import OUTPUT_DIR
-from src.logger import get_logger
+from src.utils.config import get_config
+from src.utils.logging.logger import get_logger
 from src.services.llm import (
     LLMQueryParams,
     query_llm,
@@ -17,7 +17,7 @@ from src.services.llm import (
 )
 from src.text_arrangement.split_text import split_text_by_sentences
 from src.core.exceptions import TaskCancelledException
-from src.task_manager import get_task_manager
+from src.utils.helpers.task_manager import get_task_manager
 
 # 初始化logger
 logger = get_logger(__name__)
@@ -265,6 +265,7 @@ def polish_text(
             polished_chunks = [f.result() for f in futures]
 
     if debug_flag:
+        config = get_config()
         debug_text = ""
         for i, polished, original in zip(
             range(len(polished_chunks)), polished_chunks, split_text
@@ -272,7 +273,7 @@ def polish_text(
             debug_text += f"Chunk {i + 1}:\n"
             debug_text += f"Original: {original}\n"
             debug_text += f"Polished: {polished}\n\n"
-        debug_text_file = os.path.join(OUTPUT_DIR, "debug_polished_text.txt")
+        debug_text_file = os.path.join(str(config.paths.output_dir), "debug_polished_text.txt")
         with open(debug_text_file, "w", encoding="utf-8") as f:
             f.write(debug_text)
 

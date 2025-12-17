@@ -59,7 +59,7 @@ temp/
 output.txt
 out/
 *.pid
-download/
+/download/
 
 # ============================
 # IDEs and editors

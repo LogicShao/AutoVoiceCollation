@@ -27,7 +27,7 @@ class SubtitleProcessor(BaseProcessor):
 
     def process_simple(self, video_file: str) -> Tuple[str, str]:
         """
-        生成视频字幕并硬编码到视频（旧接口，保留向后兼容）
+        生成视频字幕并硬编码到视频
 
         Args:
             video_file: 视频文件路径

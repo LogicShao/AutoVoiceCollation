@@ -5,12 +5,15 @@ import uuid
 import gradio as gr
 
 from src.bilibili_downloader import extract_audio_from_video
-from src.config import *
+from src.utils.config import get_config
 from src.core_process import (
     upload_audio, bilibili_video_download_process,
     process_multiple_urls, generate_subtitles_advanced
 )
-from src.task_manager import get_task_manager
+from src.utils.helpers.task_manager import get_task_manager
+
+# 加载配置
+config = get_config()
 
 # 获取任务管理器实例
 task_manager = get_task_manager()
@@ -161,9 +164,9 @@ def create_app():
             with gr.Row():
                 bilibili_input = gr.Textbox(label="请输入B站视频链接")
             with gr.Row():
-                llm_api_dropdown2 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
-                temp_slider2 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
-                token_slider2 = gr.Slider(100, 8000, step=100, value=LLM_MAX_TOKENS, label="Max Tokens")
+                llm_api_dropdown2 = gr.Dropdown(choices=config.llm.llm_server_supported, value=config.llm.llm_server, label="选择LLM服务")
+                temp_slider2 = gr.Slider(0.0, 1.0, step=0.05, value=config.llm.llm_temperature, label="Temperature")
+                token_slider2 = gr.Slider(100, 8000, step=100, value=config.llm.llm_max_tokens, label="Max Tokens")
                 # 新增：仅返回纯文本(JSON)开关
                 text_only2 = gr.Checkbox(label="仅返回文本(JSON)",
                                          value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true")
@@ -230,9 +233,9 @@ def create_app():
                 url_input = gr.Textbox(label="请输入B站视频链接，每个URL换行分隔", lines=5,
                                        placeholder="示例:\nhttps://www.bilibili.com/video/BV1...\nhttps://www.bilibili.com/video/BV2...")
             with gr.Row():
-                llm_api_dropdown3 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
-                temp_slider3 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
-                token_slider3 = gr.Slider(100, 8000, step=100, value=LLM_MAX_TOKENS, label="Max Tokens")
+                llm_api_dropdown3 = gr.Dropdown(choices=config.llm.llm_server_supported, value=config.llm.llm_server, label="选择LLM服务")
+                temp_slider3 = gr.Slider(0.0, 1.0, step=0.05, value=config.llm.llm_temperature, label="Temperature")
+                token_slider3 = gr.Slider(100, 8000, step=100, value=config.llm.llm_max_tokens, label="Max Tokens")
                 # 新增：仅返回纯文本(JSON)开关
                 text_only3 = gr.Checkbox(label="仅返回文本(JSON)",
                                          value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true")
@@ -282,9 +285,9 @@ def create_app():
             with gr.Row():
                 audio_input = gr.File(label="选择本地音频文件（支持mp3/wav格式）")
             with gr.Row():
-                llm_api_dropdown1 = gr.Dropdown(choices=LLM_SERVER_SUPPORTED, value=LLM_SERVER, label="选择LLM服务")
-                temp_slider1 = gr.Slider(0.0, 1.0, step=0.05, value=LLM_TEMPERATURE, label="Temperature")
-                token_slider1 = gr.Slider(100, 8000, step=100, value=LLM_MAX_TOKENS, label="Max Tokens")
+                llm_api_dropdown1 = gr.Dropdown(choices=config.llm.llm_server_supported, value=config.llm.llm_server, label="选择LLM服务")
+                temp_slider1 = gr.Slider(0.0, 1.0, step=0.05, value=config.llm.llm_temperature, label="Temperature")
+                token_slider1 = gr.Slider(100, 8000, step=100, value=config.llm.llm_max_tokens, label="Max Tokens")
                 # 新增：仅返回纯文本(JSON)开关
                 text_only1 = gr.Checkbox(label="仅返回文本(JSON)",
                                          value=env_config.get("TEXT_ONLY_DEFAULT", "false").lower() == "true")
@@ -458,8 +461,8 @@ def create_app():
             with gr.Accordion("高级设置", open=False):
                 with gr.Row():
                     llm_api_dropdown_subtitle = gr.Dropdown(
-                        choices=LLM_SERVER_SUPPORTED,
-                        value=LLM_SERVER,
+                        choices=config.llm.llm_server_supported,
+                        value=config.llm.llm_server,
                         label="LLM 服务（用于 LLM 分段）"
                     )
 
@@ -684,7 +687,7 @@ def create_app():
 
             with gr.Accordion("LLM 配置", open=False):
                 llm_server = gr.Dropdown(
-                    choices=LLM_SERVER_SUPPORTED,
+                    choices=config.llm.llm_server_supported,
                     label="LLM 服务",
                     value=env_config.get("LLM_SERVER", "Cerebras:Qwen-3-235B-Instruct")
                 )
@@ -730,7 +733,7 @@ def create_app():
 
             with gr.Accordion("摘要生成配置", open=False):
                 summary_server = gr.Dropdown(
-                    choices=LLM_SERVER_SUPPORTED,
+                    choices=config.llm.llm_server_supported,
                     label="摘要 LLM 服务",
                     value=env_config.get("SUMMARY_LLM_SERVER", "Cerebras:Qwen-3-235B-Thinking")
                 )
@@ -800,9 +803,10 @@ def create_app():
 
 def launch_ui(server_name: str = "0.0.0.0", server_port: int | None = None, share: bool = False):
     app = create_app()
-    # 优先使用传入参数，其次使用配置中的 WEB_SERVER_PORT（如果有），否则让 gradio 自动选择
+    config = get_config()
+    # 优先使用传入参数，其次使用配置中的 web_server_port（如果有），否则让 gradio 自动选择
     port = server_port or (
-        int(WEB_SERVER_PORT) if (globals().get('WEB_SERVER_PORT') and str(WEB_SERVER_PORT).strip()) else None)
+        config.web_server_port if config.web_server_port else None)
     should_launch_browser = '--from-electron' not in sys.argv
     app.launch(server_name=server_name, server_port=port, share=share, inbrowser=should_launch_browser)
 

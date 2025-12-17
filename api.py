@@ -2,12 +2,15 @@
 FastAPI 服务接口
 提供RESTful API用于与其他程序交互
 """
+
+import os
 import shutil
 import socket
 import uuid
 import traceback
 from datetime import datetime
-from typing import List
+from pathlib import Path
+from typing import List, Optional
 
 import uvicorn
 from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
@@ -15,17 +18,20 @@ from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from src.config import *
+from src.utils.config import get_config
 from src.core_process import (
     upload_audio, bilibili_video_download_process,
     process_multiple_urls, process_subtitles
 )
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.api.middleware import register_exception_handlers
-from src.logger import get_logger
+from src.utils.logging.logger import get_logger
 
 # 创建logger
 logger = get_logger(__name__)
+
+# 获取配置
+config = get_config()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -37,10 +43,21 @@ app = FastAPI(
 # 注册统一异常处理器
 register_exception_handlers(app)
 
-# 挂载静态文件目录
-app.mount("/dist", StaticFiles(directory="frontend/dist"), name="dist")
-app.mount("/src", StaticFiles(directory="frontend/src"), name="src")
-app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+# 挂载静态文件目录（仅当目录存在时）
+# 这样可以让测试环境和未构建前端的开发环境也能正常运行
+if Path("frontend/dist").exists():
+    app.mount("/dist", StaticFiles(directory="frontend/dist"), name="dist")
+    logger.info("已挂载静态文件目录: /dist")
+else:
+    logger.warning("前端构建目录 'frontend/dist' 不存在，跳过挂载")
+
+if Path("frontend/src").exists():
+    app.mount("/src", StaticFiles(directory="frontend/src"), name="src")
+    logger.info("已挂载静态文件目录: /src")
+
+if Path("assets").exists():
+    app.mount("/assets", StaticFiles(directory="assets"), name="assets")
+    logger.info("已挂载静态文件目录: /assets")
 
 # 任务状态存储（简单的内存存储，生产环境应使用数据库）
 # 每个任务的结构：
@@ -61,17 +78,17 @@ class SummarizeRequest(BaseModel):
     """文本总结请求"""
     text: str = Field(..., description="要总结的文本内容")
     title: str = Field(default="", description="文本标题（可选）")
-    llm_api: str = Field(default=LLM_SERVER, description="LLM服务")
-    temperature: float = Field(default=LLM_TEMPERATURE, ge=0, le=2, description="温度参数")
-    max_tokens: int = Field(default=LLM_MAX_TOKENS, gt=0, description="最大token数")
+    llm_api: str = Field(default=config.llm.llm_server, description="LLM服务")
+    temperature: float = Field(default=config.llm.llm_temperature, ge=0, le=2, description="温度参数")
+    max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
 
 
 class BilibiliVideoRequest(BaseModel):
     """B站视频处理请求"""
     video_url: str = Field(..., description="B站视频链接")
-    llm_api: str = Field(default=LLM_SERVER, description="LLM服务")
-    temperature: float = Field(default=LLM_TEMPERATURE, ge=0, le=2, description="温度参数")
-    max_tokens: int = Field(default=LLM_MAX_TOKENS, gt=0, description="最大token数")
+    llm_api: str = Field(default=config.llm.llm_server, description="LLM服务")
+    temperature: float = Field(default=config.llm.llm_temperature, ge=0, le=2, description="温度参数")
+    max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
     summarize: bool = Field(default=False, description="是否对结果进行总结")
 
@@ -79,9 +96,9 @@ class BilibiliVideoRequest(BaseModel):
 class BatchProcessRequest(BaseModel):
     """批量处理请求"""
     urls: List[str] = Field(..., description="B站视频链接列表")
-    llm_api: str = Field(default=LLM_SERVER, description="LLM服务")
-    temperature: float = Field(default=LLM_TEMPERATURE, ge=0, le=2, description="温度参数")
-    max_tokens: int = Field(default=LLM_MAX_TOKENS, gt=0, description="最大token数")
+    llm_api: str = Field(default=config.llm.llm_server, description="LLM服务")
+    temperature: float = Field(default=config.llm.llm_temperature, ge=0, le=2, description="温度参数")
+    max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
     summarize: bool = Field(default=False, description="是否对结果进行总结")
 
@@ -148,9 +165,9 @@ async def health_check():
         "status": "healthy",
         "timestamp": datetime.now().isoformat(),
         "config": {
-            "asr_model": ASR_MODEL,
-            "llm_server": LLM_SERVER,
-            "output_dir": OUTPUT_DIR
+            "asr_model": config.asr.asr_model,
+            "llm_server": config.llm.llm_server,
+            "output_dir": str(config.paths.output_dir)
         }
     }
 
@@ -178,8 +195,8 @@ async def process_bilibili_video(request: BilibiliVideoRequest, background_tasks
 
 
 @app.post("/api/v1/process/audio", response_model=TaskResponse)
-async def process_audio_file(file: UploadFile = File(...), llm_api: str = LLM_SERVER,
-                             temperature: float = LLM_TEMPERATURE, max_tokens: int = LLM_MAX_TOKENS,
+async def process_audio_file(file: UploadFile = File(...), llm_api: str = config.llm.llm_server,
+                             temperature: float = config.llm.llm_temperature, max_tokens: int = config.llm.llm_max_tokens,
                              text_only: bool = False, summarize: bool = False,
                              background_tasks: BackgroundTasks = None):
     """处理上传的音频文件"""
@@ -196,7 +213,7 @@ async def process_audio_file(file: UploadFile = File(...), llm_api: str = LLM_SE
         "created_at": created_at,
         "filename": file.filename
     }
-    temp_file_path = os.path.join(TEMP_DIR, f"{task_id}_{file.filename}")
+    temp_file_path = os.path.join(config.paths.temp_dir, f"{task_id}_{file.filename}")
     try:
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -256,7 +273,7 @@ async def process_video_subtitle(file: UploadFile = File(...), background_tasks:
         "created_at": created_at,
         "filename": file.filename
     }
-    temp_file_path = os.path.join(TEMP_DIR, f"{task_id}_{file.filename}")
+    temp_file_path = os.path.join(config.paths.temp_dir, f"{task_id}_{file.filename}")
     try:
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -596,8 +613,8 @@ def find_available_port(host: str, start_port: int, max_attempts: int = 50) -> i
 
 
 if __name__ == "__main__":
-    # 获取配置的端口，默认为 8000
-    preferred_port = WEB_SERVER_PORT if WEB_SERVER_PORT else 8000
+    # 获取配置的端口
+    preferred_port = config.web_server_port or 8000
 
     # 主机地址：使用 127.0.0.1 避免 Windows 权限问题
     # 如需外部访问，请以管理员权限运行或使用 host="0.0.0.0"

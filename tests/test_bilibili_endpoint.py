@@ -4,8 +4,9 @@ import time
 import pytest
 import requests
 
-from src.config import LLM_SERVER, LLM_SERVER_SUPPORTED
+from src.utils.config import get_config
 
+config = get_config()
 BASE_URL = os.getenv('API_BASE_URL', 'http://127.0.0.1:8000')
 # Default timeout for waiting task completion (seconds); can be overridden via env
 TIMEOUT = int(os.getenv('TEST_BILIBILI_TIMEOUT', '600'))
@@ -36,8 +37,8 @@ def test_process_bilibili_endpoint_end_to_end():
     assert h is not None and h.status_code == 200, f"Health check failed: {getattr(h, 'status_code', None)}"
 
     # choose a supported llm_api: prefer configured LLM_SERVER if valid, else pick the first supported
-    chosen_llm = LLM_SERVER if LLM_SERVER in LLM_SERVER_SUPPORTED else (
-        LLM_SERVER_SUPPORTED[0] if LLM_SERVER_SUPPORTED else "")
+    chosen_llm = config.llm.llm_server if config.llm.llm_server in config.llm.llm_server_supported else (
+        config.llm.llm_server_supported[0] if config.llm.llm_server_supported else "")
     payload = {
         "video_url": VIDEO_URL,
         "llm_api": chosen_llm,

@@ -23,7 +23,7 @@ class BaseConfig(BaseSettings):
         env_file=".env",
         env_file_encoding="utf-8",
         case_sensitive=False,
-        # 允许额外字段（向后兼容）
+        # 允许额外字段
         extra="ignore",
         # 验证赋值
         validate_assignment=True,

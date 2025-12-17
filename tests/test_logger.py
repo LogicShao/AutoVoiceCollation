@@ -7,7 +7,7 @@ from unittest.mock import patch, Mock
 
 import pytest
 
-from src.logger import (
+from src.utils.logging.logger import (
     ColoredFormatter,
     setup_logger,
     get_logger,

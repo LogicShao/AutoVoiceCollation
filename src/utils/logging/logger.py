@@ -65,6 +65,22 @@ def setup_logger(
 
     # 控制台处理器
     if console_output:
+        # Force UTF-8 encoding on Windows to handle emoji and Chinese characters
+        import io
+
+        if sys.platform == "win32":
+            # Reconfigure stdout to use UTF-8 encoding
+            if hasattr(sys.stdout, "reconfigure"):
+                sys.stdout.reconfigure(encoding="utf-8", errors="replace")
+            else:
+                # Fallback for older Python versions
+                sys.stdout = io.TextIOWrapper(
+                    sys.stdout.buffer,
+                    encoding="utf-8",
+                    errors="replace",
+                    line_buffering=True,
+                )
+
         console_handler = logging.StreamHandler(sys.stdout)
         console_handler.setLevel(getattr(logging, log_level.upper()))
 
@@ -104,19 +120,15 @@ def get_logger(name: str) -> logging.Logger:
     # 如果 logger 还没有配置，使用默认配置
     if not logger.handlers:
         # 延迟导入配置，避免循环导入
-        # 当 src.config 正在初始化时，使用默认值
+        # 当配置正在初始化时，使用默认值
         try:
-            from src.config import (
-                LOG_LEVEL,
-                LOG_FILE,
-                LOG_CONSOLE_OUTPUT,
-                LOG_COLORED_OUTPUT,
-            )
+            from src.utils.config import get_config
 
-            log_level = LOG_LEVEL
-            log_file = LOG_FILE
-            console_output = LOG_CONSOLE_OUTPUT
-            colored_output = LOG_COLORED_OUTPUT
+            config = get_config()
+            log_level = config.logging.log_level
+            log_file = str(config.logging.log_file) if config.logging.log_file else None
+            console_output = config.logging.log_console_output
+            colored_output = config.logging.log_colored_output
         except (ImportError, AttributeError):
             # 配置模块未完全加载，使用默认值
             log_level = "INFO"

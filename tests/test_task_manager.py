@@ -8,7 +8,7 @@ import time
 import pytest
 
 from src.core.exceptions import TaskCancelledException
-from src.task_manager import TaskManager, get_task_manager
+from src.utils.helpers.task_manager import TaskManager, get_task_manager
 
 
 class TestTaskManager:
@@ -200,7 +200,8 @@ class TestTaskCancelledException:
         """测试异常创建"""
         msg = "Task test-123 has been cancelled"
         exc = TaskCancelledException(msg)
-        assert str(exc) == msg
+        # The exception now includes a formatted prefix, so check if the message is contained
+        assert msg in str(exc)
 
     def test_exception_inheritance(self):
         """测试异常继承 - 应该是 Exception 的子类"""

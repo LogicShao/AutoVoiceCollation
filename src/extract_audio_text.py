@@ -7,10 +7,8 @@
 from typing import Optional
 
 from src.services.asr import get_asr_service, transcribe_audio
-from src.logger import get_logger, configure_third_party_loggers
-
-# 延迟导入配置，避免循环导入
-import src.config as config
+from src.utils.logging.logger import get_logger, configure_third_party_loggers
+from src.utils.config import get_config
 
 logger = get_logger(__name__)
 
@@ -22,7 +20,8 @@ def _ensure_log_configured():
     """确保第三方日志已配置（仅执行一次）"""
     global _log_configured
     if not _log_configured:
-        configure_third_party_loggers(config.THIRD_PARTY_LOG_LEVEL)
+        config = get_config()
+        configure_third_party_loggers(config.third_party_log_level)
         _log_configured = True
 
 

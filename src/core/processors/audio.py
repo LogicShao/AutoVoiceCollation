@@ -9,7 +9,7 @@ import json
 import shutil
 from typing import Optional, Any, Tuple
 
-from src.Timer import Timer
+from src.utils.helpers.timer import Timer
 from src.bilibili_downloader import BiliVideoFile, new_local_bili_file
 from src.services.asr import transcribe_audio
 from src.core.exceptions import TaskCancelledException
@@ -18,12 +18,16 @@ from src.text_arrangement.text_exporter import text_to_img_or_pdf
 
 from .base import BaseProcessor
 
-# 延迟导入配置，避免循环导入
-import src.config as config
+# 导入配置系统
+from src.utils.config import get_config
 
 
 class AudioProcessor(BaseProcessor):
     """音频处理器"""
+
+    def __init__(self):
+        super().__init__()
+        self.config = get_config()
 
     def _validate_inputs(
         self,
@@ -54,9 +58,9 @@ class AudioProcessor(BaseProcessor):
         if max_tokens <= 0:
             raise ValueError(f"max_tokens must be positive, got {max_tokens}")
 
-        if llm_api not in config.LLM_SERVER_SUPPORTED:
+        if llm_api not in self.config.llm.llm_server_supported:
             raise ValueError(
-                f"Unsupported LLM API: {llm_api}. Supported: {config.LLM_SERVER_SUPPORTED}"
+                f"Unsupported LLM API: {llm_api}. Supported: {self.config.llm.llm_server_supported}"
             )
 
     def _create_output_directory(self, audio_file: BiliVideoFile) -> str:
@@ -69,26 +73,26 @@ class AudioProcessor(BaseProcessor):
         Returns:
             str: 输出目录路径
         """
-        os.makedirs(config.OUTPUT_DIR, exist_ok=True)
-        os.makedirs(config.DOWNLOAD_DIR, exist_ok=True)
+        self.config.paths.output_dir.mkdir(parents=True, exist_ok=True)
+        self.config.paths.download_dir.mkdir(parents=True, exist_ok=True)
 
         audio_file_name = os.path.basename(audio_file.path).split(".")[0]
-        output_dir = os.path.join(config.OUTPUT_DIR, audio_file_name)
+        output_dir = self.config.paths.output_dir / audio_file_name
 
         # 避免目录重复
-        if os.path.exists(output_dir):
+        if output_dir.exists():
             suffix_id = 1
-            while os.path.exists(f"{output_dir}_{suffix_id}"):
+            while (self.config.paths.output_dir / f"{audio_file_name}_{suffix_id}").exists():
                 suffix_id += 1
-            output_dir = f"{output_dir}_{suffix_id}"
+            output_dir = self.config.paths.output_dir / f"{audio_file_name}_{suffix_id}"
 
-        os.makedirs(output_dir)
+        output_dir.mkdir(parents=True, exist_ok=True)
 
         # 保存视频信息
-        info_file_path = os.path.join(output_dir, "video_info.txt")
-        audio_file.save_in_json(info_file_path)
+        info_file_path = output_dir / "video_info.txt"
+        audio_file.save_in_json(str(info_file_path))
 
-        return output_dir
+        return str(output_dir)
 
     def _extract_text(
         self, audio_file: BiliVideoFile, output_dir: str, task_id: str
@@ -108,7 +112,7 @@ class AudioProcessor(BaseProcessor):
         timer.start()
 
         audio_text = transcribe_audio(
-            audio_path=audio_file.path, model_type=config.ASR_MODEL, task_id=task_id
+            audio_path=audio_file.path, model_type=self.config.asr.asr_model, task_id=task_id
         )
 
         # 保存原始文本
@@ -144,7 +148,7 @@ class AudioProcessor(BaseProcessor):
         Returns:
             Tuple[str, float]: (润色后的文本, 润色时间)
         """
-        if config.DISABLE_LLM_POLISH:
+        if self.config.llm.disable_llm_polish:
             self.logger.info("LLM polish is disabled, skipping")
             return audio_text, 0.0
 
@@ -160,15 +164,15 @@ class AudioProcessor(BaseProcessor):
             split_len=round(max_tokens * 0.7),
             temperature=temperature,
             max_tokens=max_tokens,
-            debug_flag=config.DEBUG_FLAG,
-            async_flag=config.ASYNC_FLAG,
+            debug_flag=self.config.debug_flag,
+            async_flag=self.config.llm.async_flag,
             task_id=task_id,
         )
 
         # 保存润色后的文本
         polish_text_file_path = os.path.join(output_dir, "polish_text.txt")
         audio_file.save_in_text(
-            polished_text, llm_api, temperature, config.ASR_MODEL, polish_text_file_path
+            polished_text, llm_api, temperature, self.config.asr.asr_model, polish_text_file_path
         )
 
         polish_time = timer.stop()
@@ -186,15 +190,15 @@ class AudioProcessor(BaseProcessor):
         Returns:
             str: 摘要文本
         """
-        if config.DISABLE_LLM_SUMMARY:
+        if self.config.llm.disable_llm_summary:
             self.logger.info("LLM summary is disabled, skipping")
             return ""
 
         summary_text = summarize_text(
             txt=polished_text,
-            api_server=config.SUMMARY_LLM_SERVER,
-            temperature=config.SUMMARY_LLM_TEMPERATURE,
-            max_tokens=config.SUMMARY_LLM_MAX_TOKENS,
+            api_server=self.config.llm.summary_llm_server,
+            temperature=self.config.llm.summary_llm_temperature,
+            max_tokens=self.config.llm.summary_llm_max_tokens,
             title=title,
         )
 
@@ -227,10 +231,10 @@ class AudioProcessor(BaseProcessor):
         text_to_img_or_pdf(
             polished_text,
             title=title,
-            output_style=config.OUTPUT_STYLE,
+            output_style=self.config.output_style,
             output_path=output_dir,
             LLM_info=f"({llm_api},温度:{temperature})",
-            ASR_model=config.ASR_MODEL,
+            ASR_model=self.config.asr.asr_model,
         )
 
     def _zip_output(self, output_dir: str) -> Optional[str]:
@@ -243,7 +247,7 @@ class AudioProcessor(BaseProcessor):
         Returns:
             Optional[str]: ZIP文件路径或None
         """
-        if not config.ZIP_OUTPUT_ENABLED:
+        if not self.config.zip_output_enabled:
             return None
 
         zip_path = f"{output_dir}.zip"
@@ -309,7 +313,7 @@ class AudioProcessor(BaseProcessor):
                 result_data = {
                     "title": audio_file.title,
                     "audio_file": audio_file.path,
-                    "asr_model": config.ASR_MODEL,
+                    "asr_model": self.config.asr.asr_model,
                     "llm_api": llm_api,
                     "temperature": temperature,
                     "max_tokens": max_tokens,

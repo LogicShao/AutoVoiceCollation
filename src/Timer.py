@@ -1,26 +1,23 @@
-import time
+"""
+⚠️ 废弃警告
 
+此模块已迁移到 src.utils.helpers.timer
 
-class Timer:
-    """
-    A simple timer class to measure the elapsed time of code execution.
-    """
+旧的用法（将在 v2.0.0 中移除）:
+    from src.Timer import Timer
 
-    def __init__(self):
-        self.start_time = None
+新的用法:
+    from src.utils.helpers.timer import Timer
 
-    def start(self):
-        """
-        Start the timer.
-        """
-        self.start_time = time.time()
+迁移指南: docs/proposals/legacy-module-migration.md
+"""
+import warnings
+from src.utils.helpers.timer import Timer
 
-    def stop(self) -> float:
-        """
-        Stop the timer and return the elapsed time in seconds.
-        """
-        if self.start_time is None:
-            raise ValueError("Timer has not been started.")
-        elapsed_time = time.time() - self.start_time
-        self.start_time = None
-        return elapsed_time
+warnings.warn(
+    "src.Timer 已废弃，请使用 src.utils.helpers.timer",
+    DeprecationWarning,
+    stacklevel=2
+)
+
+__all__ = ["Timer"]

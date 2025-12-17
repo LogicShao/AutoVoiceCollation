@@ -6,18 +6,19 @@ ASR服务工厂
 
 from typing import Optional
 
-from src.device_manager import detect_device, get_onnx_providers
-from src.logger import get_logger
+from src.utils.device.device_manager import detect_device, get_onnx_providers
+from src.utils.logging.logger import get_logger
+from src.utils.config import get_config
 
 from .base import BaseASRService
 from .sense_voice import SenseVoiceService
 from .paraformer import ParaformerService
 
-# 延迟导入配置，避免循环导入
-import src.config as config
-
 
 logger = get_logger(__name__)
+
+# 获取配置
+config = get_config()
 
 # 全局单例缓存
 _sense_voice_instance: Optional[SenseVoiceService] = None
@@ -40,8 +41,8 @@ def get_asr_service(model_type: str = "paraformer") -> BaseASRService:
     global _sense_voice_instance, _paraformer_instance
 
     # 检测设备
-    device = detect_device(config.DEVICE)
-    onnx_providers = get_onnx_providers(device, config.ONNX_PROVIDERS)
+    device = detect_device(config.asr.device)
+    onnx_providers = get_onnx_providers(device, config.asr.get_onnx_providers_list())
 
     if model_type == "sense_voice":
         if _sense_voice_instance is None:

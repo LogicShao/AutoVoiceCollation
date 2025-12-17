@@ -6,15 +6,15 @@
 
 from typing import Optional, Tuple, Any
 
-from src.Timer import Timer
+from src.utils.helpers.timer import Timer
 from src.bilibili_downloader import download_bilibili_audio, BiliVideoFile
 from src.core.exceptions import TaskCancelledException
 
 from .base import BaseProcessor
 from .audio import AudioProcessor
 
-# 延迟导入配置，避免循环导入
-import src.config as config
+# 导入配置系统
+from src.utils.config import get_config
 
 
 class VideoProcessor(BaseProcessor):
@@ -23,6 +23,7 @@ class VideoProcessor(BaseProcessor):
     def __init__(self):
         super().__init__()
         self.audio_processor = AudioProcessor()
+        self.config = get_config()
 
     def process(
         self,
@@ -60,7 +61,7 @@ class VideoProcessor(BaseProcessor):
             timer = Timer()
             timer.start()
             audio_file: BiliVideoFile = download_bilibili_audio(
-                video_url, output_format="mp3", output_dir=config.DOWNLOAD_DIR
+                video_url, output_format="mp3", output_dir=str(self.config.paths.download_dir)
             )
             download_time = timer.stop()
 
@@ -129,7 +130,7 @@ class VideoProcessor(BaseProcessor):
                     timer = Timer()
                     timer.start()
                     audio_file = download_bilibili_audio(
-                        url, output_format="mp3", output_dir=config.DOWNLOAD_DIR
+                        url, output_format="mp3", output_dir=str(self.config.paths.download_dir)
                     )
                     download_time = timer.stop()
 
@@ -150,7 +151,7 @@ class VideoProcessor(BaseProcessor):
                     # 处理返回结果（可能是字典或字符串）
                     if isinstance(result_data, dict):
                         output_dir = result_data.get("output_dir", "")
-                        if config.ZIP_OUTPUT_ENABLED and zip_file:
+                        if self.config.zip_output_enabled and zip_file:
                             all_output_dirs.append(zip_file)
                         else:
                             all_output_dirs.append(output_dir)
