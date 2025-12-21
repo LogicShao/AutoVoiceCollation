@@ -4,6 +4,9 @@ document.addEventListener('alpine:init', () => {
     // 当前标签页
     currentTab: 'bilibili',
 
+    // 主题管理
+    currentTheme: window.ThemeManager?.getCurrentTheme() || 'system',
+
     // 表单数据
     biliUrl: '',
     selectedFile: null,
@@ -19,6 +22,22 @@ document.addEventListener('alpine:init', () => {
 
     // 轮询定时器
     pollInterval: null,
+
+    // 主题切换
+    toggleTheme() {
+      const newTheme = window.ThemeManager.cycleTheme();
+      this.currentTheme = newTheme;
+    },
+
+    // 获取主题标签
+    getThemeLabel() {
+      const labels = {
+        light: '浅色',
+        dark: '深色',
+        system: '跟随系统'
+      };
+      return labels[this.currentTheme] || '跟随系统';
+    },
 
     // 处理 B站视频
     async processBilibili() {

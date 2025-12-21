@@ -4,7 +4,7 @@ import os
 
 from src.utils.config import get_config
 from src.utils.helpers.timer import Timer
-from src.bilibili_downloader import (
+from src.services.download import (
     download_bilibili_audio,
     BiliVideoFile,
     new_local_bili_file,
@@ -37,37 +37,66 @@ def cli():
     single_parser.add_argument("--audio", type=str, help="本地音频文件路径")
     single_parser.add_argument("--video", type=str, help="本地视频文件路径")
     single_parser.add_argument("--bili", type=str, help="B站视频链接")
-    single_parser.add_argument("--llm_api", type=str, default=config.llm.llm_server, help="LLM服务地址")
-    single_parser.add_argument("--temperature", type=float, default=config.llm.llm_temperature, help="LLM温度")
-    single_parser.add_argument("--max_tokens", type=int, default=config.llm.llm_max_tokens, help="LLM最大tokens")
+    single_parser.add_argument(
+        "--llm_api", type=str, default=config.llm.llm_server, help="LLM服务地址"
+    )
+    single_parser.add_argument(
+        "--temperature", type=float, default=config.llm.llm_temperature, help="LLM温度"
+    )
+    single_parser.add_argument(
+        "--max_tokens",
+        type=int,
+        default=config.llm.llm_max_tokens,
+        help="LLM最大tokens",
+    )
 
     # 批量处理
     batch_parser = subparsers.add_parser("batch", help="批量处理B站视频链接")
-    batch_parser.add_argument("--url_file", type=str, required=True, help="包含多个B站链接的txt文件，每行一个")
-    batch_parser.add_argument("--llm_api", type=str, default=config.llm.llm_server, help="LLM服务地址")
-    batch_parser.add_argument("--temperature", type=float, default=config.llm.llm_temperature, help="LLM温度")
-    batch_parser.add_argument("--max_tokens", type=int, default=config.llm.llm_max_tokens, help="LLM最大tokens")
+    batch_parser.add_argument(
+        "--url_file", type=str, required=True, help="包含多个B站链接的txt文件，每行一个"
+    )
+    batch_parser.add_argument(
+        "--llm_api", type=str, default=config.llm.llm_server, help="LLM服务地址"
+    )
+    batch_parser.add_argument(
+        "--temperature", type=float, default=config.llm.llm_temperature, help="LLM温度"
+    )
+    batch_parser.add_argument(
+        "--max_tokens",
+        type=int,
+        default=config.llm.llm_max_tokens,
+        help="LLM最大tokens",
+    )
 
     # 字幕添加
     subtitle_parser = subparsers.add_parser("subtitle", help="为本地视频添加字幕")
-    subtitle_parser.add_argument("--video", type=str, required=True, help="本地视频文件路径")
+    subtitle_parser.add_argument(
+        "--video", type=str, required=True, help="本地视频文件路径"
+    )
 
     args = parser.parse_args()
 
     if args.command == "single":
         if args.audio:
             print("处理本地音频...")
-            result = audio_processor.process_uploaded_audio(args.audio, args.llm_api, args.temperature, args.max_tokens)
+            result = audio_processor.process_uploaded_audio(
+                args.audio, args.llm_api, args.temperature, args.max_tokens
+            )
             print("输出:", result)
         elif args.video:
             print("提取视频音频并处理...")
-            from src.bilibili_downloader import extract_audio_from_video
+            from src.services.download import extract_audio_from_video
+
             audio_path = extract_audio_from_video(args.video)
-            result = audio_processor.process_uploaded_audio(audio_path, args.llm_api, args.temperature, args.max_tokens)
+            result = audio_processor.process_uploaded_audio(
+                audio_path, args.llm_api, args.temperature, args.max_tokens
+            )
             print("输出:", result)
         elif args.bili:
             print("处理B站视频链接...")
-            result = video_processor.process(args.bili, args.llm_api, args.temperature, args.max_tokens)
+            result = video_processor.process(
+                args.bili, args.llm_api, args.temperature, args.max_tokens
+            )
             print("输出:", result)
         else:
             print("请指定 --audio、--video 或 --bili 参数。")
@@ -75,7 +104,9 @@ def cli():
         with open(args.url_file, "r", encoding="utf-8") as f:
             urls = f.read()
         print("批量处理B站链接...")
-        result = video_processor.process_batch(urls, args.llm_api, args.temperature, args.max_tokens)
+        result = video_processor.process_batch(
+            urls, args.llm_api, args.temperature, args.max_tokens
+        )
         print("输出:", result)
     elif args.command == "subtitle":
         print("为视频添加字幕...")
@@ -90,10 +121,14 @@ def main(local_audio_path: str = None):
     config = get_config()
 
     if local_audio_path is None:
-        video_url = input("请输入B站视频链接（例如：https://www.bilibili.com/video/BV1...）：\n")
+        video_url = input(
+            "请输入B站视频链接（例如：https://www.bilibili.com/video/BV1...）：\n"
+        )
         timer.start()
         print("正在下载音频...")
-        audio_file: BiliVideoFile = download_bilibili_audio(video_url, output_format='mp3', output_dir=str(config.paths.download_dir))
+        audio_file: BiliVideoFile = download_bilibili_audio(
+            video_url, output_format="mp3", output_dir=str(config.paths.download_dir)
+        )
         print(f"音频已下载到：{audio_file.path}", "用时：", timer.stop(), "秒")
     else:
         audio_file: BiliVideoFile = new_local_bili_file(local_audio_path)
@@ -101,7 +136,9 @@ def main(local_audio_path: str = None):
 
     timer.start()
     print("正在提取音频文本...")
-    audio_text = transcribe_audio(audio_path=audio_file.path, model_type=config.asr.asr_model)
+    audio_text = transcribe_audio(
+        audio_path=audio_file.path, model_type=config.asr.asr_model
+    )
     print("音频文本提取完成，用时：", timer.stop(), "秒")
 
     output_dir = os.path.join(str(config.paths.output_dir), audio_file.title)
@@ -115,27 +152,53 @@ def main(local_audio_path: str = None):
     if not config.llm.disable_llm_polish:
         timer.start()
         print("正在润色文本...")
-        polished_text = polish_text(audio_text, api_service=config.llm.llm_server, temperature=config.llm.llm_temperature,
-                                    split_len=config.llm.split_limit, max_tokens=config.llm.llm_max_tokens, debug_flag=config.debug_flag,
-                                    async_flag=config.llm.async_flag)
+        polished_text = polish_text(
+            audio_text,
+            api_service=config.llm.llm_server,
+            temperature=config.llm.llm_temperature,
+            split_len=config.llm.split_limit,
+            max_tokens=config.llm.llm_max_tokens,
+            debug_flag=config.debug_flag,
+            async_flag=config.llm.async_flag,
+        )
         print("文本润色完成，用时：", timer.stop(), "秒")
 
         polish_text_file_path = os.path.join(output_dir, "polish_text.txt")
-        audio_file.save_in_text(polished_text, config.llm.llm_server, config.llm.llm_temperature, config.asr.asr_model, polish_text_file_path)
+        audio_file.save_in_text(
+            polished_text,
+            config.llm.llm_server,
+            config.llm.llm_temperature,
+            config.asr.asr_model,
+            polish_text_file_path,
+        )
         print(f"润色后的文本已保存到：{polish_text_file_path}")
     else:
         polished_text = audio_text
         print("文本润色已跳过。")
 
-    text_to_img_or_pdf(polished_text, title=audio_file.title, output_style=config.output_style, output_path=output_dir,
-                       LLM_info=f'({config.llm.llm_server}, 温度: {config.llm.llm_temperature})', ASR_model=config.asr.asr_model)
+    text_to_img_or_pdf(
+        polished_text,
+        title=audio_file.title,
+        output_style=config.output_style,
+        output_path=output_dir,
+        LLM_info=f"({config.llm.llm_server}, 温度: {config.llm.llm_temperature})",
+        ASR_model=config.asr.asr_model,
+    )
 
     if not config.llm.disable_llm_summary:
         print("正在生成 Summary...")
-        summary_text = summarize_text(txt=polished_text, api_server=config.llm.summary_llm_server,
-                                      temperature=config.llm.summary_llm_temperature, max_tokens=config.llm.summary_llm_max_tokens,
-                                      title=audio_file.title)
-        with open(os.path.join(str(config.paths.output_dir), "summary_text.md"), "w", encoding="utf-8") as f:
+        summary_text = summarize_text(
+            txt=polished_text,
+            api_server=config.llm.summary_llm_server,
+            temperature=config.llm.summary_llm_temperature,
+            max_tokens=config.llm.summary_llm_max_tokens,
+            title=audio_file.title,
+        )
+        with open(
+            os.path.join(str(config.paths.output_dir), "summary_text.md"),
+            "w",
+            encoding="utf-8",
+        ) as f:
             f.write(summary_text)
         print(f"文本摘要已保存到：{os.path.join(output_dir, 'summary_text.md')}")
 

@@ -106,6 +106,7 @@ class AppConfig(BaseConfig):
             else:
                 print(f"⚠️  {message}")
 
+
 # 全局配置实例
 _config: Optional[AppConfig] = None
 

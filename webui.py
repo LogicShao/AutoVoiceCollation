@@ -4,7 +4,7 @@ import uuid
 
 import gradio as gr
 
-from src.bilibili_downloader import extract_audio_from_video
+from src.services.download import extract_audio_from_video
 from src.utils.config import get_config
 from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor
 from src.utils.helpers.task_manager import get_task_manager

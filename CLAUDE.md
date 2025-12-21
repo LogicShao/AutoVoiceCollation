@@ -111,9 +111,44 @@ python -m mypy src/               # 类型检查（如果配置了 mypy）
 ```
 输入源 → 下载/上传 → ASR 转录 → 文本分段 → LLM 润色 → 格式化导出
   ↓          ↓          ↓         ↓         ↓          ↓
-BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
-或本地文件  downloader  audio_text text.py  by_llm.py  (PDF/图片/字幕)
-         .py         .py                 (异步)
+BiliURL   services/   services/ split_   services/   core/export/
+或本地文件  download/   asr/      text.py  llm/        (PDF/图片/字幕)
+         bilibili_              text_arrangement/
+         downloader.py
+```
+
+### 重构后的模块化架构（v2）
+
+项目已从扁平结构重构为模块化架构，遵循 SOLID 原则：
+
+```
+src/
+├── api/                    # API 层
+│   ├── middleware/         # 中间件（错误处理等）
+│   └── schemas/           # Pydantic 数据模型
+├── core/                  # 核心业务逻辑
+│   ├── exceptions/        # 异常定义
+│   ├── export/           # 导出功能
+│   ├── history/          # 处理历史
+│   ├── models/           # 数据模型
+│   └── processors/       # 处理器（音频/视频/字幕）
+├── services/             # 外部服务集成
+│   ├── asr/             # ASR 服务
+│   ├── download/        # 下载服务（B站）
+│   ├── llm/            # LLM 服务
+│   └── subtitle/        # 字幕服务
+├── text_arrangement/     # 文本处理
+│   ├── polish_by_llm.py  # 文本润色
+│   ├── query_llm.py      # LLM 接口
+│   ├── split_text.py     # 文本分段
+│   ├── summary_by_llm.py # 摘要生成
+│   └── text_exporter.py  # 导出工具
+├── utils/               # 工具类
+│   ├── config/         # 配置管理（基于 Pydantic v2）
+│   ├── device/         # 设备管理
+│   ├── helpers/        # 辅助工具
+│   └── logging/        # 日志系统
+└── SenseVoiceSmall/    # SenseVoice 模型实现
 ```
 
 **关键检查点**（任务取消）:
@@ -123,22 +158,29 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
 - `polish_text()` 在处理每个文本段落前检查取消
 - 捕获 `TaskCancelledException` 以清理资源
 
-### 关键模块
+### 关键模块（重构后）
 
-- **`src/config.py`**: 环境变量加载和配置管理（类型转换、验证）
-- **`src/core_process.py`**: 流程编排入口，包含 `process_audio()`, `bilibili_video_download_process()`
-- **`src/extract_audio_text.py`**: ASR 识别（FunASR），支持 Paraformer 和 SenseVoice 模型
-- **`src/text_arrangement/query_llm.py`**: LLM 统一接口（策略模式），路由到不同 LLM 提供商
-- **`src/text_arrangement/polish_by_llm.py`**: 异步批量文本润色（使用 `asyncio.gather()` 并发调用 LLM）
-- **`src/subtitle_generator.py`**: 字幕生成和视频硬编码（支持 SRT 格式和字幕烧录）
-- **`src/task_manager.py`**: 任务终止系统（单例模式），支持用户主动取消任务
-- **`src/device_manager.py`**: 设备检测和管理（CPU/GPU 自动检测，ONNX Runtime 配置）
-- **`src/logger.py`**: 统一日志系统，支持彩色输出和第三方库日志级别控制
-- **`src/bilibili_downloader.py`**: B站视频下载（使用 yt-dlp），包含 `BiliVideoFile` 数据类
+- **`src/utils/config/`**: 基于 Pydantic v2 的类型安全配置系统，支持环境变量验证和热重载
+- **`src/core/processors/`**: 处理器基类和具体实现（音频/视频/字幕），遵循单一职责原则
+- **`src/services/asr/`**: ASR 服务抽象层，支持 Paraformer 和 SenseVoice 模型，统一接口
+- **`src/services/llm/`**: LLM 服务抽象层，支持多提供商（DeepSeek、Gemini、Qwen、Cerebras、本地模型）
+- **`src/services/download/bilibili_downloader.py`**: B站视频下载服务，使用 yt-dlp，包含 `BiliVideoFile` 数据类
+- **`src/services/subtitle/generator.py`**: 字幕生成服务，支持 SRT 格式和视频硬编码
+- **`src/core/exceptions/`**: 统一的异常体系，按领域分类（ASR、LLM、下载、文件、任务等）
+- **`src/utils/logging/`**: 结构化日志系统，支持彩色输出和日志级别控制
+- **`src/utils/device/`**: 设备检测和管理，支持 CPU/GPU 自动检测和 ONNX Runtime 配置
+- **`src/api/schemas/`**: Pydantic 数据模型，用于 API 请求/响应验证
+- **`src/core/history/manager.py`**: 处理历史管理系统，支持 JSON 存储和检索
 
-### 配置系统（src/config.py）
+### 配置系统（src/utils/config/）
 
-- **加载机��**: `.env` 文件通过 `_get_env()` 函数加载，支持类型转换（`bool`, `int`, `float`, `Path`）和自定义验证
+- **架构**: 基于 Pydantic v2 的类型安全配置系统，支持嵌套配置和自动验证
+- **配置类**:
+    - `AppConfig`: 主配置类，聚合所有子配置
+    - `LLMConfig`: LLM 相关配置（API Keys、模型选择、参数）
+    - `ASRConfig`: ASR 相关配置（模型选择、批处理大小、设备）
+    - `PathConfig`: 路径配置（输出目录、缓存目录、模型目录）
+    - `LoggingConfig`: 日志配置（级别、格式、输出文件）
 - **关键配置**:
     - `ASR_MODEL`: `paraformer`（高精度）或 `sense_voice`（快速/多语言）
     - `LLM_SERVER`: 当前使用的 LLM 服务（支持：`deepseek-chat`, `gemini-2.0-flash`, `qwen3-plus`, `Cerebras:*`, `local:*`）
@@ -146,6 +188,13 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
     - `DEVICE`: `auto`（自动检测 GPU）、`cpu`、`cuda:0` 等
     - `USE_ONNX`: 启用 ONNX Runtime 推理加速
     - `DISABLE_LLM_POLISH` / `DISABLE_LLM_SUMMARY`: 功能开关
+- **使用方式**:
+    ```python
+    from src.utils.config import get_config
+    config = get_config()
+    print(config.llm.server)  # 访问 LLM 配置
+    print(config.asr.model)   # 访问 ASR 配置
+    ```
 
 ### API 架构（api.py）
 
@@ -160,7 +209,7 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
     - `GET /api/v1/download/{task_id}` - 下载结果文件
 - **异步处理**: 使用 FastAPI `BackgroundTasks` 启动后台任务
 
-### 任务终止系统（src/task_manager.py）
+### 任务终止系统（src/utils/helpers/task_manager.py）
 
 - **设计模式**: 单例模式，通过 `get_task_manager()` 获取全局实例
 - **功能**:
@@ -169,30 +218,35 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
     - 检查取消: `check_cancellation(task_id)` - 抛出 `TaskCancelledException`
     - 查询状态: `should_stop(task_id)` - 返回布尔值
 - **集成位置**:
-    - `core_process.py`: 在下载、ASR、LLM、导出等步骤之间
-    - `extract_audio_text.py`: 在模型加载前后、推理前
-    - `polish_by_llm.py`: 在处理每个文本段落前（同步和异步模式）
+    - `src/core/processors/`: 在下载、ASR、LLM、导出等步骤之间
+    - `src/services/asr/`: 在模型加载前后、推理前
+    - `src/text_arrangement/polish_by_llm.py`: 在处理每个文本段落前（同步和异步模式）
 - **异常处理**: 所有处理流程都应捕获 `TaskCancelledException` 以优雅地终止任务
 - **关键实现细节**:
     - 长时间运行的操作（如模型加载）后必须再次检查取消
     - 在循环中处理批量数据时，每次迭代前都应检查取消
     - 异步处理中，在 `await` 操作前检查取消
 
-### LLM 集成策略（src/text_arrangement/query_llm.py）
+### LLM 集成策略（src/services/llm/）
 
+- **架构**: 工厂模式 + 策略模式，统一 LLM 服务接口
 - **支持的服务**:
     - DeepSeek (`deepseek-chat`, `deepseek-reasoner`)
     - Gemini (`gemini-2.0-flash`)
     - Qwen/通义千问 (`qwen3-plus`, `qwen3-max`)
     - Cerebras (`Cerebras:Qwen-3-32B`, `Cerebras:Qwen-3-235B-Instruct`)
     - 本地模型 (`local:Qwen/Qwen2.5-1.5B-Instruct`)
+- **核心组件**:
+    - `factory.py`: LLM 工厂，根据配置创建对应的 LLM 服务实例
+    - `base.py`: 抽象基类，定义统一的 LLM 接口
+    - 具体实现: `deepseek.py`, `gemini.py`, `qwen.py`, `cerebras.py`, `local.py`
 - **异步处理**:
     - `polish_by_llm.py` 使用 `asyncio.gather()` 并发调用多个 LLM API
     - 速率限制: `RateLimiter` 类（默认 10 req/min）
     - 重试机制: 最多 3 次重试，指数退避 30 秒
 - **文本分段**: `split_text.py` 按 `SPLIT_LIMIT` 切分长文本（默认 6000 字符）
 
-### 字幕生成系统（src/subtitle_generator.py）
+### 字幕生成系统（src/services/subtitle/generator.py）
 
 - **核心流程**:
     1. ASR 时间戳识别（SenseVoice 或 Paraformer 的时间戳模式）
@@ -204,7 +258,7 @@ BiliURL   bilibili_   extract_  split_   polish_   text_exporter.py
     - `generate_subtitle_file()` - 生成 SRT 字幕文件
     - `encode_subtitle_to_video()` - 将字幕烧录到视频
 
-### 设备管理（src/device_manager.py）
+### 设备管理（src/utils/device/）
 
 - **自动检测**: `detect_device(device_config)` 支持 `"auto"`, `"cpu"`, `"cuda"`, `"cuda:0"` 等
 - **ONNX Runtime**:
@@ -258,13 +312,13 @@ out/video_name/
 
 ### 添加新 LLM 服务
 
-1. 在 `src/config.py` 中：
-    - 添加 `NEW_LLM_API_KEY = _get_env("NEW_LLM_API_KEY", ...)`
+1. 在 `src/utils/config/llm.py` 中：
+    - 在 `LLMConfig` 中添加新的配置字段
     - 更新 `LLM_SERVER_SUPPORTED` 列表
-2. 在 `src/text_arrangement/query_llm.py` 中：
-    - 创建 `LLMApiSupported` 枚举值
-    - 实现 `query_new_llm(params: LLMQueryParams) -> str` 函数
-    - 在 `query_llm()` 中添加路由分支
+2. 在 `src/services/llm/` 中：
+    - 创建新的 LLM 服务类（如 `new_llm.py`），继承自 `BaseLLMService`
+    - 实现 `async def generate(self, prompt: str, **kwargs) -> str` 方法
+    - 在 `factory.py` 的 `create_llm_service()` 函数中添加新的分支
 3. 更新 `.env.example` 和相关文档
 
 ### 实现任务取消支持
@@ -285,7 +339,7 @@ out/video_name/
 **示例**:
 ```python
 from typing import Optional
-from src.task_manager import get_task_manager, TaskCancelledException
+from src.utils.helpers.task_manager import get_task_manager, TaskCancelledException
 
 task_manager = get_task_manager()
 
@@ -398,14 +452,16 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 1. 检查日志中是否有 `Task stop requested: {task_id}` 消息
 2. 查看任务是否在长时间操作中（如模型加载、ASR 推理、LLM 调用）
 3. 确认相关函数是否传入了 `task_id` 参数
+4. 检查是否使用了新的处理器架构（`src/core/processors/`）
 
 **常见原因**:
 
 - 函数未传入 `task_id` 参数
 - 长时间操作后缺少取消检查点
 - 捕获了 `TaskCancelledException` 但未向上传播
+- 使用了旧的模块而非新的处理器架构
 
-**解决方案**: 参考"实现任务取消支持"章节
+**解决方案**: 参考"实现任务取消支持"章节，确保使用新的处理器架构
 
 ## 重要约定
 
@@ -421,59 +477,78 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 
 ---
 
-## 架构演进建议
+## 架构演进状态
 
-### 1. 模块重构（可选）
+### ✅ 已实现的改进
 
-考虑将 `src/` 目录重构为更清晰的结构：
+#### 1. 模块重构（已完成）
+项目已从扁平结构重构为模块化架构，遵循 SOLID 原则：
+- **core/**: 核心业务逻辑（处理器、模型、异常、导出、历史）
+- **services/**: 外部服务集成（ASR、LLM、下载、字幕）
+- **utils/**: 工具类（配置、设备、日志、辅助工具）
+- **api/**: API 层（中间件、数据模型）
 
-```
-src/
-├── core/           # 核心业务逻辑
-│   ├── process/    # 处理流程
-│   ├── models/     # 数据模型
-│   └── exceptions/ # 异常定义
-├── services/       # 外部服务集成
-│   ├── asr/        # ASR 服务
-│   ├── llm/        # LLM 服务
-│   └── storage/    # 存储服务
-├── utils/          # 工具类
-│   ├── config/     # 配置管理
-│   ├── logging/    # 日志系统
-│   └── device/     # 设备管理
-└── api/           # API 层
-    ├── endpoints/  # API 端点
-    └── middleware/ # 中间件
-```
+#### 2. 配置管理增强（已完成）
+- 使用 Pydantic v2 进行类型安全配置验证
+- 支持嵌套配置和自动环境变量加载
+- 配置热重载支持
 
-### 2. 配置管理增强
+#### 3. 错误处理统一（已完成）
+- 创建统一的异常体系（`src/core/exceptions/`）
+- 按领域分类异常（ASR、LLM、下载、文件、任务等）
+- API 错误处理中间件（`src/api/middleware/error_handler.py`）
 
-- 使用 Pydantic 进行配置验证
-- 支持多环境配置（development, testing, production）
-- 添加配置热重载支持
+#### 4. 测试优化（进行中）
+- 集成测试覆盖率提升
+- 使用 pytest 标记系统（unit、integration、slow、asyncio）
+- 自动 mock 重型依赖（torch、funasr、transformers）
 
-### 3. 错误处理统一
+### 🔄 待实现的改进
 
-- 创建统一的错误处理中间件
-- 定义项目级别的异常类
-- 实现全局异常处理器
-
-### 4. 测试优化
-
-- 增加集成测试覆盖率
-- 添加性能测试和负载测试
-- 使用 pytest-xdist 并行运行测试
-
-### 5. 监控和可观测性
-
+#### 1. 监控和可观测性
 - 添加 Prometheus 指标
 - 集成结构化日志（JSON 格式）
 - 添加分布式追踪支持
 
-### 6. 前端现代化
-
+#### 2. 前端现代化
 - 考虑使用现代前端框架（Vue.js/React）
 - 添加状态管理
 - 优化构建流程和代码分割
+
+#### 3. 任务存储持久化
+- 当前使用内存字典存储任务状态
+- 建议添加 Redis 或数据库支持
+- 支持任务状态恢复和持久化
+
+#### 4. 性能优化
+- 添加缓存层（模型缓存、结果缓存）
+- 支持流式处理和增量处理
+- 优化内存使用和 GPU 利用率
+
+## 从旧架构迁移
+
+项目已从扁平结构（v1）重构为模块化架构（v2）。主要变化：
+
+### 已删除的旧模块
+- `src/config.py` → 迁移到 `src/utils/config/`
+- `src/core_process.py` → 迁移到 `src/core/processors/`
+- `src/extract_audio_text.py` → 迁移到 `src/services/asr/`
+- `src/subtitle_generator.py` → 迁移到 `src/services/subtitle/`
+- `src/task_manager.py` → 迁移到 `src/utils/helpers/task_manager.py`
+- `src/device_manager.py` → 迁移到 `src/utils/device/`
+- `src/logger.py` → 迁移到 `src/utils/logging/`
+
+### 新架构优势
+1. **单一职责**: 每个模块/类有明确的职责
+2. **依赖倒置**: 高层模块不依赖低层模块，都依赖抽象
+3. **开闭原则**: 易于扩展新功能（如添加新的 LLM 服务）
+4. **接口隔离**: 细粒度的接口设计
+5. **依赖注入**: 通过配置和工厂模式管理依赖
+
+### 迁移指南
+1. 更新导入语句，使用新的模块路径
+2. 使用新的配置系统（`from src.utils.config import get_config`）
+3. 使用新的处理器架构（`src/core/processors/`）
+4. 使用新的服务抽象层（`src/services/`）
 
 **详细开发文档**: `docs/DEVELOPER_GUIDE.md` | **API 文档**: `docs/API_USAGE.md` | **Docker 文档**: `docs/DOCKER.md`

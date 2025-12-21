@@ -1109,7 +1109,7 @@ def hard_encode_dot_srt_file(
 
 if __name__ == "__main__":
     import sys
-    from src.bilibili_downloader import (
+    from src.services.download import (
         extract_audio_from_video,
         download_bilibili_video,
     )

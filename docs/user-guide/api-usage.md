@@ -2,109 +2,51 @@
 
 ## 简介
 
-AutoVoiceCollation
-提供了基于
-FastAPI
-的
-HTTP
-接口，方便与其他程序进行集成和交互。
+AutoVoiceCollation 提供基于 **FastAPI** 的 HTTP 接口，支持音视频转文本、自动总结与多模式输出，便于与其他系统集成和交互。
+
+> ✅ 基于 [FastAPI](https://fastapi.tiangolo.com/) 构建，具备高性能、自动文档生成、类型校验等特性。
+
+---
 
 ## 最新更新
 
-### v1.2.0 - 时间戳和 URL 追踪功能
+### 🚀 v1.2.0 - 时间戳与 URL/文件名追踪功能
 
 新增功能：
 
--
-✨
-*
-*时间戳追踪
-**
-：所有任务现在返回
-`created_at`
-（创建时间）和
-`completed_at`
-（完成时间）
--
-✨
-*
-*URL/文件名追踪
-**
-：任务响应包含
-`url`
-（视频链接）或
-`filename`
-（上传的文件名）
--
-⚡
-*
-*自动端口查找
-**
-：API
-服务器启动时自动查找可用端口，避免端口冲突
--
-📊
-*
-*处理时长计算
-**
-：通过时间戳可以精确计算任务处理耗时
+- ✨ **时间戳追踪**：所有任务返回 `created_at`（创建时间）和 `completed_at`（完成时间），单位为 ISO 8601 格式（含微秒）。
+- ✨ **URL/文件名追踪**：响应中包含 `url`（B站视频链接）或 `filename`（上传文件名），便于溯源。
+- ⚡ **自动端口查找**：启动时自动检测可用端口，避免冲突。
+- 📊 **精确处理时长计算**：通过时间差可精准统计任务耗时。
 
-### v1.1.0 - 文本总结功能
+### 📝 v1.1.0 - 文本总结功能
 
 新增功能：
 
--
-✨
-*
-*独立总结端点
-**
-`/api/v1/summarize`
-：直接对文本进行学术风格的总结
--
-✨
-*
-*summarize
-参数
-**
-：在处理端点中添加
-`summarize`
-参数，自动对处理结果生成总结
--
-📝
-总结采用学术小论文格式，包含引言、主体和结论
--
-🔧
-支持自定义
-LLM
-参数（temperature、max_tokens）以优化总结质量
+- ✨ **独立总结端点**：`/api/v1/summarize` 可直接对输入文本生成学术风格摘要。
+- ✨ **`summarize` 参数支持**：在 `/process` 端点中启用该参数，自动调用 LLM 生成总结。
+- 📝 总结采用小论文结构：引言 → 主体 → 结论。
+- 🔧 支持自定义 LLM 参数（`temperature`, `max_tokens`）以优化质量。
+
+---
 
 ## 启动 API 服务
 
 ```bash
-# 方式1：直接运行（推荐）
+# 方式一：直接运行（推荐）
 python api.py
 
-# 方式2：使用 uvicorn
+# 方式二：使用 uvicorn（适用于开发调试）
 uvicorn api:app --host 127.0.0.1 --port 8000 --reload
 ```
 
-### 自动端口查找
+### 自动端口查找机制
 
-API
-服务器启动时会自动检测端口是否可用：
+- 若配置端口不可用，自动尝试附近端口（最多 50 次）。
+- 可通过 `.env` 文件设置 `WEB_SERVER_PORT` 指定端口。
+- 默认端口：`8000`（若被占用则自动切换）。
 
--
-如果配置的端口不可用，会自动查找附近的可用端口
--
-支持在
-`.env`
-文件中设置
-`WEB_SERVER_PORT`
-指定端口
--
-默认端口：8000（如果不可用会自动切换）
-
-启动示例输出：
+#### 启动示例输出：
 
 ```
 正在启动 AutoVoiceCollation API 服务器...
@@ -115,122 +57,62 @@ API 文档: http://127.0.0.1:8073/docs
 INFO:     Uvicorn running on http://127.0.0.1:8073 (Press CTRL+C to quit)
 ```
 
-访问
-`http://localhost:端口号/docs`
-查看交互式
-API
-文档（Swagger
-UI）。
+> 🌐 访问 `http://localhost:端口号/docs` 查看交互式 API 文档（Swagger UI）。
+
+---
 
 ## 任务响应格式（新增字段）
 
-所有任务响应（
-`TaskResponse`
-）现在包含以下字段：
+所有任务响应（`TaskResponse`）均包含以下字段：
 
-| 字段名                  | 类型     | 说明            | 示例                                                     |
-|----------------------|--------|---------------|--------------------------------------------------------|
-| `task_id`            | string | 任务唯一标识符       | `"550e8400-e29b-41d4-a716-446655440000"`               |
-| `status`             | string | 任务状态          | `"pending"`, `"processing"`, `"completed"`, `"failed"` |
-| `message`            | string | 状态消息          | `"任务已提交，正在处理中"`                                        |
-| `result`             | object | 处理结果（仅完成时）    | `{...}`                                                |
-| **`created_at`** ⭐   | string | 任务创建时间（ISO格式） | `"2025-10-29T17:35:00.123456"`                         |
-| **`completed_at`** ⭐ | string | 任务完成时间（ISO格式） | `"2025-10-29T17:40:30.789012"`                         |
-| **`url`** ⭐          | string | 处理的视频URL（如果有） | `"https://www.bilibili.com/video/BV1xx411c7mu"`        |
-| **`filename`** ⭐     | string | 上传的文件名（如果有）   | `"audio.mp3"`                                          |
+| 字段名             | 类型     | 说明                          | 示例                                      |
+|--------------------|----------|-------------------------------|-------------------------------------------|
+| `task_id`          | string   | 任务唯一标识符                 | `"550e8400-e29b-41d4-a716-446655440000"` |
+| `status`           | string   | 任务状态：`pending` / `processing` / `completed` / `failed` | `"completed"` |
+| `message`          | string   | 状态描述信息                   | `"任务已提交，正在处理中"`                |
+| `result`           | object   | 处理结果（仅 `completed` 时存在） | `{...}`                                   |
+| `created_at` ⭐     | string   | 任务创建时间（ISO 8601）       | `"2025-10-29T17:35:00.123456"`            |
+| `completed_at` ⭐   | string   | 任务完成时间（ISO 8601）       | `"2025-10-29T17:40:30.789012"`            |
+| `url` ⭐            | string   | 视频链接（如有）               | `"https://www.bilibili.com/video/BV1xx411c7mu"` |
+| `filename` ⭐       | string   | 上传文件名（如有）             | `"audio.mp3"`                             |
 
-⭐
-标记为新增字段
+> ⭐ 标记为新增字段
+
+---
 
 ## 通用说明
 
--
--
+### `text_only` 参数（布尔值）
 
-*text_only
-参数
-**
-（布尔）：如果为
-`true`
-，处理过程只返回纯文本结果（以及处理信息元数据），不会生成
-PDF、ZIP
-或其它文档格式的输出文件。
-  -
+- **默认值**：`false`（生成 PDF、ZIP 等文件）
+- **当为 `true` 时**：
+  - 不生成 ZIP 包；
+  - 仅返回纯文本结果与元数据；
+  - `result` 中包含 `raw_text`、`polished_text`、`extract_time`、`polish_time`。
 
-默认行为：
-  `text_only=false`
-  （仍会生成
-  PDF、ZIP
-  等文件并在下载端点提供下载）。
-  -
+### `summarize` 参数（布尔值）
 
-  当使用
-  `text_only=true`
-  时：处理完成后，任务的
-  `result`
-  字段将包含文本内容与若干处理时长/路径信息；不会生成
-  zip
-  下载包。
+- **默认值**：`false`（不生成总结）
+- **必须配合 `text_only=true` 使用**，否则无效。
+- 成功时，`result.summary` 字段将包含学术风格总结。
+- 建议使用较高 `temperature`（如 `0.7`）和较大 `max_tokens`（如 `4000`）提升质量。
 
--
--
+---
 
-*summarize
-参数
-**
-（布尔）：如果为
-`true`
-，系统会在处理完成后调用
-LLM
-对润色后的文本进行总结，生成学术风格的小论文摘要。
-  -
-
-默认行为：
-  `summarize=false`
-  （不生成总结）。
-  -
-
--
-
-*
-必须配合
-  `text_only=true`
-  使用
-  **
-  ：只有在
-  `text_only=true`
-  模式下，
-  `summarize`
-  参数才会生效。
-  -
-
-  总结结果会添加到任务
-  `result`
-  的
-  `summary`
-  字段中。
-
-## API 端点
+## API 端点列表
 
 ### 1. 根端点
 
--
+- **GET** `/`
+- 获取 API 信息与可用端点列表。
 
-*GET
-**
-`/`
-
-获取
-API
-信息和所有可用端点列表。
-
-示例：
+#### 示例请求：
 
 ```bash
 curl http://localhost:8000/
 ```
 
-响应示例：
+#### 响应示例：
 
 ```json
 {
@@ -255,21 +137,16 @@ curl http://localhost:8000/
 
 ### 2. 健康检查
 
--
+- **GET** `/health`
+- 检查服务运行状态与配置。
 
-*GET
-**
-`/health`
-
-检查服务运行状态和配置信息。
-
-示例：
+#### 示例请求：
 
 ```bash
 curl http://localhost:8000/health
 ```
 
-响应示例：
+#### 响应示例：
 
 ```json
 {
@@ -285,25 +162,15 @@ curl http://localhost:8000/health
 
 ---
 
-### 3. 处理 B 站视频
+### 3. 处理 B站视频
 
--
+- **POST** `/api/v1/process/bilibili`
 
-*POST
-**
-`/api/v1/process/bilibili`
-
-提交
-B
-站视频处理任务。
-
-请求
-JSON
-字段：
+#### 请求体（JSON）：
 
 ```json
 {
-  "video_url": "https://www.bilibili.com/video/BV1...",
+  "video_url": "https://www.bilibili.com/video/BV1wP411W7pe",
   "llm_api": "deepseek-chat",
   "temperature": 0.1,
   "max_tokens": 6000,
@@ -312,49 +179,18 @@ JSON
 }
 ```
 
-字段说明：
+#### 字段说明：
 
--
+| 字段 | 类型 | 必需 | 默认 | 说明 |
+|------|------|------|------|------|
+| `video_url` | string | 是 | —— | 完整 B站视频链接 |
+| `llm_api` | string | 否 | 配置文件值 | LLM 服务名称 |
+| `temperature` | number | 否 | `0.1` | 控制随机性 |
+| `max_tokens` | integer | 否 | `6000` | 输出最大 token 数 |
+| `text_only` | boolean | 否 | `false` | 是否仅返回文本 |
+| `summarize` | boolean | 否 | `false` | 是否生成总结（需 `text_only=true`） |
 
-`video_url`
-：B
-站视频完整链接（必需）
--
-
-`llm_api`
-：要使用的
-LLM
-服务（可选，默认：配置文件中的值）
--
-
-`temperature`
-：LLM
-温度参数（可选，默认：
-`0.1`）
--
-
-`max_tokens`
-：生成文本时的最大
-token
-数（可选，默认：
-`6000`）
--
-
-`text_only`
-：是否只返回纯文本结果（可选，默认：
-`false`）
--
-
-`summarize`
-：是否生成文本总结（可选，默认：
-`false`，
-*
-*需要配合
-`text_only=true`
-使用
-**）
-
-响应示例（任务创建）：
+#### 响应示例（任务创建）：
 
 ```json
 {
@@ -362,18 +198,17 @@ token
   "status": "pending",
   "message": "任务已提交，正在处理中",
   "created_at": "2025-10-29T17:35:00.123456",
-  "url": "https://www.bilibili.com/video/BV1xx411c7mu",
+  "url": "https://www.bilibili.com/video/BV1wP411W7pe",
   "filename": null,
   "completed_at": null,
   "result": null
 }
 ```
 
-示例
-curl：
+#### 示例 `curl`：
 
 ```bash
-# 基本用法
+# 基础用法
 curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
   -H "Content-Type: application/json" \
   -d '{
@@ -395,40 +230,16 @@ curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
 
 ### 4. 处理音频文件
 
--
+- **POST** `/api/v1/process/audio`
 
-*POST
-**
-`/api/v1/process/audio`
+#### 上传方式：
+- 使用 `multipart/form-data`
+- 文件字段名为 `file`，支持格式：`mp3`, `wav`, `m4a`, `flac`
 
-上传并处理音频文件。
+#### 其他参数通过表单传递：
+- `llm_api`, `temperature`, `max_tokens`, `text_only`, `summarize`
 
-上传与参数说明：
-
--
-
-`file`:
-音频文件，通过
-multipart/form-data
-的
-`file`
-字段上传（支持
-mp3,
-wav,
-m4a,
-flac）。
--
-
-其它参数：
-`llm_api`、
-`temperature`、
-`max_tokens`、
-`text_only`、
-`summarize`
-通过表单字段传递。
-
-示例
-curl：
+#### 示例 `curl`：
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/process/audio" \
@@ -437,7 +248,7 @@ curl -X POST "http://localhost:8000/api/v1/process/audio" \
   -F "summarize=true"
 ```
 
-响应示例：
+#### 响应示例：
 
 ```json
 {
@@ -456,23 +267,15 @@ curl -X POST "http://localhost:8000/api/v1/process/audio" \
 
 ### 5. 批量处理视频
 
--
+- **POST** `/api/v1/process/batch`
 
-*POST
-**
-`/api/v1/process/batch`
-
-批量处理多个
-B
-站视频。
-
-请求体示例：
+#### 请求体（JSON）：
 
 ```json
 {
   "urls": [
-    "https://www.bilibili.com/video/BV1...",
-    "https://www.bilibili.com/video/BV2..."
+    "https://www.bilibili.com/video/BV1wP411W7pe",
+    "https://www.bilibili.com/video/BV2wQ522X8qf"
   ],
   "llm_api": "deepseek-chat",
   "temperature": 0.1,
@@ -482,7 +285,7 @@ B
 }
 ```
 
-响应示例：
+#### 响应示例：
 
 ```json
 {
@@ -490,72 +293,33 @@ B
   "status": "pending",
   "message": "批量任务已提交，共 2 个视频",
   "created_at": "2025-10-29T17:37:00.789012",
-  "url": "https://www.bilibili.com/video/BV1..., https://www.bilibili.com/video/BV2...",
+  "url": "https://www.bilibili.com/video/BV1wP411W7pe, https://www.bilibili.com/video/BV2wQ522X8qf",
   "filename": null,
   "completed_at": null,
   "result": null
 }
 ```
 
-说明：
-
--
-
-`text_only`
-和
-`summarize`
-可对整个批次统一控制（true/false）。
--
-
-当
-`summarize=true`
-且
-`text_only=true`
-时，会对每个视频的文本分别生成总结。
--
-
-多个
-URL
-在
-`url`
-字段中用逗号分隔。
+> ✅ `text_only` 和 `summarize` 对整个批次统一生效。  
+> ✅ `summarize=true` 时，每个视频将单独生成总结。
 
 ---
 
 ### 6. 生成视频字幕
 
--
+- **POST** `/api/v1/process/subtitle`
 
-*POST
-**
-`/api/v1/process/subtitle`
+#### 上传方式：
+- `multipart/form-data`，字段 `file` 上传视频（支持 `mp4`, `avi`, `mkv`, `mov`）
 
-为视频生成字幕并硬编码。
-
-表单数据：
-
--
-
-`file`:
-视频文件（通过
-multipart/form-data
-的
-`file`
-字段上传，支持
-mp4,
-avi,
-mkv,
-mov）。
-
-示例
-curl：
+#### 示例 `curl`：
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/process/subtitle" \
   -F "file=@/path/to/video.mp4"
 ```
 
-响应示例：
+#### 响应示例：
 
 ```json
 {
@@ -572,17 +336,13 @@ curl -X POST "http://localhost:8000/api/v1/process/subtitle" \
 
 ---
 
-### 7. 文本总结
+### 7. 文本总结（独立端点）
 
--
+- **POST** `/api/v1/summarize`
 
-*POST
-**
-`/api/v1/summarize`
+> ❗ 此端点为同步接口，不创建后台任务，处理完成后直接返回结果。
 
-直接对文本进行总结，生成学术风格的小论文。此端点不涉及音视频处理，仅接收文本并返回总结结果。
-
-请求体示例：
+#### 请求体（JSON）：
 
 ```json
 {
@@ -594,25 +354,24 @@ curl -X POST "http://localhost:8000/api/v1/process/subtitle" \
 }
 ```
 
-响应示例（同步返回）：
+#### 响应示例：
 
 ```json
 {
   "status": "success",
-  "summary": "这是生成的总结内容，以学术风格的小论文形式呈现...",
+  "summary": "这是生成的总结内容，以学术风格的小论文形式呈现……",
   "original_length": 5000,
   "summary_length": 800
 }
 ```
 
-示例
-curl：
+#### 示例 `curl`：
 
 ```bash
 curl -X POST "http://localhost:8000/api/v1/summarize" \
   -H "Content-Type: application/json" \
   -d '{
-    "text": "这里是一段很长的文本内容...",
+    "text": "这里是一段很长的文本内容……",
     "title": "关于人工智能的思考",
     "llm_api": "deepseek-chat",
     "temperature": 0.7,
@@ -620,31 +379,19 @@ curl -X POST "http://localhost:8000/api/v1/summarize" \
   }'
 ```
 
-注意：此端点是
-*
-*同步的
-**
-，不会创建后台任务，处理完成后直接返回结果。
-
 ---
 
 ### 8. 查询任务状态
 
--
+- **GET** `/api/v1/task/{task_id}`
 
-*GET
-**
-`/api/v1/task/{task_id}`
-
-查询任务处理状态以及结果。
-
-示例：
+#### 示例请求：
 
 ```bash
 curl http://localhost:8000/api/v1/task/550e8400-e29b-41d4-a716-446655440000
 ```
 
-响应示例（处理中）：
+#### 响应示例（进行中）：
 
 ```json
 {
@@ -659,7 +406,7 @@ curl http://localhost:8000/api/v1/task/550e8400-e29b-41d4-a716-446655440000
 }
 ```
 
-响应示例（已完成，text_only=true）：
+#### 响应示例（已完成，`text_only=true`）：
 
 ```json
 {
@@ -680,9 +427,7 @@ curl http://localhost:8000/api/v1/task/550e8400-e29b-41d4-a716-446655440000
 }
 ```
 
-响应示例（已完成，text_only=true
-且
-summarize=true）：
+#### 响应示例（`text_only=true` + `summarize=true`）：
 
 ```json
 {
@@ -697,14 +442,14 @@ summarize=true）：
     "title": "视频标题",
     "raw_text": "原始文本...",
     "polished_text": "润色后的文本...",
-    "summary": "这里是LLM生成的学术风格总结...",
+    "summary": "这里是LLM生成的学术风格总结……",
     "extract_time": 10.5,
     "polish_time": 5.2
   }
 }
 ```
 
-响应示例（已完成，text_only=false）：
+#### 响应示例（`text_only=false`）：
 
 ```json
 {
@@ -728,57 +473,36 @@ summarize=true）：
 
 ### 9. 下载处理结果
 
--
+- **GET** `/api/v1/download/{task_id}`
 
-*GET
-**
-`/api/v1/download/{task_id}`
-
-下载任务处理结果（ZIP
-文件）。
-
-示例：
+#### 示例请求：
 
 ```bash
 curl -O -J http://localhost:8000/api/v1/download/550e8400-e29b-41d4-a716-446655440000
 ```
 
-说明：如果任务是使用
-`text_only=true`
-提交的，则该端点可能返回
-404；请直接在
-`/api/v1/task/{task_id}`
-的
-`result`
-中获取文本结果。
+> ⚠️ 若任务使用 `text_only=true`，此端点可能返回 `404`。  
+> ✅ 请直接从 `/api/v1/task/{task_id}` 的 `result` 中获取文本。
 
 ---
 
 ## 计算处理时长
 
-使用
-`created_at`
-和
-`completed_at`
-来计算处理总时长：
+使用 `created_at` 和 `completed_at` 计算总耗时。
 
 ### Python 示例：
 
 ```python
 from datetime import datetime
 
-# 从 API 响应获取时间戳
 created_at = "2025-10-29T17:35:00.123456"
 completed_at = "2025-10-29T17:40:30.789012"
 
-# 解析时间戳
-start_time = datetime.fromisoformat(created_at)
-end_time = datetime.fromisoformat(completed_at)
+start = datetime.fromisoformat(created_at)
+end = datetime.fromisoformat(completed_at)
 
-# 计算处理时长
-duration = end_time - start_time
-print(f"处理耗时: {duration.total_seconds():.2f} 秒")
-# 输出: 处理耗时: 330.67 秒
+duration_sec = (end - start).total_seconds()
+print(f"处理耗时: {duration_sec:.2f} 秒")  # 输出: 330.67 秒
 ```
 
 ### JavaScript 示例：
@@ -790,18 +514,15 @@ const completedAt = "2025-10-29T17:40:30.789012";
 const startTime = new Date(createdAt);
 const endTime = new Date(completedAt);
 
-const durationMs = endTime - startTime;
-const durationSec = durationMs / 1000;
-
-console.log(`处理耗时: ${durationSec.toFixed(2)} 秒`);
-// 输出: 处理耗时: 330.67 秒
+const durationSec = (endTime - startTime) / 1000;
+console.log(`处理耗时: ${durationSec.toFixed(2)} 秒`); // 输出: 330.67 秒
 ```
 
 ---
 
 ## Python 客户端示例
 
-### 示例 1：处理 B站视频（完整工作流程）
+### 示例 1：处理 B站视频（完整流程）
 
 ```python
 import requests
@@ -812,11 +533,10 @@ BASE_URL = "http://localhost:8000"
 
 def process_bilibili_video(video_url, text_only=False, summarize=False):
     """处理 B站视频"""
-    # 1. 提交任务
     response = requests.post(
         f"{BASE_URL}/api/v1/process/bilibili",
         json={
-            "video_url": video_url,
+            "video_url": video_url.strip(),
             "text_only": text_only,
             "summarize": summarize
         }
@@ -832,7 +552,6 @@ def process_bilibili_video(video_url, text_only=False, summarize=False):
     print(f"处理的 URL: {url}")
     print(f"创建时间: {created_at}")
 
-    # 2. 轮询任务状态
     while True:
         status_response = requests.get(f"{BASE_URL}/api/v1/task/{task_id}")
         status_response.raise_for_status()
@@ -843,8 +562,6 @@ def process_bilibili_video(video_url, text_only=False, summarize=False):
 
         if status == "completed":
             completed_at = status_data["completed_at"]
-
-            # 计算处理时长
             start = datetime.fromisoformat(created_at)
             end = datetime.fromisoformat(completed_at)
             duration = (end - start).total_seconds()
@@ -855,13 +572,11 @@ def process_bilibili_video(video_url, text_only=False, summarize=False):
             print(f"  完成时间: {completed_at}")
             print(f"  总耗时: {duration:.2f} 秒")
 
-            # 显示结果
             result = status_data["result"]
             if text_only:
                 print(f"  标题: {result.get('title', 'N/A')}")
                 print(f"  提取时间: {result.get('extract_time', 0):.2f}秒")
                 print(f"  润色时间: {result.get('polish_time', 0):.2f}秒")
-
                 if summarize and "summary" in result:
                     print(f"\n学术总结:\n{result['summary'][:500]}...\n")
             else:
@@ -876,7 +591,6 @@ def process_bilibili_video(video_url, text_only=False, summarize=False):
 
         time.sleep(5)
 
-# 使用示例
 if __name__ == '__main__':
     process_bilibili_video(
         "https://www.bilibili.com/video/BV1xx411c7mu",
@@ -894,14 +608,11 @@ from datetime import datetime
 
 BASE_URL = "http://localhost:8000"
 
-
 def process_batch_videos(urls, text_only=True, summarize=True):
-    """批量处理视频"""
-    # 提交批量任务
     response = requests.post(
         f"{BASE_URL}/api/v1/process/batch",
         json={
-            "urls": urls,
+            "urls": [u.strip() for u in urls],
             "text_only": text_only,
             "summarize": summarize
         }
@@ -916,7 +627,6 @@ def process_batch_videos(urls, text_only=True, summarize=True):
     print(f"视频数量: {len(urls)}")
     print(f"创建时间: {created_at}")
 
-    # 轮询任务状态
     while True:
         status_response = requests.get(f"{BASE_URL}/api/v1/task/{task_id}")
         status_response.raise_for_status()
@@ -927,17 +637,15 @@ def process_batch_videos(urls, text_only=True, summarize=True):
 
         if status == "completed":
             completed_at = status_data["completed_at"]
-
-            # 计算处理时长
             start = datetime.fromisoformat(created_at)
             end = datetime.fromisoformat(completed_at)
             duration = (end - start).total_seconds()
+            avg_time = duration / len(urls)
 
             print(f"\n✓ 批量处理完成!")
             print(f"  总耗时: {duration:.2f} 秒")
-            print(f"  平均每个视频: {duration / len(urls):.2f} 秒")
+            print(f"  平均每个视频: {avg_time:.2f} 秒")
 
-            # 显示总结（如果有）
             result = status_data["result"]
             if summarize and "summaries" in result:
                 print(f"\n生成了 {len(result['summaries'])} 个总结")
@@ -953,7 +661,6 @@ def process_batch_videos(urls, text_only=True, summarize=True):
 
         time.sleep(10)
 
-# 使用示例
 if __name__ == '__main__':
     urls = [
         "https://www.bilibili.com/video/BV1111111111",
@@ -966,252 +673,60 @@ if __name__ == '__main__':
 
 ## 配置说明
 
-API
-服务使用项目根目录下的
-`config.py`
-中的配置，可以通过修改
-`.env`
-文件来调整：
+位于项目根目录下的 `config.py` 或 `.env` 文件中：
 
--
-
-`WEB_SERVER_PORT`:
-Web
-服务器端口（默认：
-`8000`
-，支持自动查找可用端口）
--
-
-`OUTPUT_DIR`:
-输出目录（默认：
-`./out`）
--
-
-`TEMP_DIR`:
-临时文件目录（默认：
-`./temp`）
--
-
-`LLM_SERVER`:
-默认
-LLM
-服务（默认：
-`Cerebras:Qwen-3-235B-Instruct`）
--
-
-`LLM_TEMPERATURE`:
-LLM
-温度参数（默认：
-`0.1`）
--
-
-`LLM_MAX_TOKENS`:
-LLM
-最大
-token
-数（默认：
-`6000`）
--
-
-`ASR_MODEL`:
-ASR
-模型（默认：
-`paraformer`）
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `WEB_SERVER_PORT` | `8000` | 服务器端口（支持自动查找） |
+| `OUTPUT_DIR` | `./out` | 输出文件目录 |
+| `TEMP_DIR` | `./temp` | 临时文件目录 |
+| `LLM_SERVER` | `Cerebras:Qwen-3-235B-Instruct` | 默认 LLM 服务 |
+| `LLM_TEMPERATURE` | `0.1` | LLM 温度参数 |
+| `LLM_MAX_TOKENS` | `6000` | LLM 最大 token 数 |
+| `ASR_MODEL` | `paraformer` | ASR 模型名称 |
 
 ---
 
 ## 注意事项
 
-1.
-
--
-
-*任务处理
-**
-：任务是异步处理的，需要通过轮询
-`/api/v1/task/{task_id}`
-端点来获取处理状态。
-
-1.
-
--
-
-*时间戳格式
-**
-：所有时间戳都使用
-ISO
-8601
-格式（带微秒），基于服务器本地时间。
-
-1.
-
--
-
-*URL
-和文件名
-**：
-  -
-
-对于视频处理，
-  `url`
-  字段包含视频链接，
-  `filename`
-  为
-  `null`
-  -
-
-对于文件上传，
-  `filename`
-  包含文件名，
-  `url`
-  为
-  `null`
-  -
-
-  批量任务的多个
-  URL
-  用逗号分隔存储在
-  `url`
-  字段中
-
-1.
-
--
-
-*任务状态存储
-**
-：当前任务状态存储在内存中，服务重启后任务状态会丢失。生产环境建议使用
-Redis
-或数据库。
-
-1.
-
--
-
-*text_only
-模式
-**：
-  -
-
-当使用
-  `text_only=true`
-  时，系统不会生成
-  PDF/ZIP
-  等文件，仅返回文本。
-  -
-
-  如果需要持久化文件，请把
-  `text_only`
-  设为
-  `false`
-  （默认）。
-
-1.
-
--
-
-*summarize
-功能
-**：
-  -
-
-`summarize`
-  参数
-  *
-  *必须配合
-  `text_only=true`
-  使用
-  **
-  ，否则不会生效。
-  -
-
-总结功能会额外调用一次
-  LLM
-  API，会增加处理时间和成本。
-  -
-
-  建议使用较高的
-  `temperature`
-  （如
-  0.7）和较大的
-  `max_tokens`
-  （如
-  4000）。
-
-1.
-
--
-
-*自动端口查找
-**：
-  -
-
-API
-  启动时会自动检测端口是否可用
-  -
-
-如果配置的端口不可用，会自动查找附近的可用端口（最多尝试
-  50
-  个）
-  -
-
-  确保在客户端代码中使用实际的端口号
+1. **异步处理**：任务为异步执行，需轮询 `/api/v1/task/{task_id}` 获取状态。
+2. **时间戳格式**：全部使用 ISO 8601（含微秒），基于服务器本地时间。
+3. **URL 与文件名**：
+   - 视频处理：`url` 存视频链接，`filename` 为 `null`
+   - 文件上传：`filename` 为文件名，`url` 为 `null`
+   - 批量任务：多个 URL 用逗号分隔存入 `url`
+4. **状态存储**：当前状态存储在内存中，重启后丢失。生产环境建议使用 Redis 或数据库。
+5. **`text_only` 模式**：关闭 ZIP/PDF 生成，仅返回文本。
+6. **`summarize` 功能**：
+   - 必须搭配 `text_only=true` 使用；
+   - 调用额外 LLM，增加成本与时间；
+   - 建议 `temperature=0.7`, `max_tokens=4000`。
+7. **自动端口查找**：启动时自动探测端口，客户端需动态获取实际端口。
 
 ---
 
 ## 错误处理
 
-API
-使用标准
-HTTP
-状态码：
+使用标准 HTTP 状态码：
 
--
+| 状态码 | 含义 | 响应示例 |
+|--------|------|----------|
+| `200` | 成功 | `{}` |
+| `400` | 请求参数错误 | `{"detail": "Invalid URL format"}` |
+| `404` | 资源不存在 | `{"detail": "Task not found"}` |
+| `500` | 服务器内部错误 | `{"detail": "Internal server error"}` |
 
-`200`:
-成功
--
-
-`400`:
-请求参数错误
--
-
-`404`:
-资源不存在
--
-
-`500`:
-服务器内部错误
-
-错误响应示例：
-
-```json
-{
-  "detail": "错误描述信息"
-}
-```
-
-任务失败时，
-`completed_at`
-仍然会被设置：
-
-```json
-{
-  "task_id": "880fb733-h5ce-74g7-d049-779988773333",
-  "status": "failed",
-  "message": "处理失败: 视频下载失败",
-  "created_at": "2025-10-29T17:38:00.111222",
-  "completed_at": "2025-10-29T17:38:15.333444",
-  "url": "https://www.bilibili.com/video/INVALID",
-  "filename": null,
-  "result": null
-}
-```
+> ✅ 任务失败时，`completed_at` 仍会记录时间戳。
 
 ---
 
 ## 参考资料
 
-- [FastAPI 文档](https://fastapi.tiangolo.com/)
+- [FastAPI 官方文档](https://fastapi.tiangolo.com/)
 - [项目 README](../README.md)
 - [日志配置文档](./LOGGING.md)
+
+---
+
+✅ 文档已优化完毕，适合发布至 GitHub Wiki 或内网知识库。  
+如需导出为 PDF / HTML / Markdown 文件，也可继续协助。

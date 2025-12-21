@@ -78,7 +78,7 @@ async def validation_error_handler(
             "path": request.url.path,
             "method": request.method,
             "errors": exc.errors(),
-            "body": exc.body if hasattr(exc, 'body') else None,
+            "body": exc.body if hasattr(exc, "body") else None,
         },
     )
     # 同时打印到控制台以便调试

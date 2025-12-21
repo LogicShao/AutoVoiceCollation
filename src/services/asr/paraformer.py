@@ -48,7 +48,9 @@ class ParaformerService(BaseASRService):
                 "device": self.device,
                 "disable_update": True,
                 "model_hub": "huggingface",
-                "cache_dir": str(config.paths.model_dir) if config.paths.model_dir else None,
+                "cache_dir": str(config.paths.model_dir)
+                if config.paths.model_dir
+                else None,
             }
 
             # 如果启用ONNX且有可用提供者

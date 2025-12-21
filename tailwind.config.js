@@ -3,6 +3,7 @@ module.exports = {
     content: [
         "./frontend/src/**/*.{html,js}",
     ],
+    darkMode: 'class', // 使用 class 策略，支持手动切换
     theme: {
         extend: {
             colors: {

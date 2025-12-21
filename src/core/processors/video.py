@@ -7,7 +7,7 @@
 from typing import Optional, Tuple, Any
 
 from src.utils.helpers.timer import Timer
-from src.bilibili_downloader import download_bilibili_audio, BiliVideoFile
+from src.services.download import download_bilibili_audio, BiliVideoFile
 from src.core.exceptions import TaskCancelledException
 
 from .base import BaseProcessor
@@ -61,7 +61,9 @@ class VideoProcessor(BaseProcessor):
             timer = Timer()
             timer.start()
             audio_file: BiliVideoFile = download_bilibili_audio(
-                video_url, output_format="mp3", output_dir=str(self.config.paths.download_dir)
+                video_url,
+                output_format="mp3",
+                output_dir=str(self.config.paths.download_dir),
             )
             download_time = timer.stop()
 
@@ -130,7 +132,9 @@ class VideoProcessor(BaseProcessor):
                     timer = Timer()
                     timer.start()
                     audio_file = download_bilibili_audio(
-                        url, output_format="mp3", output_dir=str(self.config.paths.download_dir)
+                        url,
+                        output_format="mp3",
+                        output_dir=str(self.config.paths.download_dir),
                     )
                     download_time = timer.stop()
 

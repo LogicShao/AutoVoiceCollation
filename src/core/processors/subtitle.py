@@ -7,8 +7,8 @@
 import os
 from typing import Optional, Tuple
 
-from src.bilibili_downloader import extract_audio_from_video
-from src.subtitle_generator import (
+from src.services.download.bilibili_downloader import extract_audio_from_video
+from src.services.subtitle import (
     generate_subtitle_file,
     encode_subtitle_to_video,
     hard_encode_dot_srt_file,

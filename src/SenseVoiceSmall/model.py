@@ -923,7 +923,7 @@ class SenseVoiceSmall(nn.Module):
             if kwargs.get("output_dir") is not None:
                 if not hasattr(self, "writer"):
                     self.writer = DatadirWriter(kwargs.get("output_dir"))
-                ibest_writer = self.writer[f"1best_recog"]
+                ibest_writer = self.writer["1best_recog"]
 
             mask = yseq != self.blank_id
             token_int = yseq[mask].tolist()
@@ -968,7 +968,9 @@ class SenseVoiceSmall(nn.Module):
                     _end = _start + len(list(pred_frame))
                     if pred_token != 0:
                         ts_left = max((_start * 60 - 30) / 1000, 0)
-                        ts_right = min((_end * 60 - 30) / 1000, (ts_max * 60 - 30) / 1000)
+                        ts_right = min(
+                            (_end * 60 - 30) / 1000, (ts_max * 60 - 30) / 1000
+                        )
                         timestamp.append([tokens[token_id], ts_left, ts_right])
                         token_id += 1
                     _start = _end

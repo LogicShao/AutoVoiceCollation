@@ -10,7 +10,7 @@ import shutil
 from typing import Optional, Any, Tuple
 
 from src.utils.helpers.timer import Timer
-from src.bilibili_downloader import BiliVideoFile, new_local_bili_file
+from src.services.download.bilibili_downloader import BiliVideoFile, new_local_bili_file
 from src.services.asr import transcribe_audio
 from src.core.exceptions import TaskCancelledException
 from src.text_arrangement.summary_by_llm import summarize_text
@@ -82,7 +82,9 @@ class AudioProcessor(BaseProcessor):
         # 避免目录重复
         if output_dir.exists():
             suffix_id = 1
-            while (self.config.paths.output_dir / f"{audio_file_name}_{suffix_id}").exists():
+            while (
+                self.config.paths.output_dir / f"{audio_file_name}_{suffix_id}"
+            ).exists():
                 suffix_id += 1
             output_dir = self.config.paths.output_dir / f"{audio_file_name}_{suffix_id}"
 
@@ -112,7 +114,9 @@ class AudioProcessor(BaseProcessor):
         timer.start()
 
         audio_text = transcribe_audio(
-            audio_path=audio_file.path, model_type=self.config.asr.asr_model, task_id=task_id
+            audio_path=audio_file.path,
+            model_type=self.config.asr.asr_model,
+            task_id=task_id,
         )
 
         # 保存原始文本
@@ -172,7 +176,11 @@ class AudioProcessor(BaseProcessor):
         # 保存润色后的文本
         polish_text_file_path = os.path.join(output_dir, "polish_text.txt")
         audio_file.save_in_text(
-            polished_text, llm_api, temperature, self.config.asr.asr_model, polish_text_file_path
+            polished_text,
+            llm_api,
+            temperature,
+            self.config.asr.asr_model,
+            polish_text_file_path,
         )
 
         polish_time = timer.stop()
