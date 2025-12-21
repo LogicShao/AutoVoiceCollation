@@ -52,7 +52,7 @@ AutoVoiceCollation/
 │       ├── config.py             # 配置管理
 │       ├── core_process.py       # 核心流程编排
 │       ├── extract_audio_text.py # ASR 识别
-│       ├── bilibili_downloader.py# B站下载器
+│       ├── bilibili_downloader.py # B站下载器
 │       ├── subtitle_generator.py # 字幕生成
 │       ├── task_manager.py       # 任务管理
 │       ├── device_manager.py     # 设备管理
@@ -67,7 +67,7 @@ AutoVoiceCollation/
 │   └── tests/
 │       ├── conftest.py           # pytest fixtures
 │       ├── test_config.py        # 配置测试
-│       ├── test_device_manager.py# 设备管理测试
+│       ├── test_device_manager.py # 设备管理测试
 │       ├── test_logger.py        # 日志系统测试
 │       ├── test_task_manager.py  # 任务管理测试
 │       └── test_api.py           # API 测试
@@ -78,7 +78,7 @@ AutoVoiceCollation/
 │       ├── DEVELOPER_GUIDE.md    # 开发者指南
 │       ├── DOCKER.md             # Docker 部署指南
 │       ├── DOCKER_NETWORK_TROUBLESHOOTING.md  # Docker 网络问题完整解决方案
-│       └── DOCKER_FONT_FIX.md         # Docker 字体问题修复
+│       └── DOCKER_FONT_FIX.md    # Docker 字体问题修复
 │
 ├── 🔧 脚本工具
 │   └── scripts/
@@ -206,8 +206,8 @@ Electron → 启动 Python webui.py → Gradio UI
 
 ```
 浏览器 → FastAPI (api.py) → 静态前端 (frontend/) + REST API
-                           ↓
-                        Python 核心 (src/)
+                          ↓
+                       Python 核心 (src/)
 ```
 
 ## 📚 相关文档

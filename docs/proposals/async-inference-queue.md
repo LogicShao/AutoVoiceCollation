@@ -40,9 +40,9 @@ HTTP
 ### 1.1 当前架构存在的问题
 
 *
-*核心问题：
+*核心问题
 **
-FastAPI
+：FastAPI
 虽然使用了
 `async def`
 和
@@ -56,9 +56,8 @@ HTTP
 请求。
 
 *
-*问题表现：
-**
-
+*问题表现
+**：
 ```python
 # api.py:327 - 虽然定义为 async，但内部是同步阻塞
 async def process_bilibili_task(task_id: str, ...):
@@ -69,8 +68,8 @@ async def process_bilibili_task(task_id: str, ...):
 ```
 
 *
-*影响范围：
-**
+*影响范围
+**：
 
 -
 ❌
@@ -92,8 +91,8 @@ UI
 ### 1.2 为什么 ProcessPoolExecutor 不适合
 
 *
-*技术分析：
-**
+*技术分析
+**：
 
 | 问题维度       | ProcessPoolExecutor 方案 | 本地部署现实                         |
 |------------|------------------------|--------------------------------|
@@ -103,8 +102,8 @@ UI
 | **本地资源**   | 需要多核 CPU + 大内存         | 个人电脑资源有限                       |
 
 *
-*根本原因：
-**
+*根本原因
+**：
 
 -
 PyTorch
@@ -125,8 +124,8 @@ GPU
 ### 2.1 核心设计思想
 
 *
-*设计原则：
-**
+*设计原则
+**：
 
 1.
 *
@@ -287,8 +286,8 @@ class InferenceQueue:
 ### 3.1 推理队列核心类
 
 *
-*文件路径：
-**
+*文件路径
+**：
 `src/api/inference_queue.py`
 （新建）
 
@@ -298,461 +297,321 @@ class InferenceQueue:
 提供单进程、单模型实例的异步推理能力
 """
 
-import
-  asyncio
-from asyncio import
-  Queue
-from typing import
-  Optional,
-  Dict,
-  Any,
-  Callable
-from datetime import
-  datetime
-import
-  traceback
+import asyncio
+from asyncio import Queue
+from typing import Optional, Dict, Any, Callable
+from datetime import datetime
+import traceback
 
-from src.logger import
-  get_logger
-from src.core_process import
-  bilibili_video_download_process,
-  upload_audio
-from src.text_arrangement.summary_by_llm import
-  summarize_text
+from src.logger import get_logger
+from src.core_process import bilibili_video_download_process, upload_audio
+from src.text_arrangement.summary_by_llm import summarize_text
 
-logger = get_logger(
-  __name__)
+logger = get_logger(__name__)
 
 
 class InferenceQueue:
-  """
-  异步推理队列（单例模式）
-
-  设计原则：
-  - 全局唯一实例，持有唯一模型
-  - 串行处理推理任务（避免 GPU 冲突）
-  - 异步接口，不阻塞 FastAPI 事件循环
-  """
-
-  _instance:
-  Optional[
-    'InferenceQueue'] = None
-
-  def __new__(
-    cls):
-    """单例模式"""
-    if cls._instance is None:
-      cls._instance = super().__new__(
-        cls)
-      cls._instance._initialized = False
-    return cls._instance
-
-  def __init__(
-    self):
-    """初始化队列（仅执行一次）"""
-    if self._initialized:
-      return
-
-    self.queue: Queue = Queue()
-    self.worker_task:
-    Optional[
-      asyncio.Task] = None
-    self._model = None  # 延迟加载
-    self._model_lock = asyncio.Lock()
-    self._initialized = True
-
-    logger.info(
-      "推理队列初始化完成")
-
-  async def start(
-    self):
-    """启动工作循环"""
-    if self.worker_task is None or self.worker_task.done():
-      self.worker_task = asyncio.create_task(
-        self._worker_loop())
-      logger.info(
-        "✅ 推理工作线程已启动")
-
-  async def stop(
-    self):
-    """停止工作循环"""
-    if self.worker_task and not self.worker_task.done():
-      self.worker_task.cancel()
-      try:
-        await self.worker_task
-      except asyncio.CancelledError:
-        logger.info(
-          "推理工作线程已停止")
-
-  async def submit_task(
-    self,
-    task_id: str,
-    task_type: str,
-    task_data:
-    Dict[
-      str, Any],
-    tasks_store: Dict):
     """
-    提交任务到队列
-
-    :param task_id: 任务 ID
-    :param task_type: 任务类型（bilibili, audio, batch, subtitle）
-    :param task_data: 任务数据
-    :param tasks_store: 任务状态存储（引用传递）
+    异步推理队列（单例模式）
+    
+    设计原则：
+    - 全局唯一实例，持有唯一模型
+    - 串行处理推理任务（避免 GPU 冲突）
+    - 异步接口，不阻塞 FastAPI 事件循环
     """
-    await self.queue.put(
-      {
-        'task_id': task_id,
-        'task_type': task_type,
-        'task_data': task_data,
-        'tasks_store': tasks_store
-      })
-    logger.info(
-      f"任务已提交到队列: {task_id}, 队列长度: {self.queue.qsize()}")
 
-  async def _worker_loop(
-    self):
-    """工作循环：持续从队列取任务并执行"""
-    logger.info(
-      "工作循环已启动，等待任务...")
+    _instance: Optional['InferenceQueue'] = None
 
-    while True:
-      try:
-        # 异步等待任务（不阻塞事件循环）
-        task_item = await self.queue.get()
+    def __new__(cls):
+        """单例模式"""
+        if cls._instance is None:
+            cls._instance = super().__new__(cls)
+            cls._instance._initialized = False
+        return cls._instance
 
-        task_id =
-        task_item[
-          'task_id']
-        task_type =
-        task_item[
-          'task_type']
-        task_data =
-        task_item[
-          'task_data']
-        tasks_store =
-        task_item[
-          'tasks_store']
+    def __init__(self):
+        """初始化队列（仅执行一次）"""
+        if self._initialized:
+            return
 
-        logger.info(
-          f"开始处理任务: {task_id}, 类型: {task_type}")
+        self.queue: Queue = Queue()
+        self.worker_task: Optional[asyncio.Task] = None
+        self._model = None  # 延迟加载
+        self._model_lock = asyncio.Lock()
+        self._initialized = True
 
-        try:
-          # 更新状态为处理中
-          tasks_store[
-            task_id][
-            'status'] = 'processing'
+        logger.info("推理队列初始化完成")
 
-          # 根据任务类型调用对应的处理函数
-          if task_type == 'bilibili':
-            await self._process_bilibili_task(
-              task_id,
-              task_data,
-              tasks_store)
-          elif task_type == 'audio':
-            await self._process_audio_task(
-              task_id,
-              task_data,
-              tasks_store)
-          elif task_type == 'batch':
-            await self._process_batch_task(
-              task_id,
-              task_data,
-              tasks_store)
-          elif task_type == 'subtitle':
-            await self._process_subtitle_task(
-              task_id,
-              task_data,
-              tasks_store)
-          else:
-            raise ValueError(
-              f"未知的任务类型: {task_type}")
+    async def start(self):
+        """启动工作循环"""
+        if self.worker_task is None or self.worker_task.done():
+            self.worker_task = asyncio.create_task(self._worker_loop())
+            logger.info("✅ 推理工作线程已启动")
 
-          logger.info(
-            f"✅ 任务完成: {task_id}")
+    async def stop(self):
+        """停止工作循环"""
+        if self.worker_task and not self.worker_task.done():
+            self.worker_task.cancel()
+            try:
+                await self.worker_task
+            except asyncio.CancelledError:
+                logger.info("推理工作线程已停止")
 
-        except Exception as e:
-          logger.error(
-            f"❌ 任务失败: {task_id}, 错误: {e}",
-            exc_info=True)
-          tasks_store[
-            task_id].update(
-            {
-              'status': 'failed',
-              'message': f"处理失败: {str(e)}",
-              'error': traceback.format_exc(),
-              'completed_at': datetime.now().isoformat()
+    async def submit_task(
+        self,
+        task_id: str,
+        task_type: str,
+        task_data: Dict[str, Any],
+        tasks_store: Dict
+    ):
+        """
+        提交任务到队列
+        
+        :param task_id: 任务 ID
+        :param task_type: 任务类型（bilibili, audio, batch, subtitle）
+        :param task_data: 任务数据
+        :param tasks_store: 任务状态存储（引用传递）
+        """
+        await self.queue.put({
+            'task_id': task_id,
+            'task_type': task_type,
+            'task_data': task_data,
+            'tasks_store': tasks_store
+        })
+        logger.info(f"任务已提交到队列: {task_id}, 队列长度: {self.queue.qsize()}")
+
+    async def _worker_loop(self):
+        """工作循环：持续从队列取任务并执行"""
+        logger.info("工作循环已启动，等待任务...")
+
+        while True:
+            try:
+                # 异步等待任务（不阻塞事件循环）
+                task_item = await self.queue.get()
+
+                task_id = task_item['task_id']
+                task_type = task_item['task_type']
+                task_data = task_item['task_data']
+                tasks_store = task_item['tasks_store']
+
+                logger.info(f"开始处理任务: {task_id}, 类型: {task_type}")
+
+                try:
+                    # 更新状态为处理中
+                    tasks_store[task_id]['status'] = 'processing'
+
+                    # 根据任务类型调用对应的处理函数
+                    if task_type == 'bilibili':
+                        await self._process_bilibili_task(task_id, task_data, tasks_store)
+                    elif task_type == 'audio':
+                        await self._process_audio_task(task_id, task_data, tasks_store)
+                    elif task_type == 'batch':
+                        await self._process_batch_task(task_id, task_data, tasks_store)
+                    elif task_type == 'subtitle':
+                        await self._process_subtitle_task(task_id, task_data, tasks_store)
+                    else:
+                        raise ValueError(f"未知的任务类型: {task_type}")
+
+                    logger.info(f"✅ 任务完成: {task_id}")
+
+                except Exception as e:
+                    logger.error(f"❌ 任务失败: {task_id}, 错误: {e}", exc_info=True)
+                    tasks_store[task_id].update({
+                        'status': 'failed',
+                        'message': f"处理失败: {str(e)}",
+                        'error': traceback.format_exc(),
+                        'completed_at': datetime.now().isoformat()
+                    })
+
+                finally:
+                    self.queue.task_done()
+
+            except asyncio.CancelledError:
+                logger.info("工作循环被取消")
+                break
+            except Exception as e:
+                logger.error(f"工作循环异常: {e}", exc_info=True)
+
+    async def _process_bilibili_task(self, task_id: str, data: Dict, tasks_store: Dict):
+        """处理 B站视频任务"""
+        # 在线程池中执行同步函数（避免阻塞事件循环）
+        loop = asyncio.get_event_loop()
+
+        output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
+            None,  # 使用默认线程池
+            bilibili_video_download_process,
+            data['video_url'],
+            data['llm_api'],
+            data['temperature'],
+            data['max_tokens'],
+            data['text_only']
+        )
+
+        completed_at = datetime.now().isoformat()
+
+        if data['text_only']:
+            result_data = output_data
+
+            # 如果需要总结
+            if data.get('summarize') and 'polished_text' in result_data:
+                tasks_store[task_id]['message'] = '正在生成总结'
+
+                summary = await loop.run_in_executor(
+                    None,
+                    summarize_text,
+                    result_data['polished_text'],
+                    data['llm_api'],
+                    data['temperature'],
+                    data['max_tokens'],
+                    result_data.get('title', '')
+                )
+                result_data['summary'] = summary
+                completed_at = datetime.now().isoformat()
+
+            tasks_store[task_id].update({
+                'status': 'completed',
+                'message': '处理完成',
+                'result': result_data,
+                'completed_at': completed_at
+            })
+        else:
+            tasks_store[task_id].update({
+                'status': 'completed',
+                'message': '处理完成',
+                'result': {
+                    'output_dir': output_data,
+                    'extract_time': extract_time,
+                    'polish_time': polish_time,
+                    'zip_file': zip_file
+                },
+                'completed_at': completed_at
             })
 
-        finally:
-          self.queue.task_done()
+    async def _process_audio_task(self, task_id: str, data: Dict, tasks_store: Dict):
+        """处理音频任务"""
+        import os
+        loop = asyncio.get_event_loop()
 
-      except asyncio.CancelledError:
-        logger.info(
-          "工作循环被取消")
-        break
-      except Exception as e:
-        logger.error(
-          f"工作循环异常: {e}",
-          exc_info=True)
-
-  async def _process_bilibili_task(
-    self,
-    task_id: str,
-    data: Dict,
-    tasks_store: Dict):
-    """处理 B站视频任务"""
-    # 在线程池中执行同步函数（避免阻塞事件循环）
-    loop = asyncio.get_event_loop()
-
-    output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
-      None,
-      # 使用默认线程池
-      bilibili_video_download_process,
-      data[
-        'video_url'],
-      data[
-        'llm_api'],
-      data[
-        'temperature'],
-      data[
-        'max_tokens'],
-      data[
-        'text_only']
-    )
-
-    completed_at = datetime.now().isoformat()
-
-    if
-    data[
-      'text_only']:
-      result_data = output_data
-
-      # 如果需要总结
-      if data.get(
-        'summarize') and 'polished_text' in result_data:
-        tasks_store[
-          task_id][
-          'message'] = '正在生成总结'
-
-        summary = await loop.run_in_executor(
-          None,
-          summarize_text,
-          result_data[
-            'polished_text'],
-          data[
-            'llm_api'],
-          data[
-            'temperature'],
-          data[
-            'max_tokens'],
-          result_data.get(
-            'title',
-            '')
+        output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
+            None,
+            upload_audio,
+            data['audio_path'],
+            data['llm_api'],
+            data['temperature'],
+            data['max_tokens'],
+            data['text_only']
         )
-        result_data[
-          'summary'] = summary
+
+        # 清理临时文件
+        if os.path.exists(data['audio_path']):
+            await loop.run_in_executor(
+                None,
+                os.remove,
+                data['audio_path']
+            )
+
         completed_at = datetime.now().isoformat()
 
-      tasks_store[
-        task_id].update(
-        {
-          'status': 'completed',
-          'message': '处理完成',
-          'result': result_data,
-          'completed_at': completed_at
-        })
-    else:
-      tasks_store[
-        task_id].update(
-        {
-          'status': 'completed',
-          'message': '处理完成',
-          'result': {
-            'output_dir': output_data,
-            'extract_time': extract_time,
-            'polish_time': polish_time,
-            'zip_file': zip_file
-          },
-          'completed_at': completed_at
-        })
+        if data['text_only']:
+            result_data = output_data
 
-  async def _process_audio_task(
-    self,
-    task_id: str,
-    data: Dict,
-    tasks_store: Dict):
-    """处理音频任务"""
-    import
-      os
-    loop = asyncio.get_event_loop()
+            if data.get('summarize') and 'polished_text' in result_data:
+                tasks_store[task_id]['message'] = '正在生成总结'
 
-    output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
-      None,
-      upload_audio,
-      data[
-        'audio_path'],
-      data[
-        'llm_api'],
-      data[
-        'temperature'],
-      data[
-        'max_tokens'],
-      data[
-        'text_only']
-    )
+                summary = await loop.run_in_executor(
+                    None,
+                    summarize_text,
+                    result_data['polished_text'],
+                    data['llm_api'],
+                    data['temperature'],
+                    data['max_tokens'],
+                    result_data.get('title', '')
+                )
+                result_data['summary'] = summary
+                completed_at = datetime.now().isoformat()
 
-    # 清理临时文件
-    if os.path.exists(
-      data[
-        'audio_path']):
-      await loop.run_in_executor(
-        None,
-        os.remove,
-        data[
-          'audio_path'])
+            tasks_store[task_id].update({
+                'status': 'completed',
+                'message': '处理完成',
+                'result': result_data,
+                'completed_at': completed_at
+            })
+        else:
+            tasks_store[task_id].update({
+                'status': 'completed',
+                'message': '处理完成',
+                'result': {
+                    'output_dir': output_data,
+                    'extract_time': extract_time,
+                    'polish_time': polish_time,
+                    'zip_file': zip_file
+                },
+                'completed_at': completed_at
+            })
 
-    completed_at = datetime.now().isoformat()
+    async def _process_batch_task(self, task_id: str, data: Dict, tasks_store: Dict):
+        """处理批量任务"""
+        from src.core_process import process_multiple_urls
+        loop = asyncio.get_event_loop()
 
-    if
-    data[
-      'text_only']:
-      result_data = output_data
-
-      if data.get(
-        'summarize') and 'polished_text' in result_data:
-        tasks_store[
-          task_id][
-          'message'] = '正在生成总结'
-
-        summary = await loop.run_in_executor(
-          None,
-          summarize_text,
-          result_data[
-            'polished_text'],
-          data[
-            'llm_api'],
-          data[
-            'temperature'],
-          data[
-            'max_tokens'],
-          result_data.get(
-            'title',
-            '')
+        results = await loop.run_in_executor(
+            None,
+            process_multiple_urls,
+            data['urls'],
+            data['llm_api'],
+            data['temperature'],
+            data['max_tokens'],
+            data['text_only']
         )
-        result_data[
-          'summary'] = summary
-        completed_at = datetime.now().isoformat()
 
-      tasks_store[
-        task_id].update(
-        {
-          'status': 'completed',
-          'message': '处理完成',
-          'result': result_data,
-          'completed_at': completed_at
-        })
-    else:
-      tasks_store[
-        task_id].update(
-        {
-          'status': 'completed',
-          'message': '处理完成',
-          'result': {
-            'output_dir': output_data,
-            'extract_time': extract_time,
-            'polish_time': polish_time,
-            'zip_file': zip_file
-          },
-          'completed_at': completed_at
+        tasks_store[task_id].update({
+            'status': 'completed',
+            'message': '批量处理完成',
+            'result': results,
+            'completed_at': datetime.now().isoformat()
         })
 
-  async def _process_batch_task(
-    self,
-    task_id: str,
-    data: Dict,
-    tasks_store: Dict):
-    """处理批量任务"""
-    from src.core_process import
-      process_multiple_urls
-    loop = asyncio.get_event_loop()
+    async def _process_subtitle_task(self, task_id: str, data: Dict, tasks_store: Dict):
+        """处理字幕任务"""
+        from src.core_process import process_subtitles
+        loop = asyncio.get_event_loop()
 
-    results = await loop.run_in_executor(
-      None,
-      process_multiple_urls,
-      data[
-        'urls'],
-      data[
-        'llm_api'],
-      data[
-        'temperature'],
-      data[
-        'max_tokens'],
-      data[
-        'text_only']
-    )
+        output_path = await loop.run_in_executor(
+            None,
+            process_subtitles,
+            data['video_path']
+        )
 
-    tasks_store[
-      task_id].update(
-      {
-        'status': 'completed',
-        'message': '批量处理完成',
-        'result': results,
-        'completed_at': datetime.now().isoformat()
-      })
-
-  async def _process_subtitle_task(
-    self,
-    task_id: str,
-    data: Dict,
-    tasks_store: Dict):
-    """处理字幕任务"""
-    from src.core_process import
-      process_subtitles
-    loop = asyncio.get_event_loop()
-
-    output_path = await loop.run_in_executor(
-      None,
-      process_subtitles,
-      data[
-        'video_path']
-    )
-
-    tasks_store[
-      task_id].update(
-      {
-        'status': 'completed',
-        'message': '字幕生成完成',
-        'result': {
-          'output_video': output_path},
-        'completed_at': datetime.now().isoformat()
-      })
+        tasks_store[task_id].update({
+            'status': 'completed',
+            'message': '字幕生成完成',
+            'result': {'output_video': output_path},
+            'completed_at': datetime.now().isoformat()
+        })
 
 
 # 全局单例
-_inference_queue:
-Optional[
-  InferenceQueue] = None
+_inference_queue: Optional[InferenceQueue] = None
 
 
 def get_inference_queue() -> InferenceQueue:
-  """获取全局推理队列实例"""
-  global _inference_queue
-  if _inference_queue is None:
-    _inference_queue = InferenceQueue()
-  return _inference_queue
+    """获取全局推理队列实例"""
+    global _inference_queue
+    if _inference_queue is None:
+        _inference_queue = InferenceQueue()
+    return _inference_queue
 ```
 
 ### 3.2 修改 FastAPI 主文件
 
 *
-*文件路径：
-**
+*文件路径
+**：
 `api.py`
 
 *
-*修改步骤：
-**
+*修改步骤
+**：
 
 #### 步骤 1：导入推理队列
 
@@ -790,8 +649,8 @@ async def shutdown_event():
 #### 步骤 3：修改 API 端点
 
 *
-*原代码（阻塞方式）：
-**
+*原代码（阻塞方式）
+**：
 
 ```python
 @app.post("/api/v1/process/bilibili", response_model=TaskResponse)
@@ -808,8 +667,8 @@ async def process_bilibili_video(request: BilibiliVideoRequest, background_tasks
 ```
 
 *
-*新代码（异步队列）：
-**
+*新代码（异步队列）
+**：
 
 ```python
 @app.post("/api/v1/process/bilibili", response_model=TaskResponse)
@@ -853,8 +712,8 @@ async def process_bilibili_video(request: BilibiliVideoRequest):
 #### 步骤 4：删除旧的后台任务函数
 
 *
-*删除以下函数（不再需要）：
-**
+*删除以下函数（不再需要）
+**：
 
 ```python
 # ❌ 删除这些函数
@@ -871,8 +730,8 @@ async def process_subtitle_task(...)
 ### 4.1 Phase 1：核心功能实现（2小时）
 
 *
-*步骤清单：
-**
+*步骤清单
+**：
 
 - [ ] 
   创建
@@ -905,9 +764,8 @@ async def process_subtitle_task(...)
 ### 4.2 Phase 2：测试验证（1小时）
 
 *
-*测试用例：
-**
-
+*测试用例
+**：
 ```bash
 # 测试 1: 健康检查在推理时仍可响应
 curl http://localhost:8000/health &
@@ -936,14 +794,13 @@ curl http://localhost:8000/api/v1/task/$task_id
 ### 4.3 Phase 3：性能优化（1小时）
 
 *
-*优化项：
-**
+*优化项
+**：
 
 1.
 *
 *添加队列容量限制
 **
-
 ```python
 self.queue: Queue = Queue(maxsize=10)  # 最多10个待处理任务
 ```
@@ -952,7 +809,6 @@ self.queue: Queue = Queue(maxsize=10)  # 最多10个待处理任务
 *
 *添加任务超时机制
 **
-
 ```python
 async def _process_with_timeout(self, task_item, timeout=3600):
     """带超时的任务处理"""
@@ -970,7 +826,6 @@ async def _process_with_timeout(self, task_item, timeout=3600):
 *
 *添加任务优先级
 **
-
 ```python
 from asyncio import PriorityQueue
 
@@ -998,8 +853,8 @@ await self.queue.put((priority, task_item))
 
 *
 *✅
-适合：
-**
+适合
+**：
 
 -
 本地单用户或小团队使用
@@ -1020,8 +875,8 @@ API
 
 *
 *❌
-不适合：
-**
+不适合
+**：
 
 -
 高并发场景（每分钟数十个任务）
@@ -1042,8 +897,8 @@ Celery）
 ### 6.1 Phase 2 优化（可选）
 
 *
-*如果未来需要真正的并发推理，可选择：
-**
+*如果未来需要真正的并发推理，可选择
+**：
 
 #### 方案 A：ONNX Runtime + 多线程
 
@@ -1067,8 +922,8 @@ class ONNXInferencePool:
 ```
 
 *
-*优势：
-**
+*优势
+**：
 
 -
 2-4x
@@ -1079,8 +934,8 @@ class ONNXInferencePool:
 内存占用更低
 
 *
-*劣势：
-**
+*劣势
+**：
 
 -
 需要导出
@@ -1103,8 +958,8 @@ class BatchInferenceQueue:
 ```
 
 *
-*优势：
-**
+*优势
+**：
 
 -
 GPU
@@ -1114,8 +969,8 @@ GPU
 适合小模型
 
 *
-*劣势：
-**
+*劣势
+**：
 
 -
 增加延迟（需要等待凑齐批量）
@@ -1125,9 +980,9 @@ GPU
 #### 方案 C：Celery 分布式任务队列
 
 *
-*适用场景：
+*适用场景
 **
-生产环境、需要分布式扩展
+：生产环境、需要分布式扩展
 
 ```bash
 # 架构
@@ -1135,8 +990,8 @@ FastAPI → Redis 消息队列 → Celery Workers（多机器）
 ```
 
 *
-*优势：
-**
+*优势
+**：
 
 -
 支持横向扩展
@@ -1146,8 +1001,8 @@ FastAPI → Redis 消息队列 → Celery Workers（多机器）
 分布式部署
 
 *
-*劣势：
-**
+*劣势
+**：
 
 -
 需要
@@ -1171,8 +1026,8 @@ Redis
 ## 八、验收标准
 
 *
-*功能验收：
-**
+*功能验收
+**：
 
 - [ ] 
   推理时
@@ -1188,8 +1043,8 @@ Redis
   任务失败时正确记录错误信息
 
 *
-*性能验收：
-**
+*性能验收
+**：
 
 - [ ] 
   HTTP
@@ -1209,7 +1064,6 @@ Redis
 ## 九、参考资料
 
 ### 9.1 相关文档
-
 - [FastAPI 后台任务文档](https://fastapi.tiangolo.com/tutorial/background-tasks/)
 - [asyncio 官方文档](https://docs.python.org/3/library/asyncio.html)
 - [run_in_executor 用法](https://docs.python.org/3/library/asyncio-eventloop.html#asyncio.loop.run_in_executor)
@@ -1236,8 +1090,8 @@ FastAPI
 ## 十、总结
 
 *
-*核心价值：
-**
+*核心价值
+**：
 
 1.
 ✅
@@ -1276,8 +1130,8 @@ GPU/CPU
 环境最优方案
 
 *
-*下一步行动：
-**
+*下一步行动
+**：
 
 -
 按照
@@ -1298,11 +1152,11 @@ Celery
 *作者
 **:
 Claude
-Code
+Code  
 *
 *审核
 **:
-待审核
+待审核  
 *
 *状态
 **:

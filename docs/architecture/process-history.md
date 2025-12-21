@@ -13,7 +13,9 @@ AutoVoiceCollation
 *
 *自动记录处理历史
 **
-：每次处理完成后自动记录到JSON文件
+：每次处理完成后自动记录到
+JSON
+文件
 -
 ✅
 *
@@ -25,7 +27,9 @@ AutoVoiceCollation
 *
 *多源支持
 **
-：支持B站视频、本地音频、本地视频
+：支持
+B
+站视频、本地音频、本地视频
 -
 ✅
 *
@@ -37,7 +41,9 @@ AutoVoiceCollation
 *
 *轻量级存储
 **
-：使用JSON文件存储，无需数据库
+：使用
+JSON
+文件存储，无需数据库
 -
 ✅
 *
@@ -53,7 +59,7 @@ src/
 └── core_process_utils.py       # 辅助工具函数
 
 docs/
-└── WEBUI_HISTORY_INTEGRATION.py  # WebUI集成示例
+└── WEBUI_HISTORY_INTEGRATION.py  # WebUI 集成示例
 
 tests/
 ├── test_process_history.py     # 完整测试脚本
@@ -68,32 +74,26 @@ out/
 ### 1. 基本使用
 
 ```python
-from src.process_history import
-  get_history_manager
+from src.process_history import get_history_manager
 from src.core_process_utils import (
-  check_bilibili_processed,
-  record_bilibili_process,
-  build_output_files_dict
+    check_bilibili_processed,
+    record_bilibili_process,
+    build_output_files_dict
 )
 
 # 获取历史管理器实例
 history_manager = get_history_manager()
 
-# 检查B站视频是否已处理
+# 检查 B 站视频是否已处理
 video_url = "https://www.bilibili.com/video/BV1xx411c7mD"
-record = check_bilibili_processed(
-  video_url)
+record = check_bilibili_processed(video_url)
 
 if record:
-  print(
-    f"该视频已于 {record.last_processed} 处理过")
-  print(
-    f"输出目录: {record.output_dir}")
-  print(
-    f"处理次数: {record.process_count}")
+    print(f"该视频已于 {record.last_processed} 处理过")
+    print(f"输出目录: {record.output_dir}")
+    print(f"处理次数: {record.process_count}")
 else:
-  print(
-    "该视频尚未处理")
+    print("该视频尚未处理")
 ```
 
 ### 2. 记录处理历史
@@ -123,18 +123,14 @@ record_bilibili_process(
 ```python
 # 获取统计信息
 stats = history_manager.get_statistics()
-print(
-  f"总记录数: {stats['total_records']}")
-print(
-  f"B站视频: {stats['bilibili_videos']}")
-print(
-  f"总处理次数: {stats['total_processes']}")
+print(f"总记录数: {stats['total_records']}")
+print(f"B站视频: {stats['bilibili_videos']}")
+print(f"总处理次数: {stats['total_processes']}")
 
 # 获取所有记录（按时间倒序）
 records = history_manager.get_all_records()
 for record in records:
-  print(
-    f"{record.title} - {record.last_processed}")
+    print(f"{record.title} - {record.last_processed}")
 ```
 
 ## 🔌 WebUI 集成
@@ -203,7 +199,9 @@ check_history_btn.click(
 )
 ```
 
-完整的WebUI集成示例请参考
+完整的
+WebUI
+集成示例请参考
 `docs/WEBUI_HISTORY_INTEGRATION.py`。
 
 ## 📊 数据结构
@@ -213,21 +211,15 @@ check_history_btn.click(
 ```python
 @dataclass
 class ProcessRecord:
-  identifier: str  # 唯一标识符（BV号、文件hash等）
-  record_type: str  # 类型：bilibili, local_audio, local_video
-  url:
-  Optional[
-    str]  # B站链接（如果是B站视频）
-  title: str  # 视频/文件标题
-  output_dir: str  # 输出目录
-  last_processed: str  # 最后处理时间（ISO格式）
-  config:
-  Dict[
-    str, Any]  # 处理配置
-  outputs:
-  Dict[
-    str, str]  # 输出文件路径
-  process_count: int = 1  # 处理次数
+    identifier: str  # 唯一标识符（BV号、文件hash等）
+    record_type: str  # 类型：bilibili, local_audio, local_video
+    url: Optional[str]  # B站链接（如果是B站视频）
+    title: str  # 视频/文件标题
+    output_dir: str  # 输出目录
+    last_processed: str  # 最后处理时间（ISO格式）
+    config: Dict[str, Any]  # 处理配置
+    outputs: Dict[str, str]  # 输出文件路径
+    process_count: int = 1  # 处理次数
 ```
 
 ### JSON 存储格式
@@ -267,64 +259,41 @@ class ProcessRecord:
 
 ```python
 # 检查是否已处理
-history_manager.check_processed(
-  identifier: str) -> bool
+history_manager.check_processed(identifier: str) -> bool
 
 # 获取处理记录
-history_manager.get_record(
-  identifier: str) ->
-Optional[
-  ProcessRecord]
+history_manager.get_record(identifier: str) -> Optional[ProcessRecord]
 
 # 添加/更新记录
-history_manager.add_record(
-  record: ProcessRecord)
+history_manager.add_record(record: ProcessRecord)
 
 # 删除记录
-history_manager.delete_record(
-  identifier: str) -> bool
+history_manager.delete_record(identifier: str) -> bool
 
 # 获取所有记录
-history_manager.get_all_records() ->
-List[
-  ProcessRecord]
+history_manager.get_all_records() -> List[ProcessRecord]
 
 # 获取统计信息
-history_manager.get_statistics() ->
-Dict[
-  str, Any]
+history_manager.get_statistics() -> Dict[str, Any]
 ```
 
 #### 辅助方法
 
 ```python
 # 提取B站视频ID
-history_manager.extract_bilibili_id(
-  url: str) ->
-Optional[
-  str]
+history_manager.extract_bilibili_id(url: str) -> Optional[str]
 
 # 生成文件标识符
-history_manager.generate_file_identifier(
-  file_path: str) -> str
+history_manager.generate_file_identifier(file_path: str) -> str
 
 # 从B站视频信息创建记录
 history_manager.create_record_from_bilibili(
-  url,
-  title,
-  output_dir,
-  config,
-  outputs
+    url, title, output_dir, config, outputs
 ) -> ProcessRecord
 
 # 从本地文件信息创建记录
 history_manager.create_record_from_local_file(
-  file_path,
-  file_type,
-  title,
-  output_dir,
-  config,
-  outputs
+    file_path, file_type, title, output_dir, config, outputs
 ) -> ProcessRecord
 ```
 
@@ -332,35 +301,20 @@ history_manager.create_record_from_local_file(
 
 ```python
 # 检查B站视频是否已处理
-check_bilibili_processed(
-  video_url: str) ->
-Optional[
-  ProcessRecord]
+check_bilibili_processed(video_url: str) -> Optional[ProcessRecord]
 
 # 记录B站视频处理历史
 record_bilibili_process(
-  video_url,
-  title,
-  output_dir,
-  config,
-  outputs
+    video_url, title, output_dir, config, outputs
 ) -> ProcessRecord
 
 # 记录本地文件处理历史
 record_local_file_process(
-  file_path,
-  file_type,
-  title,
-  output_dir,
-  config,
-  outputs
+    file_path, file_type, title, output_dir, config, outputs
 ) -> ProcessRecord
 
 # 构建输出文件路径字典
-build_output_files_dict(
-  output_dir: str, text_only: bool) ->
-Dict[
-  str, str]
+build_output_files_dict(output_dir: str, text_only: bool) -> Dict[str, str]
 ```
 
 ## 🧪 测试
@@ -379,7 +333,8 @@ python tests/test_process_history_simple.py
 
 -
 ✅
-URL解析和标识符生成
+URL
+解析和标识符生成
 -
 ✅
 创建处理记录
@@ -401,7 +356,7 @@ URL解析和标识符生成
 
 ## 📝 使用场景
 
-### 场景1：避免重复下载B站视频
+### 场景1：避免重复下载 B 站视频
 
 ```python
 video_url = "https://www.bilibili.com/video/BV1xx411c7mD"
@@ -411,7 +366,7 @@ record = check_bilibili_processed(video_url)
 if record:
     print(f"该视频已处理过，输出目录: {record.output_dir}")
     print("是否继续处理？")
-    # 在WebUI中询问用户
+    # 在 WebUI 中询问用户
 else:
     # 继续下载和处理
     pass
@@ -437,21 +392,14 @@ for url in urls:
 ```python
 # 查看最近处理的视频
 records = history_manager.get_all_records()
-print(
-  "最近处理的视频:")
-for i, record in enumerate(
-  records[
-    :10],
-  1):
-  print(
-    f"{i}. {record.title} ({record.last_processed})")
+print("最近处理的视频:")
+for i, record in enumerate(records[:10], 1):
+    print(f"{i}. {record.title} ({record.last_processed})")
 
 # 查看统计信息
 stats = history_manager.get_statistics()
-print(
-  f"\n已处理 {stats['bilibili_videos']} 个B站视频")
-print(
-  f"总处理次数: {stats['total_processes']}")
+print(f"\n已处理 {stats['bilibili_videos']} 个B站视频")
+print(f"总处理次数: {stats['total_processes']}")
 ```
 
 ## ⚠️ 注意事项
@@ -476,12 +424,16 @@ print(
 *标识符生成
 **：
   -
-  B站视频：使用
-  BV号
-  或
-  AV号
+  B
+  站视频：使用
+  BV
+  号或
+  AV
+  号
   -
-  本地文件：使用文件名、大小和修改时间的MD5哈希
+  本地文件：使用文件名、大小和修改时间的
+  MD5
+  哈希
 4.
 *
 *单例模式
@@ -503,7 +455,8 @@ print(
 ## 🔄 未来改进
 
 - [ ] 
-  添加导出功能（导出为Excel/CSV）
+  添加导出功能（导出为
+  Excel/CSV）
 - [ ] 
   支持搜索和过滤功能
 - [ ] 
@@ -513,7 +466,9 @@ print(
 - [ ] 
   实现线程安全
 - [ ] 
-  添加历史记录清理策略（如自动删除30天前的记录）
+  添加历史记录清理策略（如自动删除
+  30
+  天前的记录）
 - [ ] 
   支持导入/导出历史记录
 
@@ -531,7 +486,6 @@ A:
 ### Q: 如何清空历史记录？
 
 A:
-
 ```python
 history_manager.records.clear()
 history_manager._save()
@@ -557,7 +511,9 @@ A:
 ### Q: 支持哪些视频平台？
 
 A:
-目前仅支持B站（bilibili），其他平台可扩展实现类似的标识符提取逻辑。
+目前仅支持
+B
+站（bilibili），其他平台可扩展实现类似的标识符提取逻辑。
 
 ## 📄 许可证
 
@@ -576,7 +532,7 @@ Request！
 *
 *更新日期
 **:
-2025-11-25
+2025-11-25  
 *
 *版本
 **:

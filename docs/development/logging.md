@@ -181,6 +181,7 @@ logger.error(f"错误：{error}")
 *
 *提供有用的上下文信息
 **
+
 ```python
 # 好
 logger.info(f"开始下载视频，URL: {url}, 格式: {format}")
@@ -193,6 +194,7 @@ logger.info("开始下载")
 *
 *在异常处理中使用日志
 **
+
 ```python
 try:
     process_file(filepath)
@@ -202,11 +204,39 @@ except Exception as e:
     logger.critical(f"未预期的错误: {e}", exc_info=True)
 ```
 
+4.
+*
+*记录关键操作的开始和结束
+**
+
+```python
+logger.info(f"开始处理任务: {task_id}")
+# ... 处理代码 ...
+logger.info(f"任务完成: {task_id}, 耗时: {elapsed_time:.2f}秒")
+```
+
+5.
+*
+*避免记录敏感信息
+**
+
+```python
+# 不要记录密码、API密钥等敏感信息
+# ❌ 错误示例
+logger.debug(f"API请求参数: {api_params}")
+
+# ✅ 正确示例 - 过滤敏感信息
+safe_params = {k: v for k, v in api_params.items() if k not in ['api_key', 'password']}
+logger.debug(f"API请求参数: {safe_params}")
+```
+
 ## 常见问题
 
 ### Q: 为什么看不到 DEBUG 日志？
 
-A:
+*
+*A
+**:
 检查
 `LOG_LEVEL`
 是否设置为
@@ -214,18 +244,40 @@ A:
 
 ### Q: 如何关闭彩色输出？
 
-A:
+*
+*A
+**:
 设置
 `LOG_COLORED_OUTPUT = False`。
 
 ### Q: 日志文件太大怎么办？
 
-A:
+*
+*A
+**:
 可以手动删除旧日志，或者实现日志轮转功能（未来版本）。
 
 ### Q: 能否为不同模块设置不同的日志级别？
 
-A:
+*
+*A
+**:
 目前所有模块使用相同配置。如需要，可以在
 `logger.py`
 中扩展功能。
+
+### Q: 如何在日志中包含异常的完整堆栈信息？
+
+*
+*A
+**:
+在记录异常时，设置
+`exc_info=True`
+参数：
+
+```python
+try:
+    risky_operation()
+except Exception as e:
+    logger.error(f"操作失败: {e}", exc_info=True)
+```

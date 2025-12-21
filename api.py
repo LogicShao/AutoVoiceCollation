@@ -13,16 +13,21 @@ from pathlib import Path
 from typing import List, Optional
 
 import uvicorn
-from fastapi import FastAPI, File, UploadFile, HTTPException, BackgroundTasks
+from fastapi import (
+    FastAPI,
+    File,
+    UploadFile,
+    HTTPException,
+    BackgroundTasks,
+    Depends,
+    Form,
+)
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.utils.config import get_config
-from src.core_process import (
-    upload_audio, bilibili_video_download_process,
-    process_multiple_urls, process_subtitles
-)
+from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.api.middleware import register_exception_handlers
 from src.utils.logging.logger import get_logger
@@ -32,6 +37,11 @@ logger = get_logger(__name__)
 
 # 获取配置
 config = get_config()
+
+# 实例化处理器
+audio_processor = AudioProcessor()
+video_processor = VideoProcessor()
+subtitle_processor = SubtitleProcessor()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -195,24 +205,42 @@ async def process_bilibili_video(request: BilibiliVideoRequest, background_tasks
 
 
 @app.post("/api/v1/process/audio", response_model=TaskResponse)
-async def process_audio_file(file: UploadFile = File(...), llm_api: str = config.llm.llm_server,
-                             temperature: float = config.llm.llm_temperature, max_tokens: int = config.llm.llm_max_tokens,
-                             text_only: bool = False, summarize: bool = False,
-                             background_tasks: BackgroundTasks = None):
-    """处理上传的音频文件"""
-    allowed_extensions = ['.mp3', '.wav', '.m4a', '.flac']
+async def process_audio_file(
+    file: UploadFile = File(...),
+    llm_api: str = Form(default=config.llm.llm_server),
+    temperature: float = Form(default=config.llm.llm_temperature),
+    max_tokens: int = Form(default=config.llm.llm_max_tokens),
+    text_only: bool = Form(default=False),
+    summarize: bool = Form(default=False),
+    background_tasks: BackgroundTasks = None  # FastAPI 特殊类型，允许有默认值
+):
+    """处理上传的音频/视频文件（视频会自动提取音频）"""
+    # 支持音频和视频格式
+    audio_extensions = ['.mp3', '.wav', '.m4a', '.flac']
+    video_extensions = ['.mp4', '.avi', '.mkv', '.mov', '.webm', '.flv']
+    allowed_extensions = audio_extensions + video_extensions
+
     file_ext = os.path.splitext(file.filename)[1].lower()
     if file_ext not in allowed_extensions:
-        raise HTTPException(status_code=400, detail=f"不支持的文件类型。支持的格式: {', '.join(allowed_extensions)}")
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的文件类型。支持的格式: 音频({', '.join(audio_extensions)}) 或 视频({', '.join(video_extensions)})"
+        )
 
     task_id = str(uuid.uuid4())
     created_at = datetime.now().isoformat()
+
+    # 确定文件类型
+    is_video = file_ext in video_extensions
+
     tasks[task_id] = {
         "status": "pending",
-        "message": "文件上传中",
+        "message": "视频文件上传中，将自动提取音频" if is_video else "音频文件上传中",
         "created_at": created_at,
         "filename": file.filename
     }
+
+    # 保存上传的文件到 temp 目录
     temp_file_path = os.path.join(config.paths.temp_dir, f"{task_id}_{file.filename}")
     try:
         with open(temp_file_path, "wb") as buffer:
@@ -220,6 +248,34 @@ async def process_audio_file(file: UploadFile = File(...), llm_api: str = config
     except Exception as e:
         tasks[task_id] = {"status": "failed", "message": f"文件保存失败: {str(e)}", "created_at": created_at}
         raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
+
+    # 如果是视频文件，提取音频到 download 目录
+    if is_video:
+        try:
+            from src.services.download import extract_audio_from_video
+
+            # 将提取的音频保存到 download 目录
+            download_audio_dir = config.paths.download_dir / "extracted_audio"
+            download_audio_dir.mkdir(parents=True, exist_ok=True)
+
+            # 提取音频
+            audio_path = extract_audio_from_video(
+                video_path=temp_file_path,
+                output_format="mp3",
+                output_dir=str(download_audio_dir)
+            )
+
+            # 删除临时视频文件，使用音频文件继续处理
+            os.remove(temp_file_path)
+            temp_file_path = audio_path
+
+            tasks[task_id]["message"] = "音频提取完成，正在处理"
+
+        except Exception as e:
+            tasks[task_id] = {"status": "failed", "message": f"音频提取失败: {str(e)}", "created_at": created_at}
+            if os.path.exists(temp_file_path):
+                os.remove(temp_file_path)
+            raise HTTPException(status_code=500, detail=f"音频提取失败: {str(e)}")
 
     background_tasks.add_task(process_audio_task, task_id, temp_file_path, llm_api, temperature, max_tokens, text_only,
                               summarize)
@@ -258,7 +314,10 @@ async def process_batch_videos(request: BatchProcessRequest, background_tasks: B
 
 
 @app.post("/api/v1/process/subtitle", response_model=TaskResponse)
-async def process_video_subtitle(file: UploadFile = File(...), background_tasks: BackgroundTasks = None):
+async def process_video_subtitle(
+    file: UploadFile = File(...),
+    background_tasks: BackgroundTasks = None  # FastAPI 特殊类型，允许有默认值
+):
     """为视频添加字幕"""
     allowed_extensions = ['.mp4', '.avi', '.mkv', '.mov']
     file_ext = os.path.splitext(file.filename)[1].lower()
@@ -355,9 +414,9 @@ async def process_bilibili_task(task_id: str, video_url: str, llm_api: str, temp
         task_data.update({"status": "processing", "message": "正在下载和处理视频"})
         tasks[task_id] = task_data
 
-        output_data, extract_time, polish_time, zip_file = bilibili_video_download_process(video_url, llm_api,
-                                                                                           temperature, max_tokens,
-                                                                                           text_only)
+        output_data, extract_time, polish_time, zip_file = video_processor.process(video_url, llm_api,
+                                                                                   temperature, max_tokens,
+                                                                                   text_only)
         completed_at = datetime.now().isoformat()
 
         if text_only:
@@ -421,8 +480,8 @@ async def process_audio_task(task_id: str, audio_path: str, llm_api: str, temper
         task_data.update({"status": "processing", "message": "正在处理音频"})
         tasks[task_id] = task_data
 
-        output_data, extract_time, polish_time, zip_file = upload_audio(audio_path, llm_api, temperature, max_tokens,
-                                                                        text_only)
+        output_data, extract_time, polish_time, zip_file = audio_processor.process_uploaded_audio(audio_path, llm_api, temperature, max_tokens,
+                                                                                                text_only)
         if os.path.exists(audio_path):
             os.remove(audio_path)
 
@@ -485,8 +544,8 @@ async def process_batch_task(task_id: str, urls: str, llm_api: str, temperature:
         task_data.update({"status": "processing", "message": "正在批量处理视频"})
         tasks[task_id] = task_data
 
-        result_text, extract_time, polish_time, _, _, _ = process_multiple_urls(urls, llm_api, temperature, max_tokens,
-                                                                                text_only)
+        result_text, extract_time, polish_time, _ = video_processor.process_batch(urls, llm_api, temperature, max_tokens,
+                                                                                   text_only)
         result_data = {"output_files": result_text, "total_extract_time": extract_time,
                        "total_polish_time": polish_time}
 
@@ -534,7 +593,7 @@ async def process_subtitle_task(task_id: str, video_path: str):
         task_data.update({"status": "processing", "message": "正在生成字幕"})
         tasks[task_id] = task_data
 
-        srt_file, output_file = process_subtitles(video_path)
+        srt_file, output_file = subtitle_processor.process_simple(video_path)
         if os.path.exists(video_path):
             os.remove(video_path)
 

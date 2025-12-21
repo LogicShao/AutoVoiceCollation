@@ -39,7 +39,7 @@ Ubuntu
 .\diagnose-network.bat
 
 # Linux/Mac
-./diagnose-network.bat
+./diagnose-network.sh
 ```
 
 ## 🚀 通用解决方案
@@ -210,7 +210,7 @@ Desktop
 2：添加
 Windows
 防火墙规则
-**
+**  
 以
 *
 *管理员身份
@@ -266,7 +266,7 @@ Restart
 *
 *方案
 4：使用不同的端口
-**
+**  
 修改
 `docker-compose.yml`：
 
@@ -400,7 +400,7 @@ lsof -i :7860
 ：使用已集成的阿里云镜像源
 ```bash
 docker builder prune -f
-.\docker-start.bat start
+./docker-start.sh start
 ```
 
 2.
@@ -503,14 +503,14 @@ Issue：https://github.com/LogicShao/AutoVoiceCollation/issues
 *
 *最后更新
 **:
-2025-12-16
+2025-12-16  
 *
 *适用平台
 **:
 Windows
 10/11,
 Linux,
-macOS
+macOS  
 *
 *问题状态
 **:

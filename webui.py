@@ -6,10 +6,7 @@ import gradio as gr
 
 from src.bilibili_downloader import extract_audio_from_video
 from src.utils.config import get_config
-from src.core_process import (
-    upload_audio, bilibili_video_download_process,
-    process_multiple_urls, generate_subtitles_advanced
-)
+from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor
 from src.utils.helpers.task_manager import get_task_manager
 
 # 加载配置
@@ -17,6 +14,11 @@ config = get_config()
 
 # 获取任务管理器实例
 task_manager = get_task_manager()
+
+# 实例化处理器
+audio_processor = AudioProcessor()
+video_processor = VideoProcessor()
+subtitle_processor = SubtitleProcessor()
 
 
 # 终止任务的辅助函数
@@ -191,7 +193,7 @@ def create_app():
                 # task_id 已在外部生成并创建
                 yield "处理中...", "", "", "", None
 
-                result = bilibili_video_download_process(url, llm_api, temp, tokens, text_only, task_id)
+                result = video_processor.process(url, llm_api, temp, tokens, text_only, task_id)
                 # result = (result_data, extract_time, polish_time, zip_file)
                 result_data, extract_time, polish_time, zip_file = result
 
@@ -255,7 +257,7 @@ def create_app():
                 # task_id 已在外部生成并创建
                 yield "批量处理中...", ""
 
-                result = process_multiple_urls(urls, llm_api, temp, tokens, text_only, task_id)
+                result = video_processor.process_batch(urls, llm_api, temp, tokens, text_only, task_id)
                 # result = (status_message, total_extract_time, total_polish_time, None, None, None)
                 status_message = result[0]
                 total_time = result[1]
@@ -312,7 +314,7 @@ def create_app():
                 # task_id 已在外部生成并创建
                 yield "处理中...", "", "", "", None
 
-                result = upload_audio(audio_file, llm_api, temp, tokens, text_only, task_id)
+                result = audio_processor.process_uploaded_audio(audio_file, llm_api, temp, tokens, text_only, task_id)
                 # result = (result_data, extract_time, polish_time, zip_file)
                 result_data, extract_time, polish_time, zip_file = result
 
@@ -374,7 +376,7 @@ def create_app():
                     # task_id 已在外部生成并创建
                     yield "提取音频并处理中...", "", "", "", None
 
-                    result = upload_audio(
+                    result = audio_processor.process_uploaded_audio(
                         extract_audio_from_video(vf), api, temp, tokens, text_only, task_id
                     )
                     # result = (result_data, extract_time, polish_time, zip_file)
@@ -541,7 +543,7 @@ def create_app():
                 # task_id 已在外部生成并创建
                 yield "正在生成字幕...", None, None
 
-                subtitle_path, video_path, info = generate_subtitles_advanced(
+                subtitle_path, video_path, info = subtitle_processor.process(
                     media_file=media_file,
                     file_type=file_type,
                     model=model,

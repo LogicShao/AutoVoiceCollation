@@ -52,13 +52,12 @@ FileNotFoundError: 未找到可用的中文字体
 *
 *修改内容
 **：
-
 ```dockerfile
 # 1. 安装 fontconfig 工具
 RUN apt-get install -y fontconfig
 
 # 2. 更新字体缓存
-&& fc-cache -fv
+RUN fc-cache -fv
 
 # 3. 设置环境变量
 ENV CHINESE_FONT_PATH=/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
@@ -74,7 +73,6 @@ ENV CHINESE_FONT_PATH=/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
 *
 *添加
 **：
-
 ```yaml
 environment:
   - CHINESE_FONT_PATH=/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
@@ -155,13 +153,11 @@ PDF/图片时才检查字体
 ## 部署步骤
 
 ### 1. 停止现有容器
-
 ```bash
 docker compose down
 ```
 
 ### 2. 清理并重新构建
-
 ```bash
 # 清理旧镜像
 docker builder prune -f
@@ -171,7 +167,6 @@ docker compose build --no-cache
 ```
 
 ### 3. 启动容器
-
 ```bash
 docker compose up -d
 ```
@@ -179,7 +174,6 @@ docker compose up -d
 ### 4. 验证字体配置
 
 使用验证脚本：
-
 ```bash
 # Linux/Mac
 ./verify-font.sh
@@ -191,7 +185,6 @@ docker exec avc-webui fc-list :lang=zh | head -3
 ```
 
 ### 5. 查看启动日志
-
 ```bash
 docker compose logs -f
 ```
@@ -199,7 +192,6 @@ docker compose logs -f
 *
 *期望看到
 **：
-
 ```
 成功加载字体: /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
 Running on http://0.0.0.0:7860
@@ -252,7 +244,6 @@ PDF
 *
 *检查日志
 **：
-
 ```bash
 docker compose logs --tail=50
 ```
@@ -274,7 +265,6 @@ docker-compose.yml
 *
 *手动查找字体
 **：
-
 ```bash
 docker exec avc-webui find /usr/share/fonts -name "*.ttc" -o -name "*.ttf" | grep -i "wqy\|noto"
 ```
@@ -285,7 +275,6 @@ docker exec avc-webui find /usr/share/fonts -name "*.ttc" -o -name "*.ttf" | gre
 ，修改
 `docker-compose.yml`
 中的路径：
-
 ```yaml
 environment:
   - CHINESE_FONT_PATH=/实际/字体/路径.ttc
@@ -296,7 +285,6 @@ environment:
 *
 *检查字体缓存
 **：
-
 ```bash
 docker exec avc-webui fc-cache -fv
 docker exec avc-webui fc-list :lang=zh
@@ -308,14 +296,12 @@ docker exec avc-webui fc-list :lang=zh
 Noto
 CJK
 字体：
-
 ```yaml
 environment:
   - CHINESE_FONT_PATH=/usr/share/fonts/opentype/noto/NotoSansCJK-Regular.ttc
 ```
 
 或挂载本地字体：
-
 ```yaml
 volumes:
   - ./fonts/your-font.ttf:/app/fonts/chinese.ttf
@@ -335,7 +321,6 @@ PDF
 在
 `.env`
 文件中设置：
-
 ```env
 TEXT_ONLY_DEFAULT=true
 ```
@@ -348,7 +333,6 @@ PDF/图片。
 
 修改
 `config.py`：
-
 ```python
 OUTPUT_STYLE = "text_only"
 ```
@@ -356,9 +340,7 @@ OUTPUT_STYLE = "text_only"
 ## 预防措施
 
 ### 1. 使用多阶段构建优化
-
 未来可以考虑使用多阶段构建，预先验证字体：
-
 ```dockerfile
 # 验证阶段
 FROM base AS font-check
@@ -374,7 +356,6 @@ COPY --from=font-check /usr/share/fonts /usr/share/fonts
 修改
 `docker-compose.yml`
 的健康检查：
-
 ```yaml
 healthcheck:
   test: >
@@ -387,7 +368,6 @@ healthcheck:
 在
 `CMD`
 之前添加验证步骤：
-
 ```dockerfile
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
@@ -396,7 +376,6 @@ CMD ["python", "webui.py"]
 ```
 
 `docker-entrypoint.sh`:
-
 ```bash
 #!/bin/bash
 if [ ! -f "${CHINESE_FONT_PATH}" ]; then
@@ -418,7 +397,7 @@ exec "$@"
 *
 *更新时间
 **:
-2025-11-07
+2025-11-07  
 *
 *问题状态
 **:

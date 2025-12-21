@@ -71,14 +71,18 @@ async def validation_error_handler(
     Returns:
         JSONResponse: 格式化的验证错误响应
     """
-    logger.warning(
+    # 记录详细的验证错误信息
+    logger.error(
         f"Validation error: {request.url.path}",
         extra={
             "path": request.url.path,
             "method": request.method,
             "errors": exc.errors(),
+            "body": exc.body if hasattr(exc, 'body') else None,
         },
     )
+    # 同时打印到控制台以便调试
+    logger.error(f"验证错误详情: {exc.errors()}")
 
     return JSONResponse(
         status_code=status.HTTP_422_UNPROCESSABLE_ENTITY,
@@ -104,14 +108,26 @@ async def http_exception_handler(
     Returns:
         JSONResponse: 格式化的 HTTP 错误响应
     """
-    logger.warning(
-        f"HTTP {exc.status_code}: {request.url.path}",
-        extra={
-            "status_code": exc.status_code,
-            "path": request.url.path,
-            "method": request.method,
-        },
-    )
+    # 对于 400 错误，记录更详细的信息
+    if exc.status_code == 400:
+        logger.error(
+            f"HTTP {exc.status_code}: {request.url.path} - {exc.detail}",
+            extra={
+                "status_code": exc.status_code,
+                "path": request.url.path,
+                "method": request.method,
+                "detail": exc.detail,
+            },
+        )
+    else:
+        logger.warning(
+            f"HTTP {exc.status_code}: {request.url.path}",
+            extra={
+                "status_code": exc.status_code,
+                "path": request.url.path,
+                "method": request.method,
+            },
+        )
 
     return JSONResponse(
         status_code=exc.status_code,

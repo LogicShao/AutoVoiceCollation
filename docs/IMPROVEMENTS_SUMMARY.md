@@ -73,7 +73,6 @@ src/
 *
 *导入路径变更
 **：
-
 ```python
 # 旧路径（已删除）
 from src.text_arrangement.query_llm import LLMApiSupported, query_llm
@@ -87,8 +86,7 @@ from src.services.llm import LLMProvider, query_llm, LLMQueryParams
 -
 ❌
 `src/text_arrangement/query_llm.py` (
-103
-行) -
+103行) -
 LLM
 向后兼容层
 
@@ -146,7 +144,6 @@ task_manager
 *
 *示例修改
 **：
-
 ```python
 # 模块级导入（导致循环依赖）
 from src.task_manager import get_task_manager
@@ -201,8 +198,7 @@ self.model = get_asr_service("paraformer")
 -
 ❌
 `src/load_api_key.py` (
-69
-行) -
+69行) -
 API
 密钥加载工具，未被任何模块使用
 
@@ -215,16 +211,14 @@ API
 -
 ✅
 `src/extract_audio_text.py` (
-108
-行) -
+108行) -
 被
 main.py
 使用
 -
 ✅
 `src/core_process.py` (
-188
-行) -
+188行) -
 被
 main.py,
 webui.py,
@@ -259,7 +253,6 @@ KISS
 ### 6. 文档重组 ✅
 
 #### 新文档结构
-
 ```
 docs/
 ├── README.md                      # 文档导航
@@ -474,7 +467,6 @@ docs/
 ## 已知问题和限制
 
 ### 保留的向后兼容层
-
 以下兼容层仍被入口文件使用，未来可考虑迁移：
 
 1.
@@ -502,7 +494,6 @@ docs/
   影响：如删除需更新所有入口文件
 
 ### 循环导入风险点
-
 虽然已修复当前的循环导入，但以下模块仍需谨慎处理：
 
 -
@@ -564,7 +555,6 @@ TODO:
 ### Phase 2 剩余任务
 
 1.
-⏹️
 *
 *编写单元测试验证
 ** (

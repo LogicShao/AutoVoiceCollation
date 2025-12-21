@@ -53,7 +53,7 @@ class TestRootEndpoints:
 class TestBilibiliEndpoint:
     """测试 B站视频处理端点"""
 
-    @patch("api.bilibili_video_download_process")
+    @patch("api.video_processor.process")
     def test_process_bilibili_video_success(self, mock_process, client):
         """测试成功处理 B站视频"""
         # 配置 mock
@@ -78,7 +78,7 @@ class TestBilibiliEndpoint:
         task_id = data["task_id"]
         assert task_id in tasks
 
-    @patch("api.bilibili_video_download_process")
+    @patch("api.video_processor.process")
     @patch("api.summarize_text")
     def test_process_bilibili_video_with_summarize(self, mock_summarize, mock_process, client):
         """测试带总结功能的 B站视频处理"""
@@ -123,7 +123,7 @@ class TestAudioEndpoint:
         assert response.status_code == 400
         assert "不支持的文件类型" in response.json()["error"]
 
-    @patch("api.upload_audio")
+    @patch("api.audio_processor.process_uploaded_audio")
     def test_process_audio_success(self, mock_upload, client):
         """测试成功处理音频文件"""
         # 配置 mock
@@ -149,7 +149,7 @@ class TestAudioEndpoint:
         assert "task_id" in data
         assert data["status"] == "pending"
 
-    @patch("api.upload_audio")
+    @patch("api.audio_processor.process_uploaded_audio")
     def test_process_audio_with_summarize(self, mock_upload, client):
         """测试带总结功能的音频处理"""
         # 配置 mock
@@ -192,7 +192,7 @@ class TestBatchEndpoint:
         assert response.status_code == 400
         assert "URL列表不能为空" in response.json()["error"]
 
-    @patch("api.process_multiple_urls")
+    @patch("api.video_processor.process_batch")
     def test_process_batch_success(self, mock_process, client):
         """测试成功批量处理"""
         # 配置 mock
@@ -226,7 +226,7 @@ class TestSubtitleEndpoint:
         assert response.status_code == 400
         assert "不支持的视频格式" in response.json()["error"]
 
-    @patch("api.process_subtitles")
+    @patch("api.subtitle_processor.process_simple")
     def test_process_subtitle_success(self, mock_process, client):
         """测试成功处理字幕"""
         # 配置 mock
@@ -407,7 +407,7 @@ class TestBackgroundTasks:
     """测试后台任务"""
 
     @pytest.mark.asyncio
-    @patch("api.bilibili_video_download_process")
+    @patch("api.video_processor.process")
     async def test_process_bilibili_task_success(self, mock_process):
         """测试 B站视频后台任务成功"""
         from api import process_bilibili_task
@@ -435,7 +435,7 @@ class TestBackgroundTasks:
         assert tasks[task_id]["result"]["output_dir"] == "/output/dir"
 
     @pytest.mark.asyncio
-    @patch("api.bilibili_video_download_process", side_effect=Exception("处理错误"))
+    @patch("api.video_processor.process", side_effect=Exception("处理错误"))
     async def test_process_bilibili_task_failure(self, mock_process):
         """测试 B站视频后台任务失败"""
         from api import process_bilibili_task
@@ -459,7 +459,7 @@ class TestBackgroundTasks:
         assert "处理错误" in tasks[task_id]["message"]
 
     @pytest.mark.asyncio
-    @patch("api.bilibili_video_download_process")
+    @patch("api.video_processor.process")
     @patch("api.summarize_text")
     async def test_process_bilibili_task_with_summarize(self, mock_summarize, mock_process):
         """测试带总结功能的后台任务"""

@@ -36,10 +36,7 @@ LLM
 ### 1. 项目结构改进（优先级：中）✅ 已完成
 
 *
-
-*
-
-当前状态
+*当前状态
 **:
 ✅
 已在
@@ -48,12 +45,8 @@ Phase
 中完成重构
 
 *
-
-*
-
-实现情况
+*实现情况
 **:
-
 ```
 src/
 ├── core/                  # ✅ 核心业务逻辑
@@ -108,34 +101,24 @@ src/
 ```
 
 *
-
-*
-
-已实现收益
+*已实现收益
 **:
 
 -
-
 ✅
 清晰的职责分离（单一职责原则）
 -
-
 ✅
 提高代码可维护性
 -
-
 ✅
 方便团队协作
 -
-
 ✅
 降低模块耦合度
 
 *
-
-*
-
-实际工时
+*实际工时
 **:
 约
 10
@@ -147,10 +130,7 @@ src/
 ### 2. 配置管理现代化（优先级：高）✅ 已完成
 
 *
-
-*
-
-当前状态
+*当前状态
 **:
 ✅
 已在
@@ -159,10 +139,7 @@ Phase
 中完成
 
 *
-
-*
-
-实现方案
+*实现方案
 **:
 使用
 Pydantic
@@ -216,59 +193,41 @@ print(config.llm.llm_server)
 ```
 
 *
-
-*
-
-已实现收益
+*已实现收益
 **:
 
 -
-
 ✅
 类型安全的配置
 -
-
 ✅
 自动验证和转换
 -
-
 ✅
 环境变量清晰分离
 -
-
 ✅
 IDE
 自动补全支持
-
 -
-
 ✅
 向后兼容层（便于迁移）
 
 *
-
-*
-
-实际工时
+*实际工时
 **:
 约
 8
 小时
 
 *
-
-*
-
-文档
+*文档
 **:
 
 -
-
 `src/config.py` -
 废弃警告和迁移指南
-
 -
-
 `docs/proposals/legacy-module-migration.md` -
 Phase
 2
@@ -279,21 +238,14 @@ Phase
 ### 3. 统一异常处理（优先级：高）✅ 已部分完成
 
 *
-
-*
-
-当前状态
+*当前状态
 **:
 ✅
 核心异常已定义，部分已集成
 
 *
-
-*
-
-实现方案
+*实现方案
 **:
-
 ```python
 # src/core/exceptions/base.py
 from typing import Optional
@@ -323,19 +275,19 @@ class LLMError(AutoVoiceCollationError):
 
 
 # src/core/exceptions/task.py
-class TaskCancelledException(
-  AutoVoiceCollationError):
+class TaskCancelledException(AutoVoiceCollationError):
     """任务取消异常"""
     def __init__(self, task_id: str):
-      super().__init__(
-        f"Task {task_id} has been cancelled",
-        "TASK_CANCELLED")
+        super().__init__(
+            f"Task {task_id} has been cancelled",
+            "TASK_CANCELLED")
 
 
 # src/api/middleware/error_handler.py ✅ 已实现
 from fastapi import Request
 from fastapi.responses import JSONResponse
 from src.core.exceptions import AutoVoiceCollationError
+from datetime import datetime
 
 async def auto_voice_collation_error_handler(
     request: Request, exc: AutoVoiceCollationError
@@ -353,63 +305,45 @@ async def auto_voice_collation_error_handler(
 
 
 # api.py 中注册
-from src.api.middleware import
-  register_exception_handlers
+from src.api.middleware import register_exception_handlers
 
-register_exception_handlers(
-  app)
+register_exception_handlers(app)
 ```
 
 *
-
-*
-
-已实现收益
+*已实现收益
 **:
 
 -
-
 ✅
 统一的错误响应格式
 -
-
 ✅
 清晰的错误码系统
 -
-
 ✅
 易于调试和维护
 -
-
 ✅
 更好的
 API
 体验
 
 *
-
-*
-
-实际工时
+*实际工时
 **:
 约
 5
 小时
 
 *
-
-*
-
-待完成
+*待完成
 **:
 
 -
-
 ⏳
 在更多地方使用自定义异常替代通用异常
-
 -
-
 ⏳
 添加更详细的错误分类
 
@@ -429,38 +363,27 @@ API
 运行时错误风险
 
 *
-
-*
-
-已完成部分
+*已完成部分
 **:
 
 -
-
 ✅
 LLM
 参数创建了
 `LLMQueryParams`
 dataclass
-
 -
-
 ✅
 视频信息创建了
 `BiliVideoFile`
 dataclass
-
 -
-
 ✅
 配置系统全面使用
 Pydantic
 
 *
-
-*
-
-建议继续
+*建议继续
 **:
 
 *
@@ -468,7 +391,6 @@ Pydantic
 1:
 TypedDict（兼容现有代码）
 **
-
 ```python
 from typing import TypedDict, Optional
 from datetime import datetime
@@ -488,7 +410,6 @@ class TaskResult(TypedDict):
 Pydantic
 Models（推荐）
 **
-
 ```python
 from pydantic import BaseModel, Field
 from datetime import datetime
@@ -507,30 +428,22 @@ result = TaskResult(task_id="123", status="completed", created_at=datetime.now()
 ```
 
 *
-
-*
-
-待实现
+*待实现
 **:
 
 1.
-
 ⏳
 为任务数据创建
 `Task`
 model
-
 2.
-
 ⏳
 为
 API
 响应创建完整的
 Pydantic
 schemas
-
 3.
-
 ⏳
 配置
 mypy
@@ -554,10 +467,7 @@ API
 文档
 
 *
-
-*
-
-预估工时
+*预估工时
 **:
 6-10
 小时
@@ -567,35 +477,25 @@ API
 ### 5. 测试策略改进（优先级：高）✅ 已有基础
 
 *
-
-*
-
-当前状态
+*当前状态
 **:
 
 -
-
 ✅
 基础单元测试覆盖
 -
-
 ✅
 pytest
 配置已设置
 -
-
 ✅
 测试标记（unit,
 integration,
 slow）已配置
 
 *
-
-*
-
-测试结构
+*测试结构
 **:
-
 ```python
 # tests/integration/test_api_workflow.py
 @pytest.mark.integration
@@ -617,13 +517,9 @@ def test_asr_latency():
 ```
 
 *
-
-*
-
-pytest.ini
+*pytest.ini
 配置
 **:
-
 ```ini
 [pytest]
 markers =
@@ -637,7 +533,6 @@ markers =
 *
 *运行命令
 **:
-
 ```bash
 pytest -m "not slow and not integration"  # 快速测试
 pytest -m integration                      # 运行集成测试
@@ -646,32 +541,23 @@ pytest --cov=src tests/                    # 测试覆盖率
 ```
 
 *
-
-*
-
-待改进
+*待改进
 **:
 
 -
-
 ⏳
 增加集成测试覆盖率
 -
-
 ⏳
 添加性能基准测试
 -
-
 ⏳
 配置
 CI/CD
 自动运行测试
 
 *
-
-*
-
-预估工时
+*预估工时
 **:
 12-20
 小时（持续改进）
@@ -696,7 +582,6 @@ CI/CD
 **:
 Prometheus +
 Grafana
-
 ```python
 # src/utils/metrics.py
 from prometheus_client import Counter, Histogram, Gauge
@@ -729,7 +614,6 @@ ACTIVE_TASKS.set(len(active_tasks))
 *日志结构化
 **
 （可选优化）:
-
 ```python
 # src/utils/logging.py
 import structlog
@@ -742,14 +626,10 @@ logger.error("asr_failed", error=str(e), audio_file=audio_path)
 ```
 
 *
-
-*
-
-健康检查端点
+*健康检查端点
 **
 ✅
 已实现:
-
 ```python
 # api.py - /health 端点已存在
 @app.get("/health")
@@ -780,10 +660,7 @@ async def health_check():
 自动化告警
 
 *
-
-*
-
-预估工时
+*预估工时
 **:
 20-32
 小时
@@ -793,27 +670,21 @@ async def health_check():
 ### 7. 前端现代化（优先级：低）⏳ 待评估
 
 *
-
-*
-
-当前状态
+*当前状态
 **:
 
 -
-
 ✅
 使用
 Gradio
 提供基础
 UI
 -
-
 ✅
 Tailwind
 CSS
 已集成
 -
-
 ⏳
 可考虑迁移到现代框架
 
@@ -823,7 +694,6 @@ CSS
 Vue.js
 3 +
 Vite（如需要）
-
 ```html
 <!-- frontend/src/App.vue -->
 <template>
@@ -848,7 +718,6 @@ const taskHistory = ref([])
 *
 *状态管理
 **:
-
 ```javascript
 // frontend/src/stores/taskStore.js
 import { defineStore } from 'pinia'
@@ -884,19 +753,13 @@ export const useTaskStore = defineStore('task', {
 支持状态管理
 
 *
-
-*
-
-预估工时
+*预估工时
 **:
 40-60
 小时
 
 *
-
-*
-
-建议
+*建议
 **:
 当前
 Gradio +
@@ -908,14 +771,10 @@ Tailwind
 ### 8. 生产部署优化（优先级：中）✅ Docker 已实现
 
 *
-
-*
-
-当前状态
+*当前状态
 **:
 
 -
-
 ✅
 Docker
 支持（CPU
@@ -923,20 +782,15 @@ Docker
 GPU
 版本）
 -
-
 ✅
 docker-compose
 配置
 -
-
 ✅
 健康检查已实现
 
 *
-
-*
-
-优化建议
+*优化建议
 **:
 
 *
@@ -944,7 +798,6 @@ docker-compose
 Dockerfile
 **
 （多阶段构建）:
-
 ```dockerfile
 # Dockerfile.optimized
 # 构建阶段
@@ -972,7 +825,6 @@ CMD ["python", "api.py"]
 配置
 **
 （如需要）:
-
 ```yaml
 # k8s/deployment.yaml
 apiVersion: apps/v1
@@ -1024,10 +876,7 @@ spec:
 资源使用可控制
 
 *
-
-*
-
-预估工时
+*预估工时
 **:
 12-20
 小时
@@ -1040,75 +889,50 @@ spec:
 `docs/proposals/legacy-module-migration.md`
 
 *
-
-*
-
-待迁移模块
+*待迁移模块
 **:
 
 -
-
 ⏳
 bilibili_downloader.py →
 `src/services/download/`
-
 -
-
 ⏳
 device_manager.py（清理旧版本）
-
 -
-
 ⏳
 extract_audio_text.py →
 `src/services/asr/`
 或
 `src/core/`
-
 -
-
 ⏳
 logger.py（清理旧版本）
-
 -
-
 ⏳
 output_file_manager.py →
 `src/core/export/`
-
 -
-
 ⏳
 process_history.py →
 `src/core/history/`
-
 -
-
 ⏳
 subtitle_generator.py →
 `src/services/subtitle/`
-
 -
-
 ⏳
 task_manager.py（清理旧版本）
-
 -
-
 ⏳
 Timer.py（清理旧版本）
-
 -
-
 保留
 core_process.py
 作为向后兼容层
 
 *
-
-*
-
-预估总工时
+*预估总工时
 **:
 2-3
 周
@@ -1120,7 +944,6 @@ core_process.py
 ### ✅ 第一阶段（基础建设）：已完成
 
 1.
-
 ✅
 *
 *配置管理现代化
@@ -1137,7 +960,6 @@ core_process.py
   支持多环境配置
 
 2.
-
 ✅
 *
 *统一异常处理
@@ -1151,28 +973,21 @@ core_process.py
   统一错误响应格式
 
 3.
-
 ✅
-
 *
-
-*
-
-项目结构重构
+*项目结构重构
 ** (
 10h)
   -
-
-按模块划分代码
+  按模块划分代码
   -
-整理导入关系
+  整理导入关系
   -
-更新测试文件
+  更新测试文件
 
 ### 🔄 第二阶段（质量提升）：进行中
 
-4.
-
+1.
 🔄
 *
 *类型安全增强
@@ -1187,8 +1002,7 @@ core_process.py
   -
   修复类型错误
 
-5.
-
+2.
 🔄
 *
 *测试策略改进
@@ -1200,41 +1014,29 @@ core_process.py
   建立
   CI/CD
   流水线
-
--
-
-提高测试覆盖率
+  -
+  提高测试覆盖率
 
 ### ⏳ 第三阶段（架构优化）：计划中
 
-6.
-
+1.
 ⏳
-
 *
-
-*
-
-遗留模块迁移
+*遗留模块迁移
 ** (
 2-3
 周)
+  -
+  按
+  Phase
+  2
+  计划逐步迁移
+  -
+  保持向后兼容
+  -
+  完善文档
 
--
-
-按
-Phase
-2
-计划逐步迁移
-
--
-
-保持向后兼容
--
-完善文档
-
-7.
-
+2.
 ⏳
 *
 *监控和可观测性
@@ -1253,8 +1055,7 @@ Phase
 
 ### ⏳ 第四阶段（功能增强）：待评估
 
-8.
-
+1.
 ⏳
 *
 *前端现代化
@@ -1262,37 +1063,28 @@ Phase
 40-60h) -
 可选
   -
-
-评估是否需要迁移到
+  评估是否需要迁移到
   Vue.js
   3
   -
+  当前
+  Gradio
+  方案已满足基本需求
 
-当前
-Gradio
-方案已满足基本需求
-
-9.
-
+2.
 ⏳
-
 *
-
-*
-
-生产部署优化
+*生产部署优化
 ** (
 12-20h)
   -
-
-优化
-Docker
-镜像
+  优化
+  Docker
+  镜像
   -
-
-考虑
-Kubernetes
-部署（如需要）
+  考虑
+  Kubernetes
+  部署（如需要）
 
 ---
 
@@ -1301,7 +1093,6 @@ Kubernetes
 ### 必选项
 
 -
-
 ✅
 *
 *Pydantic
@@ -1309,7 +1100,6 @@ v2
 **:
 配置管理和数据验证（已实现）
 -
-
 ✅
 *
 *FastAPI
@@ -1317,14 +1107,12 @@ v2
 API
 框架（已使用）
 -
-
 ✅
 *
 *pytest
 **:
 测试框架（已使用）
 -
-
 ⏳
 *
 *mypy
@@ -1334,7 +1122,6 @@ API
 ### 推荐项
 
 -
-
 ⏳
 *
 *Prometheus +
@@ -1342,21 +1129,18 @@ Grafana
 **:
 监控和可视化
 -
-
 ⏳
 *
 *structlog
 **:
 结构化日志（可选）
 -
-
 ✅
 *
 *pytest-xdist
 **:
 并行测试（已配置）
 -
-
 ✅
 *
 *Coverage.py
@@ -1366,7 +1150,6 @@ Grafana
 ### 可选项
 
 -
-
 ⏳
 *
 *Vue.js
@@ -1374,21 +1157,18 @@ Grafana
 **:
 前端框架（按需评估）
 -
-
 ⏳
 *
 *Kubernetes
 **:
 容器编排（大规模部署时）
 -
-
 ⏳
 *
 *Redis
 **:
 缓存和任务队列（高并发时）
 -
-
 ⏳
 *
 *PostgreSQL
@@ -1453,7 +1233,6 @@ git commit -m "test(api): add endpoint tests"
 - [ROADMAP.md](./ROADMAP.md) -
   项目路线图
 -
-
 API
 文档:
 `http://localhost:8000/docs` -
@@ -1466,20 +1245,13 @@ OpenAPI
 *
 *最后更新
 **:
-2025-12-17
-
+2025-12-17  
 *
-
-*
-
-文档版本
+*文档版本
 **:
-2.0
+2.0  
 *
-
-*
-
-状态
+*状态
 **:
 Phase
 1

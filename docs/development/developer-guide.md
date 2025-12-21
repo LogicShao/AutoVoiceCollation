@@ -257,20 +257,24 @@ LLM_SERVER_SUPPORTED = [
 
 ### 1. bilibili_downloader.py
 
-*
+-
+
 *功能
 **:
 B站视频下载和音频提取
 
-*
+-
+
 *核心类
 **:
 
 -
+
 `BiliVideoFile`:
 视频文件元数据容器
   -
-  属性:
+
+属性:
   `title`,
   `path`,
   `bvid`,
@@ -278,45 +282,56 @@ B站视频下载和音频提取
   `duration`,
   `owner`
   -
+
   方法:
   `save_in_json()`,
   `save_in_text()`
 
-*
+-
+
 *核心函数
 **:
 
 -
+
 `download_bilibili_audio(url, output_format='mp3', output_dir=DOWNLOAD_DIR)`
   -
-  使用
+
+使用
   yt-dlp
   下载
   B站视频音频
   -
-  支持格式:
+
+支持格式:
   mp3,
   wav,
   flac,
   m4a
   -
+
   返回
   `BiliVideoFile`
   对象
 
 -
+
 `extract_audio_from_video(video_path)`
   -
-  使用
+
+使用
   FFmpeg
   从视频中提取音频
   -
-  输出格式:
+
+输出格式:
   mp3
   -
+
   返回音频文件路径
 
-*
+-
+
 *依赖
 **:
 yt-dlp,
@@ -324,21 +339,25 @@ FFmpeg
 
 ### 2. extract_audio_text.py
 
-*
+-
+
 *功能
 **:
 使用
 FunASR
 进行语音识别
 
-*
+-
+
 *核心函数
 **:
 
 -
+
 `extract_audio_text(input_audio_path, model_type='paraformer')`
   -
-  支持模型:
+
+支持模型:
     -
     `paraformer`:
     高准确度，适合中文
@@ -346,29 +365,35 @@ FunASR
     `sense_voice`:
     多语言支持，速度快
   -
-  设备选择:
+
+设备选择:
   通过
   `device_manager`
   自动检测
   GPU/CPU
   -
-  ONNX
+
+ONNX
   支持:
   可选
   ONNX
   Runtime
   加速
   -
+
   返回文本字符串
 
-*
+-
+
 *性能优化
 **:
 
 -
+
 `batch_size_s`:
 批处理大小（秒），默认值需根据显存调整
 -
+
 ONNX
 推理:
 可在
@@ -378,72 +403,85 @@ ONNX
 
 ### 3. text_arrangement/query_llm.py
 
-*
+-
+
 *功能
 **:
 统一的
 LLM
 查询接口
 
-*
+-
+
 *设计模式
 **:
 策略模式，支持多种
 LLM
 服务
 
-*
+-
+
 *核心函数
 **:
 
 -
+
 `query_llm(prompt, api_service, temperature, max_tokens, ...)`
   -
-  根据
+
+根据
   `api_service`
   自动路由到对应的
   LLM
   -
-  统一的错误处理和重试机制
+
+统一的错误处理和重试机制
   -
+
   支持的参数:
   temperature,
   max_tokens,
   top_p,
   top_k
 
-*
+-
+
 *API
 集成
 **:
 
 -
-*
+-
+
 *DeepSeek
 **:
 OpenAI
 兼容接口
 -
-*
+-
+
 *Gemini
 **:
 Google
 AI
 SDK
 -
-*
+-
+
 *Qwen
 **:
 阿里云
 DashScope
 -
-*
+-
+
 *Cerebras
 **:
 高速推理
 API
 -
-*
+-
+
 *本地模型
 **:
 Transformers
@@ -451,26 +489,30 @@ pipeline
 
 ### 4. text_arrangement/polish_by_llm.py
 
-*
+-
+
 *功能
 **:
 使用
 LLM
 润色文本
 
-*
+-
+
 *核心特性
 **:
 
 -
-*
+-
+
 *异步批处理
 **:
 使用
 `asyncio`
 并发处理多个文本段
 -
-*
+-
+
 *文本分段
 **:
 自动分段以适应
@@ -478,27 +520,34 @@ LLM
 token
 限制
 -
-*
+-
+
 *合并策略
 **:
 将润色后的段落合并为完整文本
 
-*
+-
+
 *核心函数
 **:
 
 -
+
 `polish_text(audio_text, api_service, split_len, temperature, max_tokens, async_flag=True, debug_flag=False)`
   -
-  `async_flag=True`:
+
+`async_flag=True`:
   使用异步并发处理
   -
-  `async_flag=False`:
+
+`async_flag=False`:
   顺序处理
   -
+
   返回润色后的完整文本
 
-*
+-
+
 *异步处理流程
 **:
 
@@ -510,121 +559,149 @@ async def async_polish_text_parts(parts, api_service, ...):
 
 ### 5. text_arrangement/text_exporter.py
 
-*
+-
+
 *功能
 **:
 导出文本为
 PDF
 或图片
 
-*
+-
+
 *支持格式
 **:
 
 -
+
 `pdf_with_img`:
 PDF +
 PNG
 图片
 -
+
 `pdf_only`:
 仅
 PDF
 -
+
 `img_only`:
 仅
 PNG
 图片
 -
+
 `text_only`:
 JSON
 文件
 
-*
+-
+
 *核心函数
 **:
 
 -
+
 `text_to_img_or_pdf(text, title, output_style, output_path, LLM_info, ASR_model)`
   -
-  PDF
+
+PDF
   生成:
   使用
   ReportLab
   -
-  图片生成:
+
+图片生成:
   使用
   Pillow
   -
+
   支持中文字体（需要系统字体）
 
 ### 6. subtitle_generator.py
 
-*
+-
+
 *功能
 **:
 字幕生成和视频硬编码
 
-*
+-
+
 *核心函数
 **:
 
 -
+
 `gen_timestamped_text_file(audio_file)`
   -
-  生成
+
+生成
   SRT
   字幕文件
   -
+
   使用
   FunASR
   的时间戳信息
 
 -
+
 `hard_encode_dot_srt_file(video_file, srt_file)`
   -
-  使用
+
+使用
   FFmpeg
   将字幕硬编码到视频
   -
+
   返回带字幕的视频文件路径
 
 ### 7. logger.py
 
-*
+-
+
 *功能
 **:
 统一的日志系统
 
-*
+-
+
 *特性
 **:
 
 -
+
 多处理器:
 控制台 +
 文件
 -
+
 彩色输出:
 使用
 colorlog
 -
+
 第三方库日志控制:
 降低
 FunASR/modelscope
 等库的日志级别
 -
+
 自动创建日志目录
 
-*
+-
+
 *核心函数
 **:
 
 -
+
 `get_logger(name)`:
 获取命名
 logger
 -
+
 `configure_third_party_loggers(log_level)`:
 配置第三方库日志级别
 
@@ -634,7 +711,8 @@ logger
 
 #### 任务管理系统
 
-*
+-
+
 *设计
 **:
 异步任务队列（内存存储）
@@ -656,88 +734,116 @@ tasks = {
 #### 核心端点
 
 1.
-*
+
+-
+
 *POST
 /api/v1/process/bilibili
 **
   -
-  请求:
+
+请求:
   `BilibiliVideoRequest`
   -
-  响应:
+
+响应:
   `TaskResponse` (
   包含
   task_id)
   -
+
   后台任务:
   `bilibili_video_download_process()`
 
-2.
-*
+1.
+
+-
+
 *POST
 /api/v1/process/audio
 **
   -
-  文件上传:
+
+文件上传:
   `UploadFile`
   -
-  响应:
+
+响应:
   `TaskResponse`
   -
+
   后台任务:
   `upload_audio()`
 
-3.
-*
+1.
+
+-
+
 *POST
 /api/v1/process/batch
 **
   -
-  批量处理:
+
+批量处理:
   `BatchProcessRequest`
   -
-  支持多个
+
+支持多个
   B站链接
   -
+
   后台任务:
   `process_multiple_urls()`
 
-4.
-*
+1.
+
+-
+
 *GET
 /api/v1/task/{task_id}
 **
   -
-  查询任务状态
+
+查询任务状态
   -
+
   返回完整的
   `TaskResponse`
 
-5.
-*
+1.
+
+-
+
 *GET
 /api/v1/download/{task_id}
 **
   -
-  下载处理结果
+
+下载处理结果
   -
+
   返回
   ZIP
   或
   PDF
   文件
 
-6.
-*
+1.
+
+-
+
 *POST
 /api/v1/summarize
 **
   -
-  纯文本摘要服务
+
+纯文本摘要服务
   -
-  请求:
+
+请求:
   `SummarizeRequest`
   -
+
   直接返回摘要结果（无需任务队列）
 
 #### 自动端口发现
@@ -754,49 +860,61 @@ def find_available_port(start_port, max_attempts=50):
 
 ### WebUI 设计 (webui.py)
 
-*
+-
+
 *框架
 **:
 Gradio
 
-*
+-
+
 *界面组件
 **:
 
 -
+
 Tab
 1:
 B站视频处理
 -
+
 Tab
 2:
 批量处理
 -
+
 Tab
 3:
 本地音频上传
 -
+
 Tab
 4:
 本地视频处理
 -
+
 Tab
 5:
 字幕生成
 
-*
+-
+
 *特性
 **:
 
 -
+
 实时进度显示
 -
+
 文件下载
 -
+
 参数配置（LLM,
 temperature,
 max_tokens）
 -
+
 `text_only`
 模式：仅返回
 JSON
@@ -828,11 +946,13 @@ cp .env.example .env
 
 ### 2. 添加新的 LLM 服务
 
-*
+-
+
 *步骤
 **:
 
 1.
+
 在
 `config.py`
 中添加
@@ -847,7 +967,8 @@ NEW_LLM_API_KEY = _get_env(
   cast=str)
 ```
 
-2.
+1.
+
 在
 `LLM_SERVER_SUPPORTED`
 列表中添加服务名:
@@ -859,7 +980,8 @@ LLM_SERVER_SUPPORTED = [
 ]
 ```
 
-3.
+1.
+
 在
 `src/text_arrangement/query_llm.py`
 中实现查询函数:
@@ -874,18 +996,21 @@ if api_service == "new-llm-service":
     return query_new_llm(prompt, temperature, max_tokens, ...)
 ```
 
-4.
+1.
+
 在
 `.env.example`
 中添加配置说明
 
 ### 3. 添加新的 ASR 模型
 
-*
+-
+
 *步骤
 **:
 
 1.
+
 在
 `src/extract_audio_text.py`
 中添加模型加载逻辑:
@@ -897,7 +1022,8 @@ def extract_audio_text(input_audio_path, model_type='paraformer'):
     # ...
 ```
 
-2.
+1.
+
 更新配置文档和
 `.env.example`
 
@@ -917,32 +1043,39 @@ pytest --cov=src tests/
 ### 5. 代码规范
 
 -
-*
+-
+
 *命名约定
 **:
   -
-  函数:
+
+函数:
   `snake_case`
   -
-  类:
+
+类:
   `PascalCase`
   -
-  常量:
+
+常量:
   `UPPER_CASE`
 -
-*
+-
+
 *文档字符串
 **:
 使用
 docstring
 描述函数功能和参数
 -
-*
+-
+
 *类型提示
 **:
 尽可能使用类型注解
 -
-*
+-
+
 *错误处理
 **:
 使用
@@ -975,17 +1108,20 @@ except Exception as e:
 ### 1. GPU 内存优化
 
 -
+
 降低
 `batch_size_s` (
 在
 `extract_audio_text.py`
 中)
 -
+
 使用
 SenseVoiceSmall
 而非
 Paraformer
 -
+
 启用
 ONNX
 推理 (
@@ -994,12 +1130,15 @@ ONNX
 ### 2. LLM 润色加速
 
 -
+
 启用异步处理:
 `ASYNC_FLAG=true`
 -
+
 调整分段大小:
 `SPLIT_LIMIT=6000`
 -
+
 使用更快的
 LLM
 服务 (
@@ -1009,11 +1148,13 @@ Cerebras)
 ### 3. 文件处理优化
 
 -
+
 启用
 ZIP
 输出:
 `ZIP_OUTPUT_ENABLED=true`
 -
+
 使用
 `text_only`
 模式跳过
@@ -1024,12 +1165,14 @@ PDF
 
 ### 1. FunASR 模型加载失败
 
-*
+-
+
 *原因
 **:
 网络问题或缓存损坏
 
-*
+-
+
 *解决
 **:
 
@@ -1042,7 +1185,8 @@ export MODELSCOPE_CACHE=./models
 
 ### 2. CUDA Out of Memory
 
-*
+-
+
 *解决
 **:
 
@@ -1053,7 +1197,8 @@ batch_size_s = 60  # 从默认值降低到 60 或更小
 
 ### 3. FFmpeg 未找到
 
-*
+-
+
 *解决
 **:
 
@@ -1067,20 +1212,24 @@ sudo apt-get install ffmpeg
 
 ### 4. 中文字体缺失
 
-*
+-
+
 *解决
 **:
 
 -
+
 Linux:
 安装
 `fonts-wqy-zenhei`
 或
 `fonts-noto-cjk`
 -
+
 Windows:
 系统自带宋体/微软雅黑
 -
+
 在
 `text_exporter.py`
 中配置字体路径
@@ -1089,7 +1238,8 @@ Windows:
 
 ### 添加新的输出格式
 
-*
+-
+
 *示例
 **:
 添加
@@ -1097,6 +1247,7 @@ Markdown
 输出
 
 1.
+
 在
 `config.py`
 中添加输出格式选项:
@@ -1109,7 +1260,8 @@ OUTPUT_STYLE = _get_env(
 # 支持: pdf_with_img, pdf_only, img_only, text_only, markdown
 ```
 
-2.
+1.
+
 在
 `text_exporter.py`
 中实现导出函数:
@@ -1123,7 +1275,8 @@ def text_to_markdown(text, title, output_path):
     return md_file
 ```
 
-3.
+1.
+
 在
 `text_to_img_or_pdf()`
 中添加分支:
@@ -1135,14 +1288,16 @@ if output_style == "markdown":
 
 ### 添加数据库支持 (替代内存任务存储)
 
-*
+-
+
 *推荐
 **:
 SQLite
 或
 PostgreSQL
 
-*
+-
+
 *实现
 **:
 
@@ -1234,7 +1389,8 @@ git push origin feature/new-feature
 
 ### Docker 部署
 
-*
+-
+
 *Dockerfile
 ** (
 示例):
@@ -1250,7 +1406,8 @@ COPY . .
 CMD ["python", "api.py"]
 ```
 
-*
+-
+
 *docker-compose.yml
 ** (
 示例):
@@ -1272,52 +1429,69 @@ services:
 ## 安全考虑
 
 1.
-*
+
+-
+
 *API
 Keys
 **:
   -
-  永不提交
+
+永不提交
   `.env`
   文件到
   Git
   -
+
   使用环境变量或密钥管理服务
 
-2.
-*
+1.
+
+-
+
 *文件上传
 **:
   -
-  验证文件类型和大小
+
+验证文件类型和大小
   -
+
   使用临时目录存储上传文件
 
-3.
-*
+1.
+
+-
+
 *LLM
 输入
 **:
   -
-  清理和验证用户输入
+
+清理和验证用户输入
   -
+
   限制文本长度
 
-4.
-*
+1.
+
+-
+
 *API
 访问
 **:
   -
-  添加身份验证（JWT,
+
+添加身份验证（JWT,
   API
   Key）
   -
+
   限流和速率限制
 
 ## 贡献指南
 
 1.
+
 Fork
 项目
 2.
@@ -1334,24 +1508,28 @@ Request
 ## 资源链接
 
 -
-*
-*项目仓库
-**: https://github.com/LogicShao/AutoVoiceCollation
 -
-*
+
+*项目仓库
+**: <https://github.com/LogicShao/AutoVoiceCollation>
+-
+-
+
 *FunASR
 文档
-**: https://github.com/alibaba-damo-academy/FunASR
+**: <https://github.com/alibaba-damo-academy/FunASR>
 -
-*
+-
+
 *FastAPI
 文档
-**: https://fastapi.tiangolo.com/
+**: <https://fastapi.tiangolo.com/>
 -
-*
+-
+
 *Gradio
 文档
-**: https://www.gradio.app/
+**: <https://www.gradio.app/>
 
 ---
 

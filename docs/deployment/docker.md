@@ -84,7 +84,7 @@ Docker
 
 #### 启动脚本
 
-5.
+1.
 *
 *docker-start.sh
 ** -
@@ -100,7 +100,7 @@ Linux/Mac
   -
   支持多种命令
 
-6.
+2.
 *
 *docker-start.bat
 ** -
@@ -208,8 +208,8 @@ GPU
 
 *
 *Linux (
-Ubuntu/Debian):
-**
+Ubuntu/Debian)
+**:
 
 ```bash
 # 安装 Docker
@@ -226,8 +226,8 @@ newgrp docker
 ```
 
 *
-*Windows/macOS:
-**
+*Windows/macOS
+**:
 
 -
 下载并安装 [Docker Desktop](https://www.docker.com/products/docker-desktop/)
@@ -550,7 +550,6 @@ deploy:
 *
 *错误信息:
 **
-
 ```
 Connection failed [IP: 91.189.91.81 80]
 500 reading HTTP response body: unexpected EOF
@@ -559,14 +558,13 @@ E: Failed to fetch http://archive.ubuntu.com/ubuntu/dists/jammy-backports/InRele
 
 *
 *原因:
-**
+**  
 Ubuntu
 官方源连接失败，在中国大陆地区很常见。
 
 *
 *解决方案:
-**
-
+**  
 ✅
 *
 *已集成解决方案
@@ -583,8 +581,8 @@ docker builder prune -f
 docker compose build --no-cache
 
 # 或使用启动脚本
-.\docker-start.bat build
-.\docker-start.bat start
+./docker-start.bat build
+./docker-start.bat start
 ```
 
 *
@@ -612,7 +610,6 @@ Windows/Linux/Mac
 *
 *错误信息:
 **
-
 ```
 Error: bind: address already in use
 ```
@@ -620,7 +617,6 @@ Error: bind: address already in use
 *
 *解决方案:
 **
-
 ```bash
 # 查看占用端口的进程
 sudo lsof -i :7860
@@ -635,7 +631,6 @@ ports:
 *
 *错误信息:
 **
-
 ```
 Could not find GPU device
 ```
@@ -643,7 +638,6 @@ Could not find GPU device
 *
 *解决方案:
 **
-
 ```bash
 # 1. 验证 nvidia-docker 是否正确安装
 docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
@@ -660,14 +654,13 @@ docker compose --profile cpu-only up -d
 
 *
 *问题:
-**
+**  
 FunASR
 模型下载速度慢
 
 *
 *解决方案:
 **
-
 ```bash
 # 方式 1: 手动下载模型到 ./models 目录
 # 然后在 .env 中设置 MODEL_DIR=./models
@@ -685,7 +678,6 @@ docker compose exec autovoicecollation-webui bash
 *
 *错误信息:
 **
-
 ```
 Permission denied: '/app/out'
 ```
@@ -693,7 +685,6 @@ Permission denied: '/app/out'
 *
 *解决方案:
 **
-
 ```bash
 # 修改目录权限
 chmod -R 777 ./out ./download ./temp ./logs ./models
@@ -706,7 +697,6 @@ chmod -R 777 ./out ./download ./temp ./logs ./models
 *
 *错误信息:
 **
-
 ```
 CUDA out of memory
 ```
@@ -752,10 +742,9 @@ docker compose logs --tail=100
 docker compose logs > docker-logs.txt
 ```
 
-### 7. 常见问题
+### 7. 常见问题解决方案
 
 #### 问题 1：端口被占用
-
 ```bash
 # 修改 docker-compose.yml 中的端口
 ports:
@@ -763,7 +752,6 @@ ports:
 ```
 
 #### 问题 2：GPU 不可用
-
 ```bash
 # 验证 NVIDIA Docker
 docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
@@ -773,7 +761,6 @@ docker run --rm --gpus all nvidia/cuda:12.4.0-base-ubuntu22.04 nvidia-smi
 ```
 
 #### 问题 3：查看日志
-
 ```bash
 # 实时查看
 docker compose logs -f
@@ -786,13 +773,11 @@ docker compose logs > logs.txt
 ```
 
 #### 问题 4：进入容器调试
-
 ```bash
 docker compose exec autovoicecollation-webui bash
 ```
 
 #### 问题 5：重新构建镜像
-
 ```bash
 # 清理缓存后重建
 docker compose build --no-cache
@@ -845,14 +830,14 @@ volumes:
 # 构建阶段
 FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime as builder
 WORKDIR /app
-COPY ../requirements.txt .
+COPY requirements.txt .
 RUN pip install --user -r requirements.txt
 
 # 运行阶段
 FROM pytorch/pytorch:2.5.1-cuda12.4-cudnn9-runtime
 WORKDIR /app
 COPY --from=builder /root/.local /root/.local
-COPY .. .
+COPY . .
 ENV PATH=/root/.local/bin:$PATH
 CMD ["python", "webui.py"]
 ```
@@ -917,7 +902,6 @@ ASR
 *nginx.conf
 示例:
 **
-
 ```nginx
 server {
     listen 80;
@@ -950,7 +934,6 @@ sudo certbot --nginx -d your-domain.com
 
 创建
 `/etc/logrotate.d/autovoicecollation`:
-
 ```
 /path/to/AutoVoiceCollation/logs/*.log {
     daily
@@ -976,7 +959,6 @@ sudo certbot --nginx -d your-domain.com
 Docker
 stats
 监控资源使用：
-
 ```bash
 # 实时监控
 docker stats autovoicecollation-webui

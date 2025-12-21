@@ -145,7 +145,8 @@ UI）。
 ## 通用说明
 
 -
-*
+-
+
 *text_only
 参数
 **
@@ -155,12 +156,14 @@ UI）。
 PDF、ZIP
 或其它文档格式的输出文件。
   -
-  默认行为：
+
+默认行为：
   `text_only=false`
   （仍会生成
   PDF、ZIP
   等文件并在下载端点提供下载）。
   -
+
   当使用
   `text_only=true`
   时：处理完成后，任务的
@@ -170,7 +173,8 @@ PDF、ZIP
   下载包。
 
 -
-*
+-
+
 *summarize
 参数
 **
@@ -180,12 +184,16 @@ PDF、ZIP
 LLM
 对润色后的文本进行总结，生成学术风格的小论文摘要。
   -
-  默认行为：
+
+默认行为：
   `summarize=false`
   （不生成总结）。
   -
-  *
-  *必须配合
+
+-
+
+*
+必须配合
   `text_only=true`
   使用
   **
@@ -195,6 +203,7 @@ LLM
   `summarize`
   参数才会生效。
   -
+
   总结结果会添加到任务
   `result`
   的
@@ -205,7 +214,8 @@ LLM
 
 ### 1. 根端点
 
-*
+-
+
 *GET
 **
 `/`
@@ -245,7 +255,8 @@ curl http://localhost:8000/
 
 ### 2. 健康检查
 
-*
+-
+
 *GET
 **
 `/health`
@@ -276,7 +287,8 @@ curl http://localhost:8000/health
 
 ### 3. 处理 B 站视频
 
-*
+-
+
 *POST
 **
 `/api/v1/process/bilibili`
@@ -303,30 +315,36 @@ JSON
 字段说明：
 
 -
+
 `video_url`
 ：B
 站视频完整链接（必需）
 -
+
 `llm_api`
 ：要使用的
 LLM
 服务（可选，默认：配置文件中的值）
 -
+
 `temperature`
 ：LLM
 温度参数（可选，默认：
 `0.1`）
 -
+
 `max_tokens`
 ：生成文本时的最大
 token
 数（可选，默认：
 `6000`）
 -
+
 `text_only`
 ：是否只返回纯文本结果（可选，默认：
 `false`）
 -
+
 `summarize`
 ：是否生成文本总结（可选，默认：
 `false`，
@@ -377,7 +395,8 @@ curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
 
 ### 4. 处理音频文件
 
-*
+-
+
 *POST
 **
 `/api/v1/process/audio`
@@ -387,6 +406,7 @@ curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
 上传与参数说明：
 
 -
+
 `file`:
 音频文件，通过
 multipart/form-data
@@ -398,6 +418,7 @@ wav,
 m4a,
 flac）。
 -
+
 其它参数：
 `llm_api`、
 `temperature`、
@@ -435,7 +456,8 @@ curl -X POST "http://localhost:8000/api/v1/process/audio" \
 
 ### 5. 批量处理视频
 
-*
+-
+
 *POST
 **
 `/api/v1/process/batch`
@@ -478,17 +500,20 @@ B
 说明：
 
 -
+
 `text_only`
 和
 `summarize`
 可对整个批次统一控制（true/false）。
 -
+
 当
 `summarize=true`
 且
 `text_only=true`
 时，会对每个视频的文本分别生成总结。
 -
+
 多个
 URL
 在
@@ -499,7 +524,8 @@ URL
 
 ### 6. 生成视频字幕
 
-*
+-
+
 *POST
 **
 `/api/v1/process/subtitle`
@@ -509,6 +535,7 @@ URL
 表单数据：
 
 -
+
 `file`:
 视频文件（通过
 multipart/form-data
@@ -547,7 +574,8 @@ curl -X POST "http://localhost:8000/api/v1/process/subtitle" \
 
 ### 7. 文本总结
 
-*
+-
+
 *POST
 **
 `/api/v1/summarize`
@@ -602,7 +630,8 @@ curl -X POST "http://localhost:8000/api/v1/summarize" \
 
 ### 8. 查询任务状态
 
-*
+-
+
 *GET
 **
 `/api/v1/task/{task_id}`
@@ -699,7 +728,8 @@ summarize=true）：
 
 ### 9. 下载处理结果
 
-*
+-
+
 *GET
 **
 `/api/v1/download/{task_id}`
@@ -944,31 +974,37 @@ API
 文件来调整：
 
 -
+
 `WEB_SERVER_PORT`:
 Web
 服务器端口（默认：
 `8000`
 ，支持自动查找可用端口）
 -
+
 `OUTPUT_DIR`:
 输出目录（默认：
 `./out`）
 -
+
 `TEMP_DIR`:
 临时文件目录（默认：
 `./temp`）
 -
+
 `LLM_SERVER`:
 默认
 LLM
 服务（默认：
 `Cerebras:Qwen-3-235B-Instruct`）
 -
+
 `LLM_TEMPERATURE`:
 LLM
 温度参数（默认：
 `0.1`）
 -
+
 `LLM_MAX_TOKENS`:
 LLM
 最大
@@ -976,6 +1012,7 @@ token
 数（默认：
 `6000`）
 -
+
 `ASR_MODEL`:
 ASR
 模型（默认：
@@ -986,15 +1023,19 @@ ASR
 ## 注意事项
 
 1.
-*
+
+-
+
 *任务处理
 **
 ：任务是异步处理的，需要通过轮询
 `/api/v1/task/{task_id}`
 端点来获取处理状态。
 
-2.
-*
+1.
+
+-
+
 *时间戳格式
 **
 ：所有时间戳都使用
@@ -1002,65 +1043,79 @@ ISO
 8601
 格式（带微秒），基于服务器本地时间。
 
-3.
-*
+1.
+
+-
+
 *URL
 和文件名
 **：
   -
-  对于视频处理，
+
+对于视频处理，
   `url`
   字段包含视频链接，
   `filename`
   为
   `null`
   -
-  对于文件上传，
+
+对于文件上传，
   `filename`
   包含文件名，
   `url`
   为
   `null`
   -
+
   批量任务的多个
   URL
   用逗号分隔存储在
   `url`
   字段中
 
-4.
-*
+1.
+
+-
+
 *任务状态存储
 **
 ：当前任务状态存储在内存中，服务重启后任务状态会丢失。生产环境建议使用
 Redis
 或数据库。
 
-5.
-*
+1.
+
+-
+
 *text_only
 模式
 **：
   -
-  当使用
+
+当使用
   `text_only=true`
   时，系统不会生成
   PDF/ZIP
   等文件，仅返回文本。
   -
+
   如果需要持久化文件，请把
   `text_only`
   设为
   `false`
   （默认）。
 
-6.
-*
+1.
+
+-
+
 *summarize
 功能
 **：
   -
-  `summarize`
+
+`summarize`
   参数
   *
   *必须配合
@@ -1069,10 +1124,12 @@ Redis
   **
   ，否则不会生效。
   -
-  总结功能会额外调用一次
+
+总结功能会额外调用一次
   LLM
   API，会增加处理时间和成本。
   -
+
   建议使用较高的
   `temperature`
   （如
@@ -1081,18 +1138,23 @@ Redis
   （如
   4000）。
 
-7.
-*
+1.
+
+-
+
 *自动端口查找
 **：
   -
-  API
+
+API
   启动时会自动检测端口是否可用
   -
-  如果配置的端口不可用，会自动查找附近的可用端口（最多尝试
+
+如果配置的端口不可用，会自动查找附近的可用端口（最多尝试
   50
   个）
   -
+
   确保在客户端代码中使用实际的端口号
 
 ---
@@ -1105,15 +1167,19 @@ HTTP
 状态码：
 
 -
+
 `200`:
 成功
 -
+
 `400`:
 请求参数错误
 -
+
 `404`:
 资源不存在
 -
+
 `500`:
 服务器内部错误
 

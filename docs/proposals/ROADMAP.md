@@ -441,7 +441,7 @@ Request
 
 ## 版本发布规范
 
-遵循 [语义化版本](https://semver.org/lang/zh-CN/)：
+遵循 [语义化版本](https://semver.org/lang/zh-CN/):
 
 -
 *
@@ -466,7 +466,7 @@ API
 *
 *最后更新
 **:
-2024-12-17
+2024-12-17  
 *
 *返回
 **: [提案目录](README.md) | [文档中心](../README.md)

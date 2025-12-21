@@ -63,7 +63,6 @@ Killer
 *
 *操作步骤
 **：
-
 ```bash
 # 1. 停止当前容器
 docker compose down
@@ -179,9 +178,7 @@ Apply &
 Restart
 
 #### Linux 系统
-
 检查可用内存：
-
 ```bash
 free -h
 ```
@@ -223,7 +220,6 @@ docker compose logs -f autovoicecollation-webui-cpu
 ## 诊断命令
 
 ### 1. 查看容器日志
-
 ```bash
 # 查看最后 100 行日志
 docker compose logs --tail=100
@@ -236,7 +232,6 @@ docker logs avc-webui
 ```
 
 ### 2. 查看资源使用
-
 ```bash
 # 实时监控资源
 docker stats
@@ -246,7 +241,6 @@ docker ps -a
 ```
 
 ### 3. 检查容器退出原因
-
 ```bash
 # 查看退出代码
 docker inspect avc-webui | grep -A 5 "State"
@@ -264,7 +258,6 @@ docker inspect avc-webui | grep -A 5 "State"
 *原因
 **
 ：内存不足，被系统杀死
-
 *
 *解决
 **：
@@ -285,7 +278,6 @@ Docker
 **
 ：GPU
 显存不足
-
 *
 *解决
 **：
@@ -306,7 +298,6 @@ CPU
 *原因
 **
 ：容器还在启动中，模型未加载完成
-
 *
 *解决
 **：
@@ -325,7 +316,6 @@ CPU
 *原因
 **
 ：网络问题无法下载模型
-
 *
 *解决
 **：
@@ -411,7 +401,7 @@ docker compose logs --tail=20
 *
 *更新时间
 **:
-2025-11-07
+2025-11-07  
 *
 *适用版本
 **:

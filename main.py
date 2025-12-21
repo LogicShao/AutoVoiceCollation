@@ -4,11 +4,13 @@ import os
 
 from src.utils.config import get_config
 from src.utils.helpers.timer import Timer
-from src.bilibili_downloader import download_bilibili_audio, BiliVideoFile, new_local_bili_file
-from src.core_process import (
-    process_multiple_urls, process_subtitles, upload_audio, bilibili_video_download_process
+from src.bilibili_downloader import (
+    download_bilibili_audio,
+    BiliVideoFile,
+    new_local_bili_file,
 )
-from src.extract_audio_text import extract_audio_text
+from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor
+from src.services.asr import transcribe_audio
 from src.utils.logging.logger import configure_third_party_loggers
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
@@ -18,7 +20,12 @@ from src.text_arrangement.text_exporter import text_to_img_or_pdf
 config = get_config()
 
 # Configure third-party loggers early using configured level (reduces noisy INFO from modelscope/funasr/etc.)
-configure_third_party_loggers(log_level=config.third_party_log_level)
+configure_third_party_loggers(log_level=config.logging.third_party_log_level)
+
+# 实例化处理器
+audio_processor = AudioProcessor()
+video_processor = VideoProcessor()
+subtitle_processor = SubtitleProcessor()
 
 
 def cli():
@@ -50,17 +57,17 @@ def cli():
     if args.command == "single":
         if args.audio:
             print("处理本地音频...")
-            result = upload_audio(args.audio, args.llm_api, args.temperature, args.max_tokens)
+            result = audio_processor.process_uploaded_audio(args.audio, args.llm_api, args.temperature, args.max_tokens)
             print("输出:", result)
         elif args.video:
             print("提取视频音频并处理...")
             from src.bilibili_downloader import extract_audio_from_video
             audio_path = extract_audio_from_video(args.video)
-            result = upload_audio(audio_path, args.llm_api, args.temperature, args.max_tokens)
+            result = audio_processor.process_uploaded_audio(audio_path, args.llm_api, args.temperature, args.max_tokens)
             print("输出:", result)
         elif args.bili:
             print("处理B站视频链接...")
-            result = bilibili_video_download_process(args.bili, args.llm_api, args.temperature, args.max_tokens)
+            result = video_processor.process(args.bili, args.llm_api, args.temperature, args.max_tokens)
             print("输出:", result)
         else:
             print("请指定 --audio、--video 或 --bili 参数。")
@@ -68,11 +75,11 @@ def cli():
         with open(args.url_file, "r", encoding="utf-8") as f:
             urls = f.read()
         print("批量处理B站链接...")
-        result = process_multiple_urls(urls, args.llm_api, args.temperature, args.max_tokens)
+        result = video_processor.process_batch(urls, args.llm_api, args.temperature, args.max_tokens)
         print("输出:", result)
     elif args.command == "subtitle":
         print("为视频添加字幕...")
-        result = process_subtitles(args.video)
+        result = subtitle_processor.process_simple(args.video)
         print("输出:", result)
     else:
         parser.print_help()
@@ -94,7 +101,7 @@ def main(local_audio_path: str = None):
 
     timer.start()
     print("正在提取音频文本...")
-    audio_text = extract_audio_text(input_audio_path=audio_file.path, model_type=config.asr.asr_model)
+    audio_text = transcribe_audio(audio_path=audio_file.path, model_type=config.asr.asr_model)
     print("音频文本提取完成，用时：", timer.stop(), "秒")
 
     output_dir = os.path.join(str(config.paths.output_dir), audio_file.title)
