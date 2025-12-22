@@ -171,6 +171,7 @@ src/
 - **`src/utils/device/`**: 设备检测和管理，支持 CPU/GPU 自动检测和 ONNX Runtime 配置
 - **`src/api/schemas/`**: Pydantic 数据模型，用于 API 请求/响应验证
 - **`src/core/history/manager.py`**: 处理历史管理系统，支持 JSON 存储和检索
+- **`src/api/inference_queue.py`**: 异步推理队列系统，解决 FastAPI 推理阻塞问题，支持单进程、单模型实例的异步推理
 
 ### 配置系统（src/utils/config/）
 
@@ -502,6 +503,13 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 - 集成测试覆盖率提升
 - 使用 pytest 标记系统（unit、integration、slow、asyncio）
 - 自动 mock 重型依赖（torch、funasr、transformers）
+- 新增异步推理队列测试（`tests/test_async_queue.py`）
+
+#### 5. 异步推理队列（已完成）
+- 引入 `InferenceQueue` 系统，解决 FastAPI 推理阻塞问题
+- 支持单进程、单模型实例的异步推理
+- 串行处理任务，避免 GPU 冲突
+- 队列容量限制（50个任务），避免积压
 
 ### 🔄 待实现的改进
 
@@ -537,6 +545,10 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 - `src/task_manager.py` → 迁移到 `src/utils/helpers/task_manager.py`
 - `src/device_manager.py` → 迁移到 `src/utils/device/`
 - `src/logger.py` → 迁移到 `src/utils/logging/`
+
+### 新增模块
+- **`src/api/inference_queue.py`**: 异步推理队列系统，解决 FastAPI 推理阻塞问题
+- **`tests/test_async_queue.py`**: 异步推理队列测试
 
 ### 新架构优势
 1. **单一职责**: 每个模块/类有明确的职责

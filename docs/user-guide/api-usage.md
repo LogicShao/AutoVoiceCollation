@@ -10,6 +10,15 @@ AutoVoiceCollation 提供基于 **FastAPI** 的 HTTP 接口，支持音视频转
 
 ## 最新更新
 
+### 🚀 v1.3.0 - 异步推理队列与架构重构
+
+新增功能：
+
+- 🎯 **异步推理队列**：引入 `InferenceQueue` 系统，实现单进程、单模型实例的异步推理，避免 FastAPI 推理阻塞
+- 🏗️ **模块化架构**：项目已重构为模块化架构，遵循 SOLID 原则，提高代码可维护性和可扩展性
+- ⚡ **性能优化**：推理队列支持串行处理任务，避免 GPU 冲突，提高资源利用率
+- 🔧 **统一配置系统**：基于 Pydantic v2 的类型安全配置系统，支持嵌套配置和自动验证
+
 ### 🚀 v1.2.0 - 时间戳与 URL/文件名追踪功能
 
 新增功能：
@@ -45,6 +54,14 @@ uvicorn api:app --host 127.0.0.1 --port 8000 --reload
 - 若配置端口不可用，自动尝试附近端口（最多 50 次）。
 - 可通过 `.env` 文件设置 `WEB_SERVER_PORT` 指定端口。
 - 默认端口：`8000`（若被占用则自动切换）。
+
+### 异步推理队列机制
+
+- **设计目标**：解决 FastAPI 推理阻塞问题，实现单进程、单模型实例的异步推理
+- **队列容量**：最大 50 个任务，避免积压
+- **处理方式**：串行处理任务，避免 GPU 冲突
+- **启动时机**：API 服务启动时自动启动推理队列
+- **关闭清理**：API 服务关闭时自动停止推理队列并清理资源
 
 #### 启动示例输出：
 
@@ -673,7 +690,9 @@ if __name__ == '__main__':
 
 ## 配置说明
 
-位于项目根目录下的 `config.py` 或 `.env` 文件中：
+基于 Pydantic v2 的统一配置系统，配置位于 `.env` 文件或环境变量中：
+
+### 主要配置项
 
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
@@ -684,6 +703,37 @@ if __name__ == '__main__':
 | `LLM_TEMPERATURE` | `0.1` | LLM 温度参数 |
 | `LLM_MAX_TOKENS` | `6000` | LLM 最大 token 数 |
 | `ASR_MODEL` | `paraformer` | ASR 模型名称 |
+| `OUTPUT_STYLE` | `pdf_only` | 输出样式：`pdf_with_img`, `img_only`, `text_only`, `pdf_only` |
+| `ZIP_OUTPUT_ENABLED` | `false` | 是否输出 zip 压缩包 |
+| `ASYNC_FLAG` | `true` | 是否启用异步 LLM 润色 |
+| `USE_ONNX` | `false` | 是否启用 ONNX Runtime 推理加速 |
+| `DISABLE_LLM_POLISH` | `false` | 是否禁用文本润色 |
+| `DISABLE_LLM_SUMMARY` | `false` | 是否禁用摘要生成 |
+
+### 配置架构
+
+项目已重构为模块化配置系统：
+
+```
+src/utils/config/
+├── base.py          # 配置基类
+├── manager.py       # 主配置类 (AppConfig)
+├── paths.py         # 路径配置 (PathConfig)
+├── llm.py           # LLM 配置 (LLMConfig)
+├── asr.py           # ASR 配置 (ASRConfig)
+└── logging.py       # 日志配置 (LoggingConfig)
+```
+
+### 使用方式
+
+```python
+from src.utils.config import get_config
+
+config = get_config()
+print(config.web_server_port)  # 访问 Web 服务器端口
+print(config.llm.llm_server)   # 访问 LLM 配置
+print(config.asr.asr_model)    # 访问 ASR 配置
+```
 
 ---
 
@@ -702,6 +752,14 @@ if __name__ == '__main__':
    - 调用额外 LLM，增加成本与时间；
    - 建议 `temperature=0.7`, `max_tokens=4000`。
 7. **自动端口查找**：启动时自动探测端口，客户端需动态获取实际端口。
+8. **推理队列**：
+   - 使用异步推理队列处理任务，避免 FastAPI 阻塞
+   - 队列容量为 50 个任务，超过限制会拒绝新任务
+   - 串行处理任务，确保 GPU 资源不冲突
+9. **架构重构**：
+   - 项目已从扁平结构重构为模块化架构
+   - 配置系统基于 Pydantic v2，支持类型安全和自动验证
+   - 使用新的导入路径（如 `from src.utils.config import get_config`）
 
 ---
 
@@ -724,9 +782,39 @@ if __name__ == '__main__':
 
 - [FastAPI 官方文档](https://fastapi.tiangolo.com/)
 - [项目 README](../README.md)
+- [项目架构文档](../DEVELOPER_GUIDE.md)
+- [配置系统文档](../DEVELOPER_GUIDE.md#配置系统)
 - [日志配置文档](./LOGGING.md)
 
 ---
 
-✅ 文档已优化完毕，适合发布至 GitHub Wiki 或内网知识库。  
+## 架构迁移说明
+
+项目已从扁平结构（v1）重构为模块化架构（v2）。主要变化：
+
+### 已删除的旧模块
+- `src/config.py` → 迁移到 `src/utils/config/`
+- `src/core_process.py` → 迁移到 `src/core/processors/`
+- `src/extract_audio_text.py` → 迁移到 `src/services/asr/`
+- `src/subtitle_generator.py` → 迁移到 `src/services/subtitle/`
+- `src/task_manager.py` → 迁移到 `src/utils/helpers/task_manager.py`
+- `src/device_manager.py` → 迁移到 `src/utils/device/`
+- `src/logger.py` → 迁移到 `src/utils/logging/`
+
+### 新架构优势
+1. **单一职责**：每个模块/类有明确的职责
+2. **依赖倒置**：高层模块不依赖低层模块，都依赖抽象
+3. **开闭原则**：易于扩展新功能（如添加新的 LLM 服务）
+4. **接口隔离**：细粒度的接口设计
+5. **依赖注入**：通过配置和工厂模式管理依赖
+
+### 迁移指南
+1. 更新导入语句，使用新的模块路径
+2. 使用新的配置系统（`from src.utils.config import get_config`）
+3. 使用新的处理器架构（`src/core/processors/`）
+4. 使用新的服务抽象层（`src/services/`）
+
+---
+
+✅ 文档已优化完毕，适合发布至 GitHub Wiki 或内网知识库。
 如需导出为 PDF / HTML / Markdown 文件，也可继续协助。

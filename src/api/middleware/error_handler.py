@@ -108,6 +108,16 @@ async def http_exception_handler(
     Returns:
         JSONResponse: 格式化的 HTTP 错误响应
     """
+    # 定义需要静默处理的探测请求路径
+    SILENT_PATHS = [
+        "/.well-known/",  # 浏览器/工具的标准探测路径
+        "/favicon.ico",   # 浏览器自动请求的图标
+        "/robots.txt",    # 搜索引擎爬虫
+    ]
+
+    # 检查是否为探测请求
+    is_probe_request = any(request.url.path.startswith(path) for path in SILENT_PATHS)
+
     # 对于 400 错误，记录更详细的信息
     if exc.status_code == 400:
         logger.error(
@@ -119,6 +129,9 @@ async def http_exception_handler(
                 "detail": exc.detail,
             },
         )
+    # 对于探测请求的 404,不记录日志以避免噪音
+    elif exc.status_code == 404 and is_probe_request:
+        pass  # 静默处理,不记录日志
     else:
         logger.warning(
             f"HTTP {exc.status_code}: {request.url.path}",
