@@ -107,6 +107,21 @@ INFO:     Uvicorn running on http://127.0.0.1:8073 (Press CTRL+C to quit)
   - 仅返回纯文本结果与元数据；
   - `result` 中包含 `raw_text`、`polished_text`、`extract_time`、`polish_time`。
 
+### `output_style` 参数（字符串）⭐ 新增
+
+- **说明**：指定输出文件的格式和样式
+- **可选值**：
+  - `pdf_only`（默认）：仅生成 PDF 文件
+  - `pdf_with_img`：生成 PDF 及其图片版本（每页转为 PNG）
+  - `img_only`：仅生成单张长图
+  - `text_only`：仅返回文本，不生成任何文件
+  - `markdown` ⭐：生成 Markdown 格式文件（包含元信息、摘要、正文）
+  - `json` ⭐：生成 JSON 格式文件（结构化数据，包含完整元信息）
+- **优先级**：当同时指定 `output_style` 和 `text_only` 时，`output_style` 优先生效
+- **使用场景**：
+  - `markdown`：适合需要进一步编辑或发布到博客/文档站点
+  - `json`：适合程序化处理、数据分析或与其他系统集成
+
 ### `summarize` 参数（布尔值）
 
 - **默认值**：`false`（不生成总结）
@@ -225,12 +240,35 @@ curl http://localhost:8000/health
 #### 示例 `curl`：
 
 ```bash
-# 基础用法
+# 基础用法（默认生成 PDF）
+curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_url": "https://www.bilibili.com/video/BV1wP411W7pe"
+  }'
+
+# 仅返回文本
 curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
   -H "Content-Type: application/json" \
   -d '{
     "video_url": "https://www.bilibili.com/video/BV1wP411W7pe",
     "text_only": true
+  }'
+
+# 生成 Markdown 文件（⭐ 新增）
+curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_url": "https://www.bilibili.com/video/BV1wP411W7pe",
+    "output_style": "markdown"
+  }'
+
+# 生成 JSON 文件（⭐ 新增）
+curl -X POST "http://localhost:8000/api/v1/process/bilibili" \
+  -H "Content-Type: application/json" \
+  -d '{
+    "video_url": "https://www.bilibili.com/video/BV1wP411W7pe",
+    "output_style": "json"
   }'
 
 # 生成总结
@@ -688,27 +726,216 @@ if __name__ == '__main__':
 
 ---
 
+## 输出文件结构
+
+根据不同的 `output_style` 参数，处理完成后的输出目录结构如下：
+
+### 1. `pdf_only`（默认）
+
+生成 PDF 文件及相关元数据：
+
+```
+out/video_name/
+├── video_info.txt              # 视频元数据（标题、UP主、时长等）
+├── audio_transcription.txt     # ASR 原始转录文本
+├── polish_text.txt             # LLM 润色后的文本
+├── summary_text.md             # 内容摘要（如启用 summarize）
+└── output.pdf                  # PDF 输出文件 ⭐
+```
+
+### 2. `pdf_with_img`
+
+生成 PDF 文件及其图片版本（每页转为 PNG）：
+
+```
+out/video_name/
+├── video_info.txt              # 视频元数据
+├── audio_transcription.txt     # ASR 原始转录文本
+├── polish_text.txt             # LLM 润色后的文本
+├── summary_text.md             # 内容摘要（如启用）
+├── output.pdf                  # PDF 输出文件
+└── output_img/                 # 图片目录 ⭐
+    ├── page_1.png              # 第一页
+    ├── page_2.png              # 第二页
+    └── ...
+```
+
+### 3. `img_only`
+
+仅生成单张长图：
+
+```
+out/video_name/
+├── video_info.txt              # 视频元数据
+├── audio_transcription.txt     # ASR 原始转录文本
+├── polish_text.txt             # LLM 润色后的文本
+├── summary_text.md             # 内容摘要（如启用）
+└── output.png                  # 单张长图 ⭐
+```
+
+### 4. `markdown` ⭐ 新增
+
+生成结构化的 Markdown 文件：
+
+```
+out/video_name/
+├── video_info.txt              # 视频元数据
+├── audio_transcription.txt     # ASR 原始转录文本
+├── polish_text.txt             # LLM 润色后的文本
+├── summary_text.md             # 内容摘要（如启用）
+└── output.md                   # Markdown 输出文件 ⭐
+```
+
+**`output.md` 结构示例**：
+
+```markdown
+# 视频标题
+
+## 元信息
+
+- ASR模型: paraformer
+- LLM信息: deepseek-chat
+
+## 摘要
+
+这里是视频内容的摘要...
+
+## 正文
+
+这里是润色后的正文内容...
+```
+
+### 5. `json` ⭐ 新增
+
+生成结构化的 JSON 文件：
+
+```
+out/video_name/
+├── video_info.txt              # 视频元数据
+├── audio_transcription.txt     # ASR 原始转录文本
+├── polish_text.txt             # LLM 润色后的文本
+├── summary_text.md             # 内容摘要（如启用）
+└── output.json                 # JSON 输出文件 ⭐
+```
+
+**`output.json` 结构示例**：
+
+```json
+{
+  "title": "视频标题",
+  "text": "这里是润色后的正文内容...",
+  "summary": "这里是视频内容的摘要（如启用）...",
+  "meta": {
+    "asr_model": "paraformer",
+    "llm_info": "deepseek-chat"
+  },
+  "exported_at": "2025-12-24T10:30:00.123456"
+}
+```
+
+### 6. `text_only`
+
+不生成任何文件，仅返回文本数据（通过 API 响应）：
+
+```
+out/video_name/
+├── video_info.txt              # 视频元数据
+├── audio_transcription.txt     # ASR 原始转录文本
+└── polish_text.txt             # LLM 润色后的文本
+```
+
+> ⚠️ 注意：使用 `text_only` 模式时，不会生成 PDF、图片或其他格式化文件，所有结果通过 API 的 `result` 字段返回。
+
+### ZIP 压缩包（可选）
+
+当 `.env` 中配置 `ZIP_OUTPUT_ENABLED=true` 时，会额外生成压缩包：
+
+```
+out/
+├── video_name/                 # 输出目录
+│   └── ...
+└── video_name.zip              # 压缩包 ⭐
+```
+
+---
+
 ## 配置说明
 
 基于 Pydantic v2 的统一配置系统，配置位于 `.env` 文件或环境变量中：
 
 ### 主要配置项
 
+#### 路径配置
+
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
-| `WEB_SERVER_PORT` | `8000` | 服务器端口（支持自动查找） |
 | `OUTPUT_DIR` | `./out` | 输出文件目录 |
+| `DOWNLOAD_DIR` | `./download` | B站音频下载位置 |
 | `TEMP_DIR` | `./temp` | 临时文件目录 |
-| `LLM_SERVER` | `Cerebras:Qwen-3-235B-Instruct` | 默认 LLM 服务 |
-| `LLM_TEMPERATURE` | `0.1` | LLM 温度参数 |
-| `LLM_MAX_TOKENS` | `6000` | LLM 最大 token 数 |
-| `ASR_MODEL` | `paraformer` | ASR 模型名称 |
-| `OUTPUT_STYLE` | `pdf_only` | 输出样式：`pdf_with_img`, `img_only`, `text_only`, `pdf_only`, `markdown`, `json` |
-| `ZIP_OUTPUT_ENABLED` | `false` | 是否输出 zip 压缩包 |
-| `ASYNC_FLAG` | `true` | 是否启用异步 LLM 润色 |
+| `MODEL_DIR` | （空）| 模型缓存目录（留空则使用系统默认） |
+| `LOG_DIR` | `./logs` | 日志目录 |
+
+#### ASR 配置
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `ASR_MODEL` | `paraformer` | ASR 模型：`paraformer`（高精度）或 `sense_voice`（快速/多语言） |
+| `DEVICE` | `auto` | 设备选择：`auto`（自动检测）、`cpu`、`cuda`、`cuda:0` 等 |
 | `USE_ONNX` | `false` | 是否启用 ONNX Runtime 推理加速 |
+| `ONNX_PROVIDERS` | （空）| ONNX 执行提供者（留空则自动选择，如 `CUDAExecutionProvider,CPUExecutionProvider`） |
+
+#### LLM 配置
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `LLM_SERVER` | `Cerebras:Qwen-3-235B-Instruct` | LLM 服务（支持：`deepseek-chat`, `gemini-2.0-flash`, `qwen3-plus`, `Cerebras:*`, `local:*`） |
+| `LLM_TEMPERATURE` | `0.1` | LLM 温度参数（0.0-2.0） |
+| `LLM_MAX_TOKENS` | `8000` | LLM 最大 token 数 |
+| `LLM_TOP_P` | `0.95` | LLM Top-p 参数（0.0-1.0） |
+| `LLM_TOP_K` | `64` | LLM Top-k 参数 |
+| `SPLIT_LIMIT` | `6000` | 文本分段长度（每段文本的最大字符数） |
+| `ASYNC_FLAG` | `true` | 是否启用异步 LLM 润色 |
+
+#### 摘要生成配置 ⭐ 新增
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `SUMMARY_LLM_SERVER` | `Cerebras:Qwen-3-235B-Thinking` | 摘要专用 LLM 服务 |
+| `SUMMARY_LLM_TEMPERATURE` | `1` | 摘要 LLM 温度参数 |
+| `SUMMARY_LLM_MAX_TOKENS` | `8192` | 摘要 LLM 最大 token 数 |
+
+#### 输出配置
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `OUTPUT_STYLE` | `pdf_only` | 输出样式：`pdf_only`, `pdf_with_img`, `img_only`, `text_only`, `markdown` ⭐, `json` ⭐ |
+| `ZIP_OUTPUT_ENABLED` | `false` | 是否输出 zip 压缩包 |
+| `TEXT_ONLY_DEFAULT` | `false` | Web UI 中是否默认仅返回纯文本（JSON）结果 |
+
+#### 日志配置
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `LOG_LEVEL` | `INFO` | 日志级别：`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
+| `LOG_FILE` | `./logs/AutoVoiceCollation.log` | 日志文件路径（留空则不写入文件） |
+| `LOG_CONSOLE_OUTPUT` | `true` | 是否输出到控制台 |
+| `LOG_COLORED_OUTPUT` | `true` | 控制台输出是否使用彩色 |
+| `THIRD_PARTY_LOG_LEVEL` | `ERROR` | 第三方库日志级别（建议 `WARNING` 或 `ERROR` 以减少噪音） |
+
+#### 功能开关
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
 | `DISABLE_LLM_POLISH` | `false` | 是否禁用文本润色 |
 | `DISABLE_LLM_SUMMARY` | `false` | 是否禁用摘要生成 |
+| `LOCAL_LLM_ENABLED` | `false` | 是否启用本地 LLM |
+| `DEBUG_FLAG` | `false` | 调试模式 |
+
+#### Web 服务器配置
+
+| 配置项 | 默认值 | 说明 |
+|--------|--------|------|
+| `WEB_SERVER_PORT` | （空）| Web 服务器端口（留空则不启动 Web 服务，API 默认使用 8000） |
 
 ### 配置架构
 
@@ -746,7 +973,10 @@ print(config.asr.asr_model)    # 访问 ASR 配置
    - 文件上传：`filename` 为文件名，`url` 为 `null`
    - 批量任务：多个 URL 用逗号分隔存入 `url`
 4. **状态存储**：当前状态存储在内存中，重启后丢失。生产环境建议使用 Redis 或数据库。
-5. **`text_only` 模式**：关闭 ZIP/PDF 生成，仅返回文本。
+5. **输出样式参数**：
+   - `text_only=true` 模式：仅返回文本，不生成任何文件
+   - `output_style` 参数：控制生成的文件格式（`pdf_only`, `pdf_with_img`, `img_only`, `markdown`, `json`）
+   - 当同时指定两者时，`output_style` 优先生效
 6. **`summarize` 功能**：
    - 必须搭配 `text_only=true` 使用；
    - 调用额外 LLM，增加成本与时间；
@@ -760,6 +990,10 @@ print(config.asr.asr_model)    # 访问 ASR 配置
    - 项目已从扁平结构重构为模块化架构
    - 配置系统基于 Pydantic v2，支持类型安全和自动验证
    - 使用新的导入路径（如 `from src.utils.config import get_config`）
+10. **Markdown/JSON 输出** ⭐：
+    - `markdown` 格式适合文档发布和二次编辑
+    - `json` 格式适合程序化处理和数据分析
+    - 两种格式都包含完整的元信息和摘要（如启用）
 
 ---
 
