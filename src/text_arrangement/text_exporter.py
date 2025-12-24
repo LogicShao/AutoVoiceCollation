@@ -1,6 +1,8 @@
+import json
 import os
 import platform
-from typing import Optional, List
+from datetime import datetime
+from typing import Optional, List, Dict, Any
 
 from PIL import Image, ImageDraw, ImageFont
 from pdf2image import convert_from_path
@@ -400,16 +402,26 @@ def text_to_img_or_pdf(
     ASR_model: str,
     title: Optional[str] = None,
     LLM_info: str = "",
+    metadata: Optional[Dict[str, Any]] = None,
+    summary_text: Optional[str] = None,
 ) -> str:
     """
-    将文本转换为图片或PDF
+    将文本转换为图片或PDF/Markdown/JSON
     :param txt: 文本内容
-    :param output_style: 输出样式（'pdf_with_img', 'pdf_only', 'img_only'）
+    :param output_style: 输出样式（'pdf_with_img', 'pdf_only', 'img_only', 'markdown', 'json', 'text_only'）
     :param title: 文本标题（可选）
     :param output_path: 输出路径
     :param LLM_info: LLM信息（可选）
+    :param metadata: 元信息（JSON/Markdown 使用）
+    :param summary_text: 摘要文本（JSON/Markdown 可选）
     :return: 输出文件路径
     """
+    if metadata is None:
+        metadata = {
+            "asr_model": ASR_model,
+            "llm_info": LLM_info,
+        }
+
     if output_style == "pdf_with_img":
         return text_to_pdf(
             txt,
@@ -424,5 +436,109 @@ def text_to_img_or_pdf(
                            ASR_model=ASR_model)
     elif output_style == 'img_only':
         return text_to_one_image(txt, output_path=output_path, title=title)
+    elif output_style == "markdown":
+        return text_to_markdown(
+            txt,
+            output_path=output_path,
+            title=title,
+            metadata=metadata,
+            summary_text=summary_text,
+        )
+    elif output_style in ("json", "text_only"):
+        return text_to_json(
+            txt,
+            output_path=output_path,
+            title=title,
+            metadata=metadata,
+            summary_text=summary_text,
+        )
     else:
         raise ValueError(f"Unsupported output style: {output_style}")
+
+
+def text_to_markdown(
+    txt: str,
+    output_path: str,
+    title: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    summary_text: Optional[str] = None,
+) -> str:
+    """
+    将文本转换为 Markdown
+    :param txt: 文本内容
+    :param output_path: 输出路径
+    :param title: 文本标题（可选）
+    :param metadata: 元信息（可选）
+    :param summary_text: 摘要文本（可选）
+    :return: 输出文件路径
+    """
+    os.makedirs(output_path, exist_ok=True)
+    output_file_path = os.path.join(output_path, "output.md")
+
+    lines = []
+    if title:
+        lines.append(f"# {title.strip()}")
+        lines.append("")
+
+    if metadata:
+        lines.append("## 元信息")
+        lines.append("")
+        for key, value in metadata.items():
+            label = key
+            if key == "asr_model":
+                label = "ASR模型"
+            elif key == "llm_info":
+                label = "LLM信息"
+            lines.append(f"- {label}: {value}")
+        lines.append("")
+
+    if summary_text:
+        lines.append("## 摘要")
+        lines.append("")
+        lines.append(summary_text.strip())
+        lines.append("")
+
+    lines.append("## 正文")
+    lines.append("")
+    lines.append(txt.strip())
+    lines.append("")
+
+    with open(output_file_path, "w", encoding="utf-8") as f:
+        f.write("\n".join(lines))
+
+    logger.info(f"Markdown 已保存到：{output_file_path}")
+    return output_file_path
+
+
+def text_to_json(
+    txt: str,
+    output_path: str,
+    title: Optional[str] = None,
+    metadata: Optional[Dict[str, Any]] = None,
+    summary_text: Optional[str] = None,
+) -> str:
+    """
+    将文本转换为 JSON
+    :param txt: 文本内容
+    :param output_path: 输出路径
+    :param title: 文本标题（可选）
+    :param metadata: 元信息（可选）
+    :param summary_text: 摘要文本（可选）
+    :return: 输出文件路径
+    """
+    os.makedirs(output_path, exist_ok=True)
+    output_file_path = os.path.join(output_path, "output.json")
+
+    output_data = {
+        "title": title,
+        "text": txt,
+        "summary": summary_text,
+        "meta": metadata or {},
+        "exported_at": datetime.now().isoformat(),
+    }
+
+    with open(output_file_path, "w", encoding="utf-8") as f:
+        json.dump(output_data, f, ensure_ascii=False, indent=2)
+
+    logger.info(f"JSON 已保存到：{output_file_path}")
+    return output_file_path

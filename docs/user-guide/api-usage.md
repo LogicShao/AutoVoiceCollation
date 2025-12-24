@@ -703,7 +703,7 @@ if __name__ == '__main__':
 | `LLM_TEMPERATURE` | `0.1` | LLM 温度参数 |
 | `LLM_MAX_TOKENS` | `6000` | LLM 最大 token 数 |
 | `ASR_MODEL` | `paraformer` | ASR 模型名称 |
-| `OUTPUT_STYLE` | `pdf_only` | 输出样式：`pdf_with_img`, `img_only`, `text_only`, `pdf_only` |
+| `OUTPUT_STYLE` | `pdf_only` | 输出样式：`pdf_with_img`, `img_only`, `text_only`, `pdf_only`, `markdown`, `json` |
 | `ZIP_OUTPUT_ENABLED` | `false` | 是否输出 zip 压缩包 |
 | `ASYNC_FLAG` | `true` | 是否启用异步 LLM 润色 |
 | `USE_ONNX` | `false` | 是否启用 ONNX Runtime 推理加速 |

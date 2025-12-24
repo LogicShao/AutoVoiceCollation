@@ -27,7 +27,7 @@ class BilibiliProcessRequest(BaseModel):
 
     output_style: Optional[str] = Field(
         None,
-        description="输出样式：pdf_only, pdf_with_img, img_only, text_only",
+        description="输出样式：pdf_only, pdf_with_img, img_only, text_only, markdown, json",
         examples=["pdf_only"],
     )
 
@@ -36,7 +36,14 @@ class BilibiliProcessRequest(BaseModel):
     def validate_output_style(cls, v: Optional[str]) -> Optional[str]:
         """验证输出样式"""
         if v is not None:
-            valid_styles = ["pdf_only", "pdf_with_img", "img_only", "text_only"]
+            valid_styles = [
+                "pdf_only",
+                "pdf_with_img",
+                "img_only",
+                "text_only",
+                "markdown",
+                "json",
+            ]
             if v not in valid_styles:
                 raise ValueError(
                     f"无效的输出样式: {v}。有效值: {', '.join(valid_styles)}"
@@ -62,7 +69,9 @@ class AudioProcessRequest(BaseModel):
 
     disable_llm_summary: Optional[bool] = Field(None, description="是否禁用 LLM 摘要")
 
-    output_style: Optional[str] = Field(None, description="输出样式")
+    output_style: Optional[str] = Field(
+        None, description="输出样式：pdf_only, pdf_with_img, img_only, text_only, markdown, json"
+    )
 
     class Config:
         json_schema_extra = {
@@ -85,7 +94,9 @@ class BatchProcessRequest(BaseModel):
 
     disable_llm_summary: Optional[bool] = Field(None, description="是否禁用 LLM 摘要")
 
-    output_style: Optional[str] = Field(None, description="输出样式")
+    output_style: Optional[str] = Field(
+        None, description="输出样式：pdf_only, pdf_with_img, img_only, text_only, markdown, json"
+    )
 
     @field_validator("urls")
     @classmethod

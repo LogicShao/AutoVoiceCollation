@@ -29,7 +29,7 @@ class AppConfig(BaseConfig):
     # 输出配置
     output_style: str = Field(
         default="pdf_only",
-        description="输出样式：pdf_with_img, img_only, text_only, pdf_only",
+        description="输出样式：pdf_with_img, img_only, text_only, pdf_only, markdown, json",
     )
 
     zip_output_enabled: bool = Field(default=False, description="是否输出 zip 压缩包")
@@ -57,7 +57,14 @@ class AppConfig(BaseConfig):
     @classmethod
     def validate_output_style(cls, v: str) -> str:
         """验证输出样式"""
-        valid_styles = ["pdf_with_img", "img_only", "text_only", "pdf_only"]
+        valid_styles = [
+            "pdf_with_img",
+            "img_only",
+            "text_only",
+            "pdf_only",
+            "markdown",
+            "json",
+        ]
         if v not in valid_styles:
             raise ValueError(
                 f"无效的输出样式: {v}。有效样式: {', '.join(valid_styles)}"

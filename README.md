@@ -121,7 +121,7 @@ LLM_SERVER=Cerebras:Qwen-3-235B-Instruct
 LLM_TEMPERATURE=0.1
 LLM_MAX_TOKENS=6000
 
-# 输出格式：pdf_with_img, img_only, text_only, pdf_only
+# 输出格式：pdf_with_img, img_only, text_only, pdf_only, markdown, json
 OUTPUT_STYLE=pdf_only
 
 # 功能开关

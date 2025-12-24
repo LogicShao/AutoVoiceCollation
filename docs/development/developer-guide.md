@@ -232,6 +232,10 @@ LLM_SERVER_SUPPORTED = [
   - `pdf_only`：仅 PDF
   - `img_only`：仅 PNG 图片
   - `text_only`：JSON 文件
+  - `markdown`：Markdown 文件
+  - `json`：JSON 文件
+  - `markdown`：Markdown 文件
+  - `json`：JSON 文件
 - **核心函数**：
   ```python
   def text_to_img_or_pdf(
@@ -498,7 +502,7 @@ sudo apt-get install ffmpeg
 1. 在 `config.py` 中添加输出选项：
 ```python
 OUTPUT_STYLE = _get_env("OUTPUT_STYLE", default="pdf_only", cast=str)
-# 支持: pdf_with_img, pdf_only, img_only, text_only, markdown
+# 支持: pdf_with_img, pdf_only, img_only, text_only, markdown, json
 ```
 
 2. 在 `text_exporter.py` 中实现导出函数：
