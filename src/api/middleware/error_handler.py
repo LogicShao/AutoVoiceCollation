@@ -111,8 +111,8 @@ async def http_exception_handler(
     # 定义需要静默处理的探测请求路径
     SILENT_PATHS = [
         "/.well-known/",  # 浏览器/工具的标准探测路径
-        "/favicon.ico",   # 浏览器自动请求的图标
-        "/robots.txt",    # 搜索引擎爬虫
+        "/favicon.ico",  # 浏览器自动请求的图标
+        "/robots.txt",  # 搜索引擎爬虫
     ]
 
     # 检查是否为探测请求

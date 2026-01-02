@@ -431,10 +431,16 @@ def text_to_img_or_pdf(
             LLM_info=LLM_info,
             ASR_model=ASR_model,
         )
-    elif output_style == 'pdf_only':
-        return text_to_pdf(txt, with_img=False, title=title, output_dir=output_path, LLM_info=LLM_info,
-                           ASR_model=ASR_model)
-    elif output_style == 'img_only':
+    elif output_style == "pdf_only":
+        return text_to_pdf(
+            txt,
+            with_img=False,
+            title=title,
+            output_dir=output_path,
+            LLM_info=LLM_info,
+            ASR_model=ASR_model,
+        )
+    elif output_style == "img_only":
         return text_to_one_image(txt, output_path=output_path, title=title)
     elif output_style == "markdown":
         return text_to_markdown(

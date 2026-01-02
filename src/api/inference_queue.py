@@ -6,12 +6,14 @@
 
 import asyncio
 import os
+from pathlib import Path
 from asyncio import Queue
 from typing import Optional, Dict, Any
 from datetime import datetime
 import traceback
 
 from src.utils.logging.logger import get_logger
+from src.utils.config import get_config
 from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.utils.helpers.task_manager import get_task_manager
@@ -130,6 +132,18 @@ class InferenceQueue:
         )
         self.task_manager.remove_task(task_id)
 
+    def _extract_output_dir(self, output_data: Any) -> str:
+        if isinstance(output_data, dict):
+            return output_data.get("output_dir", "")
+        return output_data or ""
+
+    def _build_lazy_zip_path(self, task_id: str, output_dir: str) -> str:
+        if not output_dir:
+            return ""
+        config = get_config()
+        safe_name = Path(output_dir).name or "output"
+        return str(config.paths.temp_dir / f"{safe_name}_{task_id}.zip")
+
     async def _worker_loop(self):
         """工作循环：持续从队列取任务并执行"""
         logger.info("工作循环已启动，等待任务...")
@@ -247,6 +261,12 @@ class InferenceQueue:
                 result_data["summary"] = summary
                 completed_at = datetime.now().isoformat()
 
+            output_dir = self._extract_output_dir(result_data)
+            if output_dir and not result_data.get("zip_file"):
+                result_data["zip_file"] = self._build_lazy_zip_path(
+                    task_id, output_dir
+                )
+
             if self._is_task_cancelled(task_id, tasks_store):
                 self._mark_task_cancelled(task_id, tasks_store)
                 return
@@ -264,15 +284,17 @@ class InferenceQueue:
                 self._mark_task_cancelled(task_id, tasks_store)
                 return
 
+            output_dir = self._extract_output_dir(output_data)
+            zip_file_path = zip_file or self._build_lazy_zip_path(task_id, output_dir)
             tasks_store[task_id].update(
                 {
                     "status": "completed",
                     "message": "处理完成",
                     "result": {
-                        "output_dir": output_data,
+                        "output_dir": output_dir,
                         "extract_time": extract_time,
                         "polish_time": polish_time,
-                        "zip_file": zip_file,
+                        "zip_file": zip_file_path,
                     },
                     "completed_at": completed_at,
                 }
@@ -333,6 +355,12 @@ class InferenceQueue:
                 result_data["summary"] = summary
                 completed_at = datetime.now().isoformat()
 
+            output_dir = self._extract_output_dir(result_data)
+            if output_dir and not result_data.get("zip_file"):
+                result_data["zip_file"] = self._build_lazy_zip_path(
+                    task_id, output_dir
+                )
+
             if self._is_task_cancelled(task_id, tasks_store):
                 self._mark_task_cancelled(task_id, tasks_store)
                 return
@@ -350,15 +378,17 @@ class InferenceQueue:
                 self._mark_task_cancelled(task_id, tasks_store)
                 return
 
+            output_dir = self._extract_output_dir(output_data)
+            zip_file_path = zip_file or self._build_lazy_zip_path(task_id, output_dir)
             tasks_store[task_id].update(
                 {
                     "status": "completed",
                     "message": "处理完成",
                     "result": {
-                        "output_dir": output_data,
+                        "output_dir": output_dir,
                         "extract_time": extract_time,
                         "polish_time": polish_time,
-                        "zip_file": zip_file,
+                        "zip_file": zip_file_path,
                     },
                     "completed_at": completed_at,
                 }

@@ -22,14 +22,16 @@
       <div class="flex items-center space-x-4">
         <!-- 主题切换按钮 -->
         <button
-          @click="toggleTheme"
-          class="px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200"
           :title="getThemeLabel()"
-          aria-label="切换主题">
+          @click="toggleTheme"
+          aria-label="切换主题"
+          class="px-3 py-1.5 text-sm font-medium rounded-lg text-gray-700 dark:text-gray-300 bg-gray-100 dark:bg-gray-700 hover:bg-gray-200 dark:hover:bg-gray-600 transition-colors duration-200">
           <span x-text="getThemeLabel()"></span>
         </button>
-        <a class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors" href="/docs" rel="noopener noreferrer" target="_blank">API 文档</a>
-        <a class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors" href="https://github.com" rel="noopener noreferrer"
+        <a class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+           href="/docs" rel="noopener noreferrer" target="_blank">API 文档</a>
+        <a class="text-gray-600 dark:text-gray-300 hover:text-gray-900 dark:hover:text-white transition-colors"
+           href="https://github.com" rel="noopener noreferrer"
            target="_blank">GitHub</a>
       </div>
     </div>
@@ -134,7 +136,8 @@
     <div class="p-6" x-show="currentTab === 'batch'">
       <form @submit.prevent="processBatch" class="space-y-4">
         <div>
-          <label class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">B站视频链接列表（每行一个）</label>
+          <label
+            class="block text-sm font-medium text-gray-700 dark:text-gray-300 mb-2">B站视频链接列表（每行一个）</label>
           <textarea
             class="w-full px-4 py-2 border border-gray-300 dark:border-gray-600 rounded-lg bg-white dark:bg-gray-700 text-gray-900 dark:text-white placeholder-gray-400 dark:placeholder-gray-500 focus:ring-2 focus:ring-blue-500 focus:border-transparent font-mono text-sm transition-colors"
             placeholder="https://www.bilibili.com/video/BV1...&#10;https://www.bilibili.com/video/BV2...&#10;https://www.bilibili.com/video/BV3..."
@@ -181,7 +184,9 @@
   </div>
 
   <!-- 任务状态显示 -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 mb-6 transition-colors duration-200" x-show="currentTask">
+  <div
+    class="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 mb-6 transition-colors duration-200"
+    x-show="currentTask">
     <div class="flex justify-between items-start mb-4">
       <h3 class="text-lg font-medium text-gray-900 dark:text-white">任务状态</h3>
       <button :disabled="!canCancel" @click="cancelTask"
@@ -212,13 +217,15 @@
   </div>
 
   <!-- 结果显示 -->
-  <div class="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors duration-200" x-show="result">
+  <div class="bg-white dark:bg-gray-800 rounded-lg shadow dark:shadow-gray-900/50 p-6 transition-colors duration-200"
+       x-show="result">
     <h3 class="text-lg font-medium text-gray-900 dark:text-white mb-4">处理结果</h3>
     <div class="space-y-2">
       <template :key="key" x-for="(value, key) in result">
         <div class="flex items-start">
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-32" x-text="key + ':'"></span>
-          <span class="text-sm text-gray-900 dark:text-gray-100" x-text="value"></span>
+          <span class="text-sm text-gray-900 dark:text-gray-100"
+                x-text="typeof formatResultValue === 'function' ? formatResultValue(key, value) : (value ?? '')"></span>
         </div>
       </template>
     </div>
@@ -231,6 +238,6 @@
   </div>
 </main>
 
-<script src="/src/js/main.js"></script>
+<script src="/src/js/main.js?v=2"></script>
 </body>
 </html>

@@ -534,6 +534,13 @@ async def cancel_task(task_id: str):
     }
 
 
+def build_lazy_zip_path(task_id: str, output_dir: str) -> str:
+    if not output_dir:
+        return ""
+    safe_name = Path(output_dir).name or "output"
+    return str(config.paths.temp_dir / f"{safe_name}_{task_id}.zip")
+
+
 @app.get("/api/v1/download/{task_id}")
 async def download_result(task_id: str):
     """下载处理结果"""
@@ -544,8 +551,30 @@ async def download_result(task_id: str):
         raise HTTPException(status_code=400, detail="任务尚未完成")
     result = task_info.get("result", {})
     zip_file = result.get("zip_file")
-    if not zip_file or not os.path.exists(zip_file):
+    output_dir = result.get("output_dir")
+
+    if zip_file and os.path.exists(zip_file):
+        return FileResponse(
+            zip_file, media_type="application/zip", filename=os.path.basename(zip_file)
+        )
+
+    if not zip_file:
+        if not output_dir:
+            raise HTTPException(status_code=404, detail="结果文件不存在")
+        zip_file = build_lazy_zip_path(task_id, output_dir)
+        result["zip_file"] = zip_file
+
+    if not output_dir or not os.path.isdir(output_dir):
         raise HTTPException(status_code=404, detail="结果文件不存在")
+
+    zip_path = Path(zip_file)
+    zip_path.parent.mkdir(parents=True, exist_ok=True)
+    shutil.make_archive(
+        base_name=str(zip_path.with_suffix("")),
+        format="zip",
+        root_dir=output_dir,
+    )
+
     return FileResponse(
         zip_file, media_type="application/zip", filename=os.path.basename(zip_file)
     )

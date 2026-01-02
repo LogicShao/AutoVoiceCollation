@@ -236,6 +236,35 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    formatResultValue(key, value) {
+      if (value === null || value === undefined) return '';
+
+      if (key === 'output_dir' && typeof value === 'object') {
+        if (value.output_dir) return value.output_dir;
+      }
+
+      const numericValue = typeof value === 'number'
+        ? value
+        : (typeof value === 'string' ? Number.parseFloat(value) : Number.NaN);
+
+      if (
+        (key === 'extract_time' || key === 'polish_time' || key === 'total_time') &&
+        Number.isFinite(numericValue)
+      ) {
+        return `${numericValue.toFixed(1)} s`;
+      }
+
+      if (typeof value === 'object') {
+        try {
+          return JSON.stringify(value);
+        } catch (error) {
+          return String(value);
+        }
+      }
+
+      return String(value);
+    },
+
     // 获取状态颜色
     getStatusColor(status) {
       const colors = {

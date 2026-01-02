@@ -563,4 +563,16 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 3. 使用新的处理器架构（`src/core/processors/`）
 4. 使用新的服务抽象层（`src/services/`）
 
-**详细开发文档**: `docs/development/developer-guide.md` | **API 文档**: `docs/user-guide/api-usage.md` | **Docker 文档**: `docs/deployment/docker.md`
+## 📚 完整文档系统
+
+> **文档中心**: 完整的文档导航和组织结构请查看 [docs/README.md](docs/README.md)
+
+**快速访问**:
+- **开发文档**: [docs/development/developer-guide.md](docs/development/developer-guide.md) - 环境配置、编码规范、贡献流程
+- **API 文档**: [docs/user-guide/api-usage.md](docs/user-guide/api-usage.md) - RESTful API 端点和使用示例
+- **Docker 文档**: [docs/deployment/docker.md](docs/deployment/docker.md) - 完整的 Docker 部署说明
+
+**更多文档**:
+- **架构设计**: [异常处理](docs/architecture/exception-handling.md) | [处理历史](docs/architecture/process-history.md)
+- **故障排查**: [网络问题](docs/deployment/docker/troubleshooting-network.md) | [字体问题](docs/deployment/docker/troubleshooting-font.md) | [容器崩溃](docs/deployment/docker/troubleshooting-crash.md)
+- **项目规划**: [路线图](docs/proposals/ROADMAP.md) | [开发改进建议](docs/proposals/dev-suggestions.md)

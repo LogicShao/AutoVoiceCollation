@@ -14,7 +14,7 @@
 - **多格式输出**: PDF / 图片 / 文本 / SRT 字幕
 - **三种使用方式**: CLI / Web UI / RESTful API
 
-> **性能提示**: 推荐使用 GPU 加速。详细开发文档请参考 [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)
+> **性能提示**: 推荐使用 GPU 加速。详细开发文档请参考 [docs/development/developer-guide.md](docs/development/developer-guide.md)
 
 ## 快速开始
 
@@ -41,7 +41,7 @@ docker-start.bat start
 # 访问 WebUI: http://localhost:7860
 ```
 
-> 📚 **详细的 Docker 部署文档请查看**: [DOCKER.md](docs/DOCKER.md)
+> 📚 **详细的 Docker 部署文档请查看**: [DOCKER.md](docs/deployment/docker.md)
 
 ### 💻 本地安装
 
@@ -106,7 +106,7 @@ python api.py
 - `POST /api/v1/process/bilibili` - 处理 B站视频
 - `POST /api/v1/process/audio` - 处理音频文件
 - `GET /api/v1/task/{task_id}` - 查询任务状态
-- 更多详见 [API 文档](docs/API_USAGE.md)
+- 更多详见 [API 文档](docs/user-guide/api-usage.md)
 
 ## 配置说明
 
@@ -176,7 +176,7 @@ AutoVoiceCollation/
 └── .env.example         # 配置模板
 ```
 
-详细架构说明请参考 [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)
+详细架构说明请参考 [docs/development/developer-guide.md](docs/development/developer-guide.md)
 
 ## 常见问题
 
@@ -211,7 +211,7 @@ docker-start.bat start         # Windows
 docker-start.bat start-cpu     # Windows
 ```
 
-详细说明请查看 [DOCKER.md](docs/DOCKER.md)
+详细说明请查看 [DOCKER.md](docs/deployment/docker.md)
 
 **Q: API 服务如何部署？**
 ```bash
@@ -229,7 +229,7 @@ docker compose up -d
 
 ## 贡献与支持
 
-欢迎提交 Issue 和 Pull Request！开发文档请参考 [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)
+欢迎提交 Issue 和 Pull Request！开发文档请参考 [docs/development/developer-guide.md](docs/development/developer-guide.md)
 
 ## 许可证
 
@@ -244,4 +244,4 @@ MIT License
 
 ---
 
-**如需详细技术文档、架构说明或开发指南，请查看 [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md)**
+**如需详细技术文档、架构说明或开发指南，请查看 [docs/development/developer-guide.md](docs/development/developer-guide.md)**

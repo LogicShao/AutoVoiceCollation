@@ -70,7 +70,8 @@ class AudioProcessRequest(BaseModel):
     disable_llm_summary: Optional[bool] = Field(None, description="是否禁用 LLM 摘要")
 
     output_style: Optional[str] = Field(
-        None, description="输出样式：pdf_only, pdf_with_img, img_only, text_only, markdown, json"
+        None,
+        description="输出样式：pdf_only, pdf_with_img, img_only, text_only, markdown, json",
     )
 
     class Config:
@@ -95,7 +96,8 @@ class BatchProcessRequest(BaseModel):
     disable_llm_summary: Optional[bool] = Field(None, description="是否禁用 LLM 摘要")
 
     output_style: Optional[str] = Field(
-        None, description="输出样式：pdf_only, pdf_with_img, img_only, text_only, markdown, json"
+        None,
+        description="输出样式：pdf_only, pdf_with_img, img_only, text_only, markdown, json",
     )
 
     @field_validator("urls")
