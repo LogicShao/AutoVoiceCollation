@@ -29,21 +29,13 @@
 
 - [异常处理架构](architecture/exception-handling.md) - 统一异常处理系统
 - [处理历史管理](architecture/process-history.md) - 任务历史记录系统
-- [Web UI 历史集成](architecture/web-ui-history-integration.py) - 界面实现代码
-
-### 📝 实施记录
-
-按时间倒序排列：
-- [2024-12-17 文档重组](implementation/2024-12-17-docs-restructure.md)
-- [2024-12-17 项目重构 Phase 1](implementation/2024-12-17-project-restructure-phase1.md)
-- [2024-12-16 配置修复](implementation/2024-12-16-config-fix.md)
-- [历史实施总结](implementation/implementation-summary.md)
 
 ### 💡 提案和路线图
 
 - [项目路线图](proposals/ROADMAP.md) - 版本规划（v1.0 → v3.0+）
 - [开发改进建议](proposals/dev-suggestions.md) - 完整的架构优化建议
 - [异步推理队列方案](proposals/async-inference-queue.md) - 解决 HTTP 阻塞问题
+- [旧模块迁移指南](proposals/legacy-module-migration.md) - 从 v1 到 v2 架构的迁移说明
 
 ---
 

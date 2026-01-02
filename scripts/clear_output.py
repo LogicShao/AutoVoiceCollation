@@ -3,7 +3,7 @@ from pathlib import Path
 
 sys.path.insert(0, str(Path(__file__).resolve().parents[1]))
 
-from src.output_file_manager import remove_files, clean_directory
+from src.core.export import remove_files, clean_directory
 from src.utils.config import get_config
 
 if __name__ == '__main__':

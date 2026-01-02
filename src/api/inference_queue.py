@@ -107,6 +107,29 @@ class InferenceQueue:
                 }
             )
 
+    def _is_task_cancelled(self, task_id: str, tasks_store: Dict) -> bool:
+        task_info = tasks_store.get(task_id, {})
+        return task_info.get("status") == "cancelled" or self.task_manager.should_stop(
+            task_id
+        )
+
+    def _mark_task_cancelled(
+        self, task_id: str, tasks_store: Dict, message: str = "任务已取消"
+    ) -> None:
+        task_info = tasks_store.get(task_id)
+        if task_info is None:
+            tasks_store[task_id] = {}
+            task_info = tasks_store[task_id]
+
+        task_info.update(
+            {
+                "status": "cancelled",
+                "message": message,
+                "completed_at": datetime.now().isoformat(),
+            }
+        )
+        self.task_manager.remove_task(task_id)
+
     async def _worker_loop(self):
         """工作循环：持续从队列取任务并执行"""
         logger.info("工作循环已启动，等待任务...")
@@ -125,6 +148,10 @@ class InferenceQueue:
                 )
 
                 try:
+                    if self._is_task_cancelled(task_id, tasks_store):
+                        self._mark_task_cancelled(task_id, tasks_store)
+                        continue
+
                     # 更新状态为处理中
                     tasks_store[task_id]["status"] = "processing"
 
@@ -144,7 +171,10 @@ class InferenceQueue:
                     else:
                         raise ValueError(f"未知的任务类型: {task_type}")
 
-                    logger.info(f"✅ 任务完成: {task_id}")
+                    if tasks_store.get(task_id, {}).get("status") == "cancelled":
+                        logger.info(f"任务已取消: {task_id}")
+                    else:
+                        logger.info(f"✅ 任务完成: {task_id}")
 
                 except Exception as e:
                     logger.error(f"任务失败: {task_id}, 错误: {e}", exc_info=True)
@@ -188,6 +218,10 @@ class InferenceQueue:
 
         completed_at = datetime.now().isoformat()
 
+        if self._is_task_cancelled(task_id, tasks_store):
+            self._mark_task_cancelled(task_id, tasks_store)
+            return
+
         if data["text_only"]:
             result_data = output_data
 
@@ -197,6 +231,9 @@ class InferenceQueue:
                 and isinstance(result_data, dict)
                 and "polished_text" in result_data
             ):
+                if self._is_task_cancelled(task_id, tasks_store):
+                    self._mark_task_cancelled(task_id, tasks_store)
+                    return
                 tasks_store[task_id]["message"] = "正在生成总结"
                 summary = await loop.run_in_executor(
                     None,
@@ -210,6 +247,10 @@ class InferenceQueue:
                 result_data["summary"] = summary
                 completed_at = datetime.now().isoformat()
 
+            if self._is_task_cancelled(task_id, tasks_store):
+                self._mark_task_cancelled(task_id, tasks_store)
+                return
+
             tasks_store[task_id].update(
                 {
                     "status": "completed",
@@ -219,6 +260,10 @@ class InferenceQueue:
                 }
             )
         else:
+            if self._is_task_cancelled(task_id, tasks_store):
+                self._mark_task_cancelled(task_id, tasks_store)
+                return
+
             tasks_store[task_id].update(
                 {
                     "status": "completed",
@@ -259,6 +304,10 @@ class InferenceQueue:
 
         completed_at = datetime.now().isoformat()
 
+        if self._is_task_cancelled(task_id, tasks_store):
+            self._mark_task_cancelled(task_id, tasks_store)
+            return
+
         if data["text_only"]:
             result_data = output_data
 
@@ -268,6 +317,9 @@ class InferenceQueue:
                 and isinstance(result_data, dict)
                 and "polished_text" in result_data
             ):
+                if self._is_task_cancelled(task_id, tasks_store):
+                    self._mark_task_cancelled(task_id, tasks_store)
+                    return
                 tasks_store[task_id]["message"] = "正在生成总结"
                 summary = await loop.run_in_executor(
                     None,
@@ -281,6 +333,10 @@ class InferenceQueue:
                 result_data["summary"] = summary
                 completed_at = datetime.now().isoformat()
 
+            if self._is_task_cancelled(task_id, tasks_store):
+                self._mark_task_cancelled(task_id, tasks_store)
+                return
+
             tasks_store[task_id].update(
                 {
                     "status": "completed",
@@ -290,6 +346,10 @@ class InferenceQueue:
                 }
             )
         else:
+            if self._is_task_cancelled(task_id, tasks_store):
+                self._mark_task_cancelled(task_id, tasks_store)
+                return
+
             tasks_store[task_id].update(
                 {
                     "status": "completed",
@@ -330,6 +390,10 @@ class InferenceQueue:
             task_id,  # 传递 task_id 以支持取消
         )
 
+        if self._is_task_cancelled(task_id, tasks_store):
+            self._mark_task_cancelled(task_id, tasks_store)
+            return
+
         tasks_store[task_id].update(
             {
                 "status": "completed",
@@ -357,6 +421,10 @@ class InferenceQueue:
             data["video_path"],
             # 传递其他字幕配置参数...
         )
+
+        if self._is_task_cancelled(task_id, tasks_store):
+            self._mark_task_cancelled(task_id, tasks_store)
+            return
 
         tasks_store[task_id].update(
             {

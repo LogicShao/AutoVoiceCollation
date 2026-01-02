@@ -29,6 +29,7 @@ from src.text_arrangement.summary_by_llm import summarize_text
 from src.api.middleware import register_exception_handlers
 from src.api.inference_queue import get_inference_queue
 from src.utils.logging.logger import get_logger
+from src.utils.helpers.task_manager import get_task_manager
 
 # 创建logger
 logger = get_logger(__name__)
@@ -43,6 +44,7 @@ subtitle_processor = SubtitleProcessor()
 
 # 获取全局推理队列实例
 inference_queue = get_inference_queue()
+task_manager = get_task_manager()
 
 # 创建FastAPI应用
 app = FastAPI(
@@ -204,6 +206,7 @@ async def api_info():
             "process_subtitle": "/api/v1/process/subtitle",
             "summarize": "/api/v1/summarize",
             "task_status": "/api/v1/task/{task_id}",
+            "cancel_task": "/api/v1/task/{task_id}/cancel",
             "download_result": "/api/v1/download/{task_id}",
         },
     }
@@ -497,6 +500,38 @@ async def get_task_status(task_id: str):
         url=task_info.get("url"),
         filename=task_info.get("filename"),
     )
+
+
+@app.post("/api/v1/task/{task_id}/cancel")
+async def cancel_task(task_id: str):
+    """取消任务"""
+    if task_id not in tasks:
+        raise HTTPException(status_code=404, detail="任务不存在")
+
+    task_info = tasks[task_id]
+    status = task_info.get("status", "unknown")
+
+    if status in ("completed", "failed", "cancelled"):
+        return {
+            "task_id": task_id,
+            "status": status,
+            "message": "任务已结束，无法取消",
+        }
+
+    task_manager.request_cancel(task_id)
+    task_info.update(
+        {
+            "status": "cancelled",
+            "message": "任务取消请求已提交",
+            "completed_at": datetime.now().isoformat(),
+        }
+    )
+
+    return {
+        "task_id": task_id,
+        "status": "cancelled",
+        "message": "任务取消请求已提交",
+    }
 
 
 @app.get("/api/v1/download/{task_id}")

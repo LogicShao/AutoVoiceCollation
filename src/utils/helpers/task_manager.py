@@ -53,6 +53,12 @@ class TaskManager:
             else:
                 logger.warning(f"Task not found: {task_id}")
 
+    def request_cancel(self, task_id: str) -> None:
+        """请求取消指定任务（不存在时也会创建取消标记）"""
+        with self._flags_lock:
+            self._stop_flags[task_id] = True
+            logger.info(f"Task cancellation requested: {task_id}")
+
     def should_stop(self, task_id: str) -> bool:
         """检查任务是否应该停止"""
         with self._flags_lock:

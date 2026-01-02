@@ -407,7 +407,7 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 
 - 修改 `Dockerfile` 第 21-22 行切换 pip 镜像源（清华/阿里云/中科大）
 - 设置代理: `.env` 中配置 `HTTP_PROXY` 和 `HTTPS_PROXY`
-- 详见 `docs/DOCKER_NETWORK_TROUBLESHOOTING.md`（统一网络问题解决方案）
+- 详见 `docs/deployment/docker/troubleshooting-network.md`（统一网络问题解决方案）
 
 ### GPU 内存不足（CUDA OOM）
 
@@ -434,7 +434,7 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 
 1. 检查字体是否安装: `docker exec avc-webui ls /usr/share/fonts/truetype/wqy/`
 2. 运行字体验证脚本: `docker exec avc-webui ./scripts/verify-font.sh`
-3. 详见 `docs/DOCKER_FONT_FIX.md`
+3. 详见 `docs/deployment/docker/troubleshooting-font.md`
 
 ### 测试失败排查
 
@@ -563,4 +563,4 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 3. 使用新的处理器架构（`src/core/processors/`）
 4. 使用新的服务抽象层（`src/services/`）
 
-**详细开发文档**: `docs/DEVELOPER_GUIDE.md` | **API 文档**: `docs/API_USAGE.md` | **Docker 文档**: `docs/DOCKER.md`
+**详细开发文档**: `docs/development/developer-guide.md` | **API 文档**: `docs/user-guide/api-usage.md` | **Docker 文档**: `docs/deployment/docker.md`
