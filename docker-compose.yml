@@ -3,17 +3,17 @@
 # ================================
 
 services:
-  # WebUI 服务
-  autovoicecollation-webui:
+  # API 服务
+  autovoicecollation-api:
     image: autovoicecollation:latest
-    container_name: avc-webui
+    container_name: avc-api
     build:
       context: .
       dockerfile: Dockerfile
 
     # 端口映射（主机端口:容器端口）
     ports:
-      - "7860:7860"
+      - "8000:8000"
 
       # 使用主机网络模式（Windows 不支持，仅作备选）
       # network_mode: "host"
@@ -60,7 +60,7 @@ services:
 
     # 健康检查（首次启动模型加载可能需要较长时间）
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:7860 || exit 0" ]  # 允许失败
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/health || exit 0" ]  # 允许失败
       interval: 30s
       timeout: 10s
       retries: 10  # 增加重试次数
@@ -75,15 +75,15 @@ services:
       - gpu
 
   # 仅 CPU 版本（不需要 GPU）
-  autovoicecollation-webui-cpu:
+  autovoicecollation-api-cpu:
     image: autovoicecollation:cpu
-    container_name: avc-webui-cpu
+    container_name: avc-api-cpu
     build:
       context: .
       dockerfile: Dockerfile.cpu
 
     ports:
-      - "7861:7860"
+      - "8001:8000"
 
     env_file:
       - .env
@@ -108,7 +108,7 @@ services:
 
     # 健康检查
     healthcheck:
-      test: [ "CMD-SHELL", "curl -f http://localhost:7860 || exit 0" ]
+      test: [ "CMD-SHELL", "curl -f http://localhost:8000/health || exit 0" ]
       interval: 30s
       timeout: 10s
       retries: 10

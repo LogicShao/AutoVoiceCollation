@@ -1,5 +1,5 @@
 @echo off
-REM Add Windows Firewall rule for Docker port 7860
+REM Add Windows Firewall rule for Docker port 8000
 REM Must run as Administrator
 
 echo ===================================
@@ -17,8 +17,8 @@ if errorlevel 1 (
     exit /b 1
 )
 
-echo Adding firewall rule for port 7860...
-netsh advfirewall firewall add rule name="Docker Port 7860" dir=in action=allow protocol=TCP localport=7860
+echo Adding firewall rule for port 8000...
+netsh advfirewall firewall add rule name="Docker Port 8000" dir=in action=allow protocol=TCP localport=8000
 
 if errorlevel 1 (
     echo [ERROR] Failed to add firewall rule
@@ -38,13 +38,13 @@ timeout /t 15 >nul
 
 echo.
 echo Testing connection...
-curl -s --connect-timeout 5 http://localhost:7860 | findstr "Gradio" >nul 2>&1
+curl -s --connect-timeout 5 http://localhost:8000/health | findstr "healthy" >nul 2>&1
 if errorlevel 1 (
     echo [WARNING] Cannot connect yet. Please wait a moment and try:
-    echo http://localhost:7860
+    echo http://localhost:8000
 ) else (
     echo [SUCCESS] Service is now accessible!
-    echo http://localhost:7860
+    echo http://localhost:8000
 )
 
 echo.

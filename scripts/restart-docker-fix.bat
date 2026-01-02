@@ -22,18 +22,18 @@ timeout /t 10 >nul
 echo.
 
 echo Step 5: Testing connection...
-curl -s --connect-timeout 5 http://localhost:7860 | findstr "Gradio" >nul 2>&1
+curl -s --connect-timeout 5 http://localhost:8000/health | findstr "healthy" >nul 2>&1
 if errorlevel 1 (
-    echo [ERROR] Still cannot access localhost:7860
+    echo [ERROR] Still cannot access localhost:8000
     echo.
     echo Please try Solution 2: Add Firewall Rule
     echo Run this command as Administrator:
-    echo netsh advfirewall firewall add rule name="Docker Port 7860" dir=in action=allow protocol=TCP localport=7860
+    echo netsh advfirewall firewall add rule name="Docker Port 8000" dir=in action=allow protocol=TCP localport=8000
 ) else (
     echo [SUCCESS] Service is now accessible!
     echo.
     echo Open your browser and visit:
-    echo http://localhost:7860
+    echo http://localhost:8000
 )
 
 echo.

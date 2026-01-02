@@ -11,7 +11,7 @@ AutoVoiceCollation 是一个基于 Python 的音视频转文本系统，集成 *
 ### 🛠️ 核心技术栈
 - **ASR**：FunASR + PyTorch  
 - **API 框架**：FastAPI  
-- **前端 UI**：Gradio + Tailwind CSS  
+- **前端 UI**：Web 前端 + Tailwind CSS  
 - **LLM 集成**：DeepSeek, Gemini, Cerebras, Qwen 等多提供商  
 
 ### 🔁 处理流程
@@ -439,7 +439,7 @@ async def health_check():
 ### 7. 前端现代化（优先级：低）⏳ 待评估
 
 #### ✅ 当前状态
-- ✅ Gradio 提供基础 UI
+- ✅ Web 前端 提供基础 UI
 - ✅ Tailwind CSS 已集成
 - ⏳ 可考虑迁移到现代框架
 
@@ -496,7 +496,7 @@ export const useTaskStore = defineStore('task', {
 40–60 小时
 
 #### 📌 建议
-当前 Gradio + Tailwind 方案已满足基本需求，**可暂缓**。
+当前 Web 前端 + Tailwind 方案已满足基本需求，**可暂缓**。
 
 ---
 
@@ -634,7 +634,7 @@ spec:
 ### ⏳ 第四阶段（功能增强）：待评估
 1. **前端现代化**（40–60h）— 可选  
    - 评估是否需迁移到 Vue.js 3
-   - 当前 Gradio 方案已满足需求
+   - 当前 Web 前端 方案已满足需求
 2. **生产部署优化**（12–20h）  
    - 优化 Docker 镜像
    - 考虑 Kubernetes 部署

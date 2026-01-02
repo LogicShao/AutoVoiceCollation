@@ -7,6 +7,7 @@ import os
 import shutil
 import socket
 import uuid
+from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 from typing import List, Optional
@@ -46,11 +47,26 @@ subtitle_processor = SubtitleProcessor()
 inference_queue = get_inference_queue()
 task_manager = get_task_manager()
 
+@asynccontextmanager
+async def lifespan(app: FastAPI):
+    """应用生命周期事件处理"""
+    logger.info("启动 FastAPI 服务...")
+    await inference_queue.start()
+    logger.info("推理队列已启动")
+    try:
+        yield
+    finally:
+        logger.info("关闭 FastAPI 服务...")
+        await inference_queue.stop()
+        logger.info("推理队列已停止")
+
+
 # 创建FastAPI应用
 app = FastAPI(
     title="AutoVoiceCollation API",
     description="自动语音识别和文本整理服务API",
     version="1.0.0",
+    lifespan=lifespan,
 )
 
 # 注册统一异常处理器
@@ -84,23 +100,6 @@ if Path("assets").exists():
 #     "filename": "处理的文件名（如果有）"
 # }
 tasks = {}
-
-
-# 应用生命周期事件处理
-@app.on_event("startup")
-async def startup_event():
-    """应用启动时执行"""
-    logger.info("启动 FastAPI 服务...")
-    await inference_queue.start()
-    logger.info("推理队列已启动")
-
-
-@app.on_event("shutdown")
-async def shutdown_event():
-    """应用关闭时执行"""
-    logger.info("关闭 FastAPI 服务...")
-    await inference_queue.stop()
-    logger.info("推理队列已停止")
 
 
 # Pydantic模型定义
@@ -157,6 +156,7 @@ class TaskResponse(BaseModel):
     )
     message: str = Field(default="", description="消息")
     result: Optional[dict] = Field(default=None, description="处理结果")
+    error: Optional[str] = Field(default=None, description="错误信息")
     created_at: Optional[str] = Field(
         default=None, description="任务创建时间（ISO格式）"
     )
@@ -165,6 +165,13 @@ class TaskResponse(BaseModel):
     )
     url: Optional[str] = Field(default=None, description="处理的URL（如果有）")
     filename: Optional[str] = Field(default=None, description="处理的文件名（如果有）")
+
+
+class TaskListResponse(BaseModel):
+    """任务列表响应"""
+
+    tasks: List[TaskResponse] = Field(..., description="任务列表")
+    total: int = Field(..., description="任务总数")
 
 
 class ProcessResult(BaseModel):
@@ -206,6 +213,7 @@ async def api_info():
             "process_subtitle": "/api/v1/process/subtitle",
             "summarize": "/api/v1/summarize",
             "task_status": "/api/v1/task/{task_id}",
+            "task_list": "/api/v1/tasks",
             "cancel_task": "/api/v1/task/{task_id}/cancel",
             "download_result": "/api/v1/download/{task_id}",
         },
@@ -495,11 +503,37 @@ async def get_task_status(task_id: str):
         status=task_info.get("status", "unknown"),
         message=task_info.get("message", ""),
         result=task_info.get("result"),
+        error=task_info.get("error"),
         created_at=task_info.get("created_at"),
         completed_at=task_info.get("completed_at"),
         url=task_info.get("url"),
         filename=task_info.get("filename"),
     )
+
+
+@app.get("/api/v1/tasks", response_model=TaskListResponse)
+async def list_tasks():
+    """获取任务列表"""
+    task_items = sorted(
+        tasks.items(),
+        key=lambda item: item[1].get("created_at") or "",
+        reverse=True,
+    )
+    task_list = [
+        TaskResponse(
+            task_id=task_id,
+            status=task_info.get("status", "unknown"),
+            message=task_info.get("message", ""),
+            result=task_info.get("result"),
+            error=task_info.get("error"),
+            created_at=task_info.get("created_at"),
+            completed_at=task_info.get("completed_at"),
+            url=task_info.get("url"),
+            filename=task_info.get("filename"),
+        )
+        for task_id, task_info in task_items
+    ]
+    return TaskListResponse(tasks=task_list, total=len(task_list))
 
 
 @app.post("/api/v1/task/{task_id}/cancel")
@@ -578,7 +612,6 @@ async def download_result(task_id: str):
     return FileResponse(
         zip_file, media_type="application/zip", filename=os.path.basename(zip_file)
     )
-
 
 
 def is_port_available(host: str, port: int) -> bool:

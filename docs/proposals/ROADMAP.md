@@ -17,7 +17,7 @@
   - ✅ 文本润色与总结
   - ✅ PDF/图片/字幕导出
   - ✅ FastAPI RESTful API
-  - ✅ Gradio Web UI
+  - ✅ Web 前端
   - ✅ Docker 部署支持
   - ✅ 任务历史管理
 

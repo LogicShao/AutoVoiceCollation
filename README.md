@@ -12,7 +12,7 @@
 - **高精度识别**: 支持 SenseVoice 和 Paraformer 模型
 - **智能润色**: 集成 DeepSeek、Qwen、Gemini、Cerebras 等 LLM
 - **多格式输出**: PDF / 图片 / 文本 / SRT 字幕
-- **三种使用方式**: CLI / Web UI / RESTful API
+- **三种使用方式**: CLI / Web 前端 / RESTful API
 
 > **性能提示**: 推荐使用 GPU 加速。详细开发文档请参考 [docs/development/developer-guide.md](docs/development/developer-guide.md)
 
@@ -38,7 +38,7 @@ cp .env.example .env
 # Windows:
 docker-start.bat start
 
-# 访问 WebUI: http://localhost:7860
+# 访问 Web: http://localhost:8000
 ```
 
 > 📚 **详细的 Docker 部署文档请查看**: [DOCKER.md](docs/deployment/docker.md)
@@ -89,7 +89,7 @@ python main.py subtitle --video /path/to/video.mp4
 ### Web 界面
 
 ```bash
-python webui.py
+python api.py
 # 浏览器访问自动打开的地址（默认端口在 .env 中配置）
 ```
 
@@ -144,8 +144,6 @@ DISABLE_LLM_SUMMARY=false  # 禁用摘要生成
 <details>
 <summary>点击展开查看演示截图</summary>
 
-**Web UI 界面**:
-![webui demo](assets/webui_demo.png)
 
 **PDF 输出效果**:
 ![pdf output](assets/pdf_output_demo.png)
@@ -160,8 +158,7 @@ DISABLE_LLM_SUMMARY=false  # 禁用摘要生成
 ```
 AutoVoiceCollation/
 ├── main.py              # CLI 入口
-├── webui.py             # Web UI 入口
-├── api.py               # API 服务入口
+├── api.py               # Web/API 服务入口
 ├── config.py            # 配置管理
 ├── src/
 │   ├── bilibili_downloader.py    # B站下载
@@ -239,7 +236,6 @@ MIT License
 
 - [FunASR](https://github.com/alibaba-damo-academy/FunASR) - 语音识别引擎
 - [yt-dlp](https://github.com/yt-dlp/yt-dlp) - 视频下载工具
-- [Gradio](https://www.gradio.app/) - Web UI 框架
 - [FastAPI](https://fastapi.tiangolo.com/) - API 框架
 
 ---

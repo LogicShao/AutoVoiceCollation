@@ -2,11 +2,42 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
+## 快速参考
+
+**最常用命令**:
+```bash
+# 开发
+python api.py                           # 启动 Web + API（端口 8000）
+pytest                                  # 运行测试
+npm run dev                             # 前端开发（监听 CSS）
+
+# Docker
+./scripts/docker-start.sh start         # 自动检测 GPU 并启动（Linux/Mac）
+docker-start.bat start                  # Windows 版本
+docker compose logs -f                  # 查看日志
+```
+
+**关键文件**:
+- `.env` - 环境变量配置（必须配置至少一个 LLM API Key）
+- `api.py` - FastAPI 服务入口
+- `src/api/inference_queue.py` - 异步推理队列
+- `src/utils/config/` - Pydantic v2 配置系统
+- `src/core/processors/` - 核心处理器（音频/视频/字幕）
+- `src/services/` - 外部服务集成（ASR/LLM/下载/字幕）
+
+**架构特点**:
+- **处理流程**: 输入 → 下载/上传 → ASR 转录 → 文本分段 → LLM 润色 → 导出
+- **任务取消**: 所有长时间操作都支持任务取消（通过 `task_manager.check_cancellation(task_id)`）
+- **异步推理**: 使用 `InferenceQueue` 避免 FastAPI 阻塞
+- **多 LLM 支持**: DeepSeek、Gemini、Qwen、Cerebras、本地模型
+
+---
+
 ## 项目概述
 
 AutoVoiceCollation 是一个 Python 音视频转文本系统，集成 ASR（FunASR）和 LLM（多提供商）进行识别、润色和导出。
 
-**核心技术栈**: FunASR + PyTorch + FastAPI + Gradio + 多 LLM 提供商
+**核心技术栈**: FunASR + PyTorch + FastAPI + frontend + 多 LLM 提供商
 
 **处理流程**: 输入（B站/本地文件）→ 下载/上传 → ASR 识别 → LLM 润色 → 导出（PDF/图片/字幕）
 
@@ -33,10 +64,7 @@ python main.py single --bili URL    # 处理 B站视频
 python main.py single --audio FILE  # 处理本地音频
 python main.py batch --url_file FILE # 批量处理
 
-# Web UI（Gradio，默认端口 7860）
-python webui.py
-
-# API 服务（FastAPI，默认端口 8000）
+# Web 前端 + API（默认端口 8000）
 python api.py
 # 访问 API 文档: http://localhost:8000/docs
 ```
@@ -51,12 +79,12 @@ docker-start.bat start                # Windows
 # 手动启动 - CPU 版本（推荐，无需 NVIDIA GPU）
 docker compose --profile cpu-only build
 docker compose --profile cpu-only up -d
-# 访问: http://localhost:7861
+# 访问: http://localhost:8001
 
 # 手动启动 - GPU 版本（需要 nvidia-docker）
 docker compose --profile gpu build
 docker compose --profile gpu up -d
-# 访问: http://localhost:7860
+# 访问: http://localhost:8000
 
 # 通用操作
 docker compose logs -f            # 查看日志
@@ -71,8 +99,8 @@ pytest tests/test_api.py::test_name -v   # 运行单个测试
 pytest --cov=src tests/                   # 测试覆盖率
 pytest -m "not slow and not integration"  # 跳过慢速/集成测试
 pytest --lf                               # 仅运行上次失败的测试
-pytest -s                                 # 显示打印输出（已在 pytest.ini 中默认启用）
 pytest -k "test_pattern"                  # 运行匹配模式的测试
+# 注意：pytest.ini 已启用 -s 和 --capture=no，默认显示打印输出
 ```
 
 ### 常用开发任务
@@ -267,6 +295,34 @@ src/
     - 支持自定义提供者配置（通过 `.env` 的 `ONNX_PROVIDERS`）
 - **调试工具**: `print_device_info()` - 打印 PyTorch/CUDA/ONNX Runtime 版本信息
 
+### 前端架构（frontend/）
+
+- **技术栈**: Alpine.js + Tailwind CSS
+- **构建工具**: npm + Tailwind CLI
+- **主题系统**:
+    - `theme.js` - 支持亮色/暗色/跟随系统三种主题
+    - 使用 `localStorage` 持久化主题设置
+    - 避免页面加载闪烁（FOUC）
+- **状态管理**:
+    - `main.js` 使用 Alpine.js 的 `Alpine.data()` 管理全局状态
+    - 实时任务轮询（每 2 秒刷新任务列表）
+    - 支持任务取消和文件下载
+- **关键组件**:
+    - B站视频处理表单
+    - 本地文件上传表单
+    - 批量处理表单
+    - 字幕生成表单
+    - 任务状态展示和管理
+- **样式**:
+    - `frontend/src/css/input.css` - Tailwind 输入文件
+    - `frontend/dist/css/output.css` - 编译后的 CSS（生产环境）
+    - 支持暗色模式（通过 Tailwind 的 `dark:` 前缀）
+- **开发命令**:
+    ```bash
+    npm run dev           # 监听 CSS 变化，自动重新编译
+    npm run build         # 构建生产版本（压缩）
+    ```
+
 ### 输出文件结构
 
 处理完成后，输出目录结构如下（以 `out/video_name/` 为例）：
@@ -297,13 +353,16 @@ out/video_name/
 - **类型提示**: 推荐使用类型注解，参考 `query_llm.py` 中的 `LLMQueryParams` dataclass
 - **日志**:
   ```python
-  from src.logger import get_logger
+  from src.utils.logging.logger import get_logger
   logger = get_logger(__name__)
 
   logger.debug("详细调试信息")
   logger.info("一般流程信息")
   logger.error("错误信息", exc_info=True)  # 包含堆栈跟踪
   ```
+  - 日志配置通过 `.env` 文件管理（`LOG_LEVEL`, `LOG_FILE`, `LOG_CONSOLE_OUTPUT` 等）
+  - 支持彩色控制台输出（可通过 `LOG_COLORED_OUTPUT` 关闭）
+  - 第三方库日志级别可独立配置（`THIRD_PARTY_LOG_LEVEL`）
 - **异常处理**:
     - 始终捕获异常并记录详细日志
     - 使用 `TaskCancelledException` 处理任务取消
@@ -385,10 +444,14 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 - **Fixture**: 常用 fixture 在 `tests/conftest.py`（包括 mock API 客户端、临时目录等）
 - **Mock 策略**:
     - `conftest.py` 自动 mock 重型依赖（torch, funasr, transformers）
+    - 使用 `RecursiveMock` 类实现递归 mock，模拟嵌套模块结构
     - 使用 `pytest-mock` 或 `responses` 库 mock 外部 API
-    - LLM API mock 返回固定响应��避免真实 API 调用）
-- **环境隔离**: 测试使用独立的临时目录（`/tmp/autovoicecollation_test_*`）
-- **字体处理**: 测试环境自动创建 fake 字体文件避免 PDF 生成错误
+    - LLM API mock 返回固定响应（避免真实 API 调用）
+- **环境隔离**:
+    - 测试使用独立的临时目录（`/tmp/autovoicecollation_test_*`）
+    - `conftest.py` 在导入前设置环境变量，确保配置正确加载
+    - 自动配置测试用的 API Keys（`test_*_key`）
+- **字体处理**: 测试环境自动创建 fake 字体文件（`tests/fake_font.ttf`）避免 PDF 生成错误
 
 ## 常见问题处理
 
@@ -432,8 +495,8 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 
 **解决方案**:
 
-1. 检查字体是否安装: `docker exec avc-webui ls /usr/share/fonts/truetype/wqy/`
-2. 运行字体验证脚本: `docker exec avc-webui ./scripts/verify-font.sh`
+1. 检查字体是否安装: `docker exec avc-api ls /usr/share/fonts/truetype/wqy/`
+2. 运行字体验证脚本: `docker exec avc-api ./scripts/verify-font.sh`
 3. 详见 `docs/deployment/docker/troubleshooting-font.md`
 
 ### 测试失败排查
@@ -446,7 +509,7 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 
 ### 任务无法取消
 
-**症状**: 点击 WebUI 的"终止任务"按钮后任务继续运行
+**症状**: 点击前端的"终止任务"按钮后任务继续运行
 
 **排查步骤**:
 
@@ -470,11 +533,15 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 - **输出目录**: `out/`, `download/`, `temp/`, `logs/` 不提交（gitignored）
 - **模型缓存**: 默认使用 `~/.cache/modelscope`，可通过 `MODEL_DIR` 覆盖
 - **端口配置**:
-    - WebUI: 7860（默认）
-    - API: 8000（默认）
-    - Docker CPU 版本: 7861
+    - Web/API: 8000（默认）
+    - Docker CPU 版本: 8001
 - **Python 版本**: 3.11+（兼容 PyTorch 2.x 和 FunASR）
 - **外部依赖**: FFmpeg（系统级）、中文字体（Linux 需安装 `fonts-wqy-zenhei`）、yt-dlp（B站下载）
+- **Docker 配置**:
+    - 支持 GPU 和 CPU 两种 profile（通过 `docker compose --profile` 选择）
+    - 默认资源限制：最大 8GB 内存，预留 4GB
+    - 卷挂载持久化：`out/`, `download/`, `temp/`, `logs/`, `models/`
+    - 重启策略：`unless-stopped`
 
 ---
 

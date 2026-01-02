@@ -35,7 +35,7 @@ MCP 规范里，Server 主要提供三类“对 LLM 有用的东西”：
 * ASR：SenseVoice / Paraformer
 * LLM 润色/摘要：DeepSeek、Qwen、Gemini、Cerebras、本地模型等
 * 多格式输出：PDF/图片/文本/SRT
-* 提供三种使用方式：CLI / Web UI / RESTful API([GitHub][3])
+* 提供三种使用方式：CLI / Web 前端 / RESTful API([GitHub][3])
 
 并且你已经提供了 **API 服务**，核心端点也很清晰：
 

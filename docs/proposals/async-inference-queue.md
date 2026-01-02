@@ -26,7 +26,7 @@ async def process_bilibili_task(task_id: str, ...):
 - ✘ 推理期间（10秒–5分钟），无法响应健康检查 `/health`
 - ✘ 无法查询任务状态 `/api/v1/task/{task_id}`
 - ✘ 无法提交新任务
-- ✘ Web UI 前端无法获取进度更新
+- ✘ Web 前端无法获取进度更新
 
 ---
 

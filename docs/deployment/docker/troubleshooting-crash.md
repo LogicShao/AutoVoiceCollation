@@ -42,7 +42,7 @@ docker compose logs -f
 # 期望看到的正常日志：
 # - "Loading model..."
 # - "Model loaded successfully"
-# - "Running on http://0.0.0.0:7860"
+# - "Running on http://0.0.0.0:8000"
 ```
 
 #### 等待时间
@@ -136,10 +136,10 @@ docker compose down
 docker compose --profile cpu-only up -d
 
 # 查看日志
-docker compose logs -f autovoicecollation-webui-cpu
+docker compose logs -f autovoicecollation-api-cpu
 ```
 
-#### 访问地址：http://localhost:7861
+#### 访问地址：http://localhost:8001
 
 ## 诊断命令
 
@@ -152,7 +152,7 @@ docker compose logs --tail=100
 docker compose logs -f
 
 # 查看崩溃前的日志（容器已停止）
-docker logs avc-webui
+docker logs avc-api
 ```
 
 ### 2. 查看资源使用
@@ -167,7 +167,7 @@ docker ps -a
 ### 3. 检查容器退出原因
 ```bash
 # 查看退出代码
-docker inspect avc-webui | grep -A 5 "State"
+docker inspect avc-api | grep -A 5 "State"
 
 # 常见退出代码：
 # 137 = 内存不足被 OOM Killer 杀死
@@ -225,17 +225,17 @@ GPU 显存不足
 1. **查看容器状态**：
 ```bash
 docker ps
-# 看到 avc-webui 状态为 Up
+# 看到 avc-api 状态为 Up
 ```
 
-2. **访问 WebUI**：
-  - 打开浏览器访问 http://localhost:7860
-  - 应该看到 Gradio 界面
+2. **访问 Web 前端**：
+  - 打开浏览器访问 http://localhost:8000
+  - 应该看到 Web 前端 界面
 
 3. **查看日志**：
 ```bash
 docker compose logs --tail=20
-# 看到 "Running on http://0.0.0.0:7860"
+# 看到 "Running on http://0.0.0.0:8000"
 ```
 
 ## 预防措施

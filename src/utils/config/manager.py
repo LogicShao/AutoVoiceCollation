@@ -35,7 +35,7 @@ class AppConfig(BaseConfig):
     zip_output_enabled: bool = Field(default=False, description="是否输出 zip 压缩包")
 
     text_only_default: bool = Field(
-        default=False, description="Web UI 中是否默认仅返回纯文本（JSON）结果"
+        default=False, description="Web 前端中是否默认仅返回纯文本（JSON）结果"
     )
 
     # Web 服务器配置

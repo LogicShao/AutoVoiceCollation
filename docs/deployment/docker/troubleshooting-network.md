@@ -104,7 +104,7 @@ docker compose build
 **症状**：
 
 - 容器内服务正常运行
-- 从容器内部可以访问 http://localhost:7860
+- 从容器内部可以访问 http://localhost:8000
 - 从 Windows 主机无法访问
 - 浏览器显示 ERR_CONNECTION_REFUSED
 
@@ -122,7 +122,7 @@ docker compose build
 以 **管理员身份** 运行 PowerShell 或 CMD：
 
 ```cmd
-netsh advfirewall firewall add rule name="Docker Port 7860" dir=in action=allow protocol=TCP localport=7860
+netsh advfirewall firewall add rule name="Docker Port 8000" dir=in action=allow protocol=TCP localport=8000
 ```
 
 - **方案 3：检查 WSL 集成（如果使用 WSL 2）**
@@ -138,7 +138,7 @@ netsh advfirewall firewall add rule name="Docker Port 7860" dir=in action=allow 
 
 ```yaml
 ports:
-  - "8080:7860"  # 使用 8080 端口
+  - "8080:8000"  # 使用 8080 端口
 ```
 
 ### 快速修复命令（Windows）
@@ -150,7 +150,7 @@ REM 1. 停止容器
 docker compose down
 
 REM 2. 添加防火墙规则
-netsh advfirewall firewall add rule name="Docker Port 7860" dir=in action=allow protocol=TCP localport=7860
+netsh advfirewall firewall add rule name="Docker Port 8000" dir=in action=allow protocol=TCP localport=8000
 
 REM 3. 重启 Docker 服务
 net stop com.docker.service
@@ -163,7 +163,7 @@ REM 5. 等待启动
 timeout /t 10
 
 REM 6. 测试访问
-curl http://localhost:7860
+curl http://localhost:8000
 ```
 
 ## 🐧 Linux/Mac 特定问题
@@ -232,10 +232,10 @@ docker run --rm ubuntu:22.04 bash -c "apt-get update"
 
 ```bash
 # Windows
-netstat -ano | findstr "7860"
+netstat -ano | findstr "8000"
 
 # Linux/Mac
-lsof -i :7860
+lsof -i :8000
 ```
 
 ## 📊 各镜像源速度对比

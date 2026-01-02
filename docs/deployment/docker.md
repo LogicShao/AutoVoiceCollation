@@ -56,8 +56,8 @@ cp .env.example .env
 # Windows:
 docker-start.bat start
 
-# 4. 访问 WebUI
-# 浏览器打开: http://localhost:7860
+# 4. 访问 Web 前端
+# 浏览器打开: http://localhost:8000
 ```
 
 ---
@@ -221,7 +221,7 @@ docker compose logs -f
 docker compose --profile cpu-only up -d
 
 # 查看日志
-docker compose logs -f autovoicecollation-webui-cpu
+docker compose logs -f autovoicecollation-api-cpu
 ```
 
 #### 方式 C: 一键构建并启动
@@ -235,12 +235,12 @@ docker compose --profile cpu-only up -d --build
 
 ---
 
-### 3. 访问 WebUI
+### 3. 访问 Web 前端
 
 启动成功后，在浏览器中访问：
 
-- **GPU 版本**：[http://localhost:7860](http://localhost:7860)
-- **CPU 版本**：[http://localhost:7861](http://localhost:7861)
+- **GPU 版本**：[http://localhost:8000](http://localhost:8000)
+- **CPU 版本**：[http://localhost:8001](http://localhost:8001)
 
 ---
 
@@ -263,13 +263,13 @@ docker compose --profile cpu-only up -d --build
 ### 端口配置
 
 默认端口：
-- GPU 版本：`7860`
-- CPU 版本：`7861`
+- GPU 版本：`8000`
+- CPU 版本：`8001`
 
 修改方法：编辑 `docker-compose.yml`
 ```yaml
 ports:
-  - "8080:7860"  # 将 WebUI 映射到主机 8080 端口
+  - "8080:8000"  # 将 Web 前端 映射到主机 8080 端口
 ```
 
 ---
@@ -305,10 +305,10 @@ docker compose ps
 docker compose logs -f
 
 # 查看特定服务日志
-docker compose logs -f autovoicecollation-webui
+docker compose logs -f autovoicecollation-api
 
 # 进入容器调试
-docker compose exec autovoicecollation-webui bash
+docker compose exec autovoicecollation-api bash
 ```
 
 ### 镜像管理
@@ -345,7 +345,7 @@ tar -czf models-backup.tar.gz ./models/
 ### 自定义端口
 ```yaml
 ports:
-  - "8080:7860"  # 映射到主机 8080 端口
+  - "8080:8000"  # 映射到主机 8080 端口
 ```
 
 ### 使用自定义模型目录
@@ -418,11 +418,11 @@ Error: bind: address already in use
 #### ✅ 解决方案：
 ```bash
 # 查看占用进程
-sudo lsof -i :7860
+sudo lsof -i :8000
 
 # 修改 `docker-compose.yml` 中的端口
 ports:
-  - "7861:7860"
+  - "8001:8000"
 ```
 
 ---
@@ -539,7 +539,7 @@ WORKDIR /app
 COPY --from=builder /root/.local /root/.local
 COPY . .
 ENV PATH=/root/.local/bin:$PATH
-CMD ["python", "webui.py"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 ---
@@ -553,7 +553,7 @@ server {
     server_name your-domain.com;
 
     location / {
-        proxy_pass http://localhost:7860;
+        proxy_pass http://localhost:8000;
         proxy_set_header Host $host;
         proxy_set_header X-Real-IP $remote_addr;
         proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;
@@ -595,7 +595,7 @@ restart: unless-stopped
 ### 5. 监控资源
 ```bash
 # 实时监控
-docker stats autovoicecollation-webui
+docker stats autovoicecollation-api
 
 # 导出数据
 docker stats --no-stream --format "table {{.Name}}\t{{.CPUPerc}}\t{{.MemUsage}}" > stats.txt
@@ -640,7 +640,7 @@ docker compose logs -f
 
 1. ✅ 查看日志：`docker compose logs -f`
 2. ✅ 检查状态：`docker compose ps`
-3. ✅ 进入容器调试：`docker compose exec autovoicecollation-webui bash`
+3. ✅ 进入容器调试：`docker compose exec autovoicecollation-api bash`
 4. ✅ 提交 Issue：[GitHub Issues](https://github.com/LogicShao/AutoVoiceCollation/issues)
 
 ---
@@ -650,7 +650,6 @@ docker compose logs -f
 - [Docker 官方文档](https://docs.docker.com/)
 - [Docker Compose 文档](https://docs.docker.com/compose/)
 - [NVIDIA Docker 文档](https://github.com/NVIDIA/nvidia-docker)
-- [Gradio 官方文档](https://www.gradio.app/)
 - [AutoVoiceCollation 项目主页](https://github.com/LogicShao/AutoVoiceCollation)
 
 ---

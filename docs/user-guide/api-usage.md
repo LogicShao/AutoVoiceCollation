@@ -910,7 +910,7 @@ out/
 |--------|--------|------|
 | `OUTPUT_STYLE` | `pdf_only` | 输出样式：`pdf_only`, `pdf_with_img`, `img_only`, `text_only`, `markdown` ⭐, `json` ⭐ |
 | `ZIP_OUTPUT_ENABLED` | `false` | 是否输出 zip 压缩包 |
-| `TEXT_ONLY_DEFAULT` | `false` | Web UI 中是否默认仅返回纯文本（JSON）结果 |
+| `TEXT_ONLY_DEFAULT` | `false` | Web 前端中是否默认仅返回纯文本（JSON）结果 |
 
 #### 日志配置
 

@@ -110,10 +110,10 @@ build_image() {
 
     if [ "$mode" == "cpu" ]; then
         print_info "构建 CPU 版本镜像..."
-        docker compose build autovoicecollation-webui-cpu
+        docker compose build autovoicecollation-api-cpu
     else
         print_info "构建 GPU 版本镜像..."
-        docker compose build autovoicecollation-webui
+        docker compose build autovoicecollation-api
     fi
 
     print_success "镜像构建完成！"
@@ -127,12 +127,12 @@ start_service() {
         print_info "启动 CPU 版本服务..."
         docker compose --profile cpu-only up -d
         print_success "服务已启动！"
-        print_info "访问地址: http://localhost:7861"
+        print_info "访问地址: http://localhost:8001"
     else
         print_info "启动 GPU 版本服务..."
         docker compose up -d
         print_success "服务已启动！"
-        print_info "访问地址: http://localhost:7860"
+        print_info "访问地址: http://localhost:8000"
     fi
 
     echo ""

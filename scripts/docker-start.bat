@@ -87,7 +87,7 @@ if errorlevel 1 (
     exit /b 1
 )
 echo [SUCCESS] 服务已启动！
-echo [INFO] 访问地址: http://localhost:7860
+echo [INFO] 访问地址: http://localhost:8000
 echo [INFO] 查看日志: docker compose logs -f
 echo [INFO] 停止服务: docker compose down
 pause
@@ -95,7 +95,7 @@ exit /b 0
 
 :start_cpu
 echo [INFO] 启动服务（CPU 模式）...
-docker compose build autovoicecollation-webui-cpu
+docker compose build autovoicecollation-api-cpu
 docker compose --profile cpu-only up -d
 if errorlevel 1 (
     echo [ERROR] 启动失败！
@@ -103,7 +103,7 @@ if errorlevel 1 (
     exit /b 1
 )
 echo [SUCCESS] 服务已启动！
-echo [INFO] 访问地址: http://localhost:7861
+echo [INFO] 访问地址: http://localhost:8001
 echo [INFO] 查看日志: docker compose logs -f
 echo [INFO] 停止服务: docker compose down
 pause

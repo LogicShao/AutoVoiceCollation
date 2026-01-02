@@ -9,7 +9,7 @@
 FileNotFoundError: 未找到可用的中文字体
 ```
 
-导致容器无法启动，WebUI 无法访问。
+导致容器无法启动，Web 前端 无法访问。
 
 ## 根本原因
 
@@ -118,9 +118,9 @@ docker compose up -d
 ./verify-font.sh
 
 # Windows (手动执行以下命令)
-docker exec avc-webui test -f /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
-docker exec avc-webui printenv | grep CHINESE_FONT_PATH
-docker exec avc-webui fc-list :lang=zh | head -3
+docker exec avc-api test -f /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
+docker exec avc-api printenv | grep CHINESE_FONT_PATH
+docker exec avc-api fc-list :lang=zh | head -3
 ```
 
 ### 5. 查看启动日志
@@ -131,18 +131,18 @@ docker compose logs -f
 - **期望看到**：
 ```
 成功加载字体: /usr/share/fonts/truetype/wqy/wqy-zenhei.ttc
-Running on http://0.0.0.0:7860
+Running on http://0.0.0.0:8000
 ```
 
 ## 验证成功
 
-### 测试 1：WebUI 可访问
+### 测试 1：Web 前端 可访问
 
-打开浏览器访问 http://localhost:7860，应该能看到 Gradio 界面。
+打开浏览器访问 http://localhost:8000，应该能看到 Web 前端 界面。
 
 ### 测试 2：使用 text_only 模式
 
-在 WebUI 中勾选"仅返回文本(JSON)"选项，处理一个音频文件：
+在 Web 前端中勾选"仅返回文本(JSON)"选项，处理一个音频文件：
 
 - ✅ 应该能正常工作
 - ✅ 不需要字体也能完成
@@ -172,7 +172,7 @@ docker compose logs --tail=50
 
 - **手动查找字体**：
 ```bash
-docker exec avc-webui find /usr/share/fonts -name "*.ttc" -o -name "*.ttf" | grep -i "wqy\|noto"
+docker exec avc-api find /usr/share/fonts -name "*.ttc" -o -name "*.ttf" | grep -i "wqy\|noto"
 ```
 
 - **如果路径不同**，修改 `docker-compose.yml` 中的路径：
@@ -185,8 +185,8 @@ environment:
 
 - **检查字体缓存**：
 ```bash
-docker exec avc-webui fc-cache -fv
-docker exec avc-webui fc-list :lang=zh
+docker exec avc-api fc-cache -fv
+docker exec avc-api fc-list :lang=zh
 ```
 
 ### 问题 4：使用其他字体
@@ -246,7 +246,7 @@ COPY --from=font-check /usr/share/fonts /usr/share/fonts
 ```yaml
 healthcheck:
   test: >
-    curl -f http://localhost:7860 &&
+    curl -f http://localhost:8000 &&
     test -f ${CHINESE_FONT_PATH:-/usr/share/fonts/truetype/wqy/wqy-zenhei.ttc}
 ```
 
@@ -257,7 +257,7 @@ healthcheck:
 COPY docker-entrypoint.sh /
 RUN chmod +x /docker-entrypoint.sh
 ENTRYPOINT ["/docker-entrypoint.sh"]
-CMD ["python", "webui.py"]
+CMD ["uvicorn", "api:app", "--host", "0.0.0.0", "--port", "8000"]
 ```
 
 `docker-entrypoint.sh`:

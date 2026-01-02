@@ -39,7 +39,5 @@ echo ===================================
 echo 请执行以下命令启动 API 服务器：
 echo   python api.py
 echo.
-echo 或者如果使用 WebUI：
-echo   python webui.py
 echo ===================================
 pause

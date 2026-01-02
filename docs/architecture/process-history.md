@@ -252,7 +252,7 @@ record = history_manager.create_record_from_bilibili(
 history_manager.add_record(record)
 ```
 
-### 在 Web UI 中展示历史
+### 在 Web 前端中展示历史
 
 ```python
 # 获取历史列表

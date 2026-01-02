@@ -19,9 +19,17 @@ document.addEventListener('alpine:init', () => {
     currentTask: null,
     result: null,
     canCancel: false,
+    tasks: [],
+    tasksLoading: false,
+    tasksPollInterval: null,
 
     // 轮询定时器
     pollInterval: null,
+
+    init() {
+      this.refreshTasks();
+      this.startTasksPolling();
+    },
 
     // 主题切换
     toggleTheme() {
@@ -234,6 +242,76 @@ document.addEventListener('alpine:init', () => {
       } catch (error) {
         alert('请求失败: ' + error.message);
       }
+    },
+
+    async refreshTasks() {
+      if (this.tasksLoading) return;
+      this.tasksLoading = true;
+
+      try {
+        const response = await fetch('/api/v1/tasks');
+        const data = await response.json();
+
+        if (response.ok) {
+          this.tasks = Array.isArray(data.tasks) ? data.tasks : [];
+        }
+      } catch (error) {
+        console.error('获取任务列表失败:', error);
+      } finally {
+        this.tasksLoading = false;
+      }
+    },
+
+    startTasksPolling() {
+      if (this.tasksPollInterval) {
+        clearInterval(this.tasksPollInterval);
+      }
+      this.tasksPollInterval = setInterval(async () => {
+        await this.refreshTasks();
+      }, 3000);
+    },
+
+    getSortedTasks() {
+      const tasks = Array.isArray(this.tasks) ? this.tasks : [];
+      return tasks.slice().sort((a, b) => {
+        const aTime = a?.created_at ? Date.parse(a.created_at) : 0;
+        const bTime = b?.created_at ? Date.parse(b.created_at) : 0;
+        return bTime - aTime;
+      });
+    },
+
+    getResultEntries(result) {
+      if (!result || typeof result !== 'object') return [];
+
+      const preferredKeys = [
+        'title',
+        'output_dir',
+        'extract_time',
+        'polish_time',
+        'zip_file',
+        'total_time',
+        'status_message',
+        'subtitle_file',
+        'output_video',
+        'info',
+        'summary',
+        'summary_text'
+      ];
+
+      const entries = [];
+      for (const key of preferredKeys) {
+        if (result[key] !== undefined && result[key] !== null && result[key] !== '') {
+          entries.push({key, value: result[key]});
+        }
+      }
+
+      if (entries.length > 0) {
+        return entries;
+      }
+
+      return Object.entries(result)
+        .slice(0, 8)
+        .map(([key, value]) => ({key, value}));
     },
 
     formatResultValue(key, value) {

@@ -12,7 +12,6 @@ AutoVoiceCollation 是一个基于 Python 的自动语音识别（ASR）与智�
 - **ASR**：FunASR（Paraformer / SenseVoice 模型）
 - **深度学习**：PyTorch, Transformers
 - **LLM 集成**：OpenAI API 兼容接口（DeepSeek, Gemini, Qwen, Cerebras, 本地模型）
-- **Web 框架**：FastAPI（API 服务）、Gradio（Web UI）
 - **文档处理**：ReportLab（PDF 生成）、Pillow（图片处理）
 - **视频处理**：yt-dlp（视频下载）、FFmpeg（音视频处理）
 - **配置管理**：python-dotenv
@@ -28,8 +27,7 @@ AutoVoiceCollation 是一个基于 Python 的自动语音识别（ASR）与智�
 AutoVoiceCollation/
 ├── config.py                      # 配置管理模块（单例模式）
 ├── main.py                        # CLI 入口
-├── api.py                         # FastAPI RESTful 服务
-├── webui.py                       # Gradio Web 界面
+├── api.py                         # Web/API 服务
 │
 ├── src/                           # 核心代码目录
 │   ├── __init__.py
@@ -70,7 +68,7 @@ AutoVoiceCollation/
 
 ```mermaid
 graph TD
-    A[用户输入 (CLI/WebUI/API)] --> B[下载/上传阶段]
+    A[用户输入 (CLI/Web/API)] --> B[下载/上传阶段]
     B --> C{B站视频}
     B --> D{本地视频}
     B --> E{本地音频}
@@ -318,20 +316,11 @@ def find_available_port(start_port: int, max_attempts: int = 50) -> int:
     raise RuntimeError("No available port found")
 ```
 
-### WebUI 设计 (`webui.py`)
+### Web 前端设计 (`frontend/`)
 
-- **框架**：Gradio
-- **界面组件**：
-  - Tab 1：B站视频处理
-  - Tab 2：批量处理
-  - Tab 3：本地音频上传
-  - Tab 4：本地视频处理
-  - Tab 5：字幕生成
-- **特性**：
-  - 实时进度显示
-  - 文件下载
-  - 参数配置（LLM, temperature, max_tokens）
-  - `text_only` 模式：仅返回 JSON 结果
+- **框架**：原生 HTML/CSS/JS + Alpine.js + Tailwind CSS
+- **入口**：`frontend/src/index.html` 由 FastAPI `/` 路由返回
+- **交互**：`frontend/src/js/main.js` 轮询任务、展示结果、下载文件
 
 ---
 
@@ -623,7 +612,6 @@ services:
 - **项目仓库**：[https://github.com/LogicShao/AutoVoiceCollation](https://github.com/LogicShao/AutoVoiceCollation)
 - **FunASR 文档**：[https://github.com/alibaba-damo-academy/FunASR](https://github.com/alibaba-damo-academy/FunASR)
 - **FastAPI 文档**：[https://fastapi.tiangolo.com/](https://fastapi.tiangolo.com/)
-- **Gradio 文档**：[https://www.gradio.app/](https://www.gradio.app/)
 
 ---
 
