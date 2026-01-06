@@ -8,10 +8,12 @@ from .base import BaseProcessor
 from .audio import AudioProcessor
 from .video import VideoProcessor
 from .subtitle import SubtitleProcessor
+from .multi_part_video import MultiPartVideoProcessor
 
 __all__ = [
     "BaseProcessor",
     "AudioProcessor",
     "VideoProcessor",
     "SubtitleProcessor",
+    "MultiPartVideoProcessor",
 ]

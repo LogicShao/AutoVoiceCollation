@@ -14,6 +14,10 @@ document.addEventListener('alpine:init', () => {
     videoPath: '',
     subtitleText: '',
 
+    // 多P视频相关状态
+    multiPartInfo: null,
+    selectedParts: [],
+
     // 状态
     processing: false,
     currentTask: null,
@@ -75,6 +79,116 @@ document.addEventListener('alpine:init', () => {
         alert('请求失败: ' + error.message);
         this.processing = false;
       }
+    },
+
+    // 检查是否为多P视频
+    async checkMultiPart() {
+      if (!this.biliUrl) return;
+
+      this.processing = true;
+      this.result = null;
+
+      try {
+        const response = await fetch('/api/v1/bilibili/check-multipart', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({video_url: this.biliUrl})
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          if (data.is_multipart) {
+            // 多P视频，显示选择界面
+            this.multiPartInfo = data.info;
+            this.selectedParts = [];
+            this.processing = false;
+          } else {
+            // 单P视频，直接处理
+            this.processBilibili();
+          }
+        } else {
+          alert('错误: ' + (data.detail || '检查失败'));
+          this.processing = false;
+        }
+      } catch (error) {
+        alert('请求失败: ' + error.message);
+        this.processing = false;
+      }
+    },
+
+    // 处理多P视频
+    async processMultiPart() {
+      if (this.selectedParts.length === 0) {
+        alert('请至少选择一个分P');
+        return;
+      }
+
+      this.processing = true;
+      this.result = null;
+
+      try {
+        const response = await fetch('/api/v1/process/multipart', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({
+            video_url: this.biliUrl,
+            selected_parts: this.selectedParts
+          })
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          this.currentTask = data;
+          this.canCancel = true;
+          this.startPolling(data.task_id);
+          // 重置多P状态
+          this.multiPartInfo = null;
+          this.selectedParts = [];
+        } else {
+          alert('错误: ' + (data.detail || '处理失败'));
+          this.processing = false;
+        }
+      } catch (error) {
+        alert('请求失败: ' + error.message);
+        this.processing = false;
+      }
+    },
+
+    // 重置多P选择
+    resetMultiPart() {
+      this.multiPartInfo = null;
+      this.selectedParts = [];
+      this.biliUrl = '';
+    },
+
+    // 全选分P
+    selectAllParts() {
+      if (this.multiPartInfo) {
+        this.selectedParts = this.multiPartInfo.parts.map(p => p.part_number);
+      }
+    },
+
+    // 取消全选
+    deselectAllParts() {
+      this.selectedParts = [];
+    },
+
+    // 反选
+    inverseSelectParts() {
+      if (this.multiPartInfo) {
+        const allParts = this.multiPartInfo.parts.map(p => p.part_number);
+        this.selectedParts = allParts.filter(p => !this.selectedParts.includes(p));
+      }
+    },
+
+    // 格式化时长
+    formatDuration(seconds) {
+      if (!seconds) return '';
+      const mins = Math.floor(seconds / 60);
+      const secs = seconds % 60;
+      return `${mins}:${secs.toString().padStart(2, '0')}`;
     },
 
     // 处理文件选择

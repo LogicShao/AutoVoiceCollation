@@ -283,3 +283,98 @@ def extract_audio_from_video(
         raise RuntimeError(f"音频提取失败：{result.stderr}")
 
     return audio_path
+
+
+# ========== 多P视频支持 ==========
+
+@dataclass
+class BiliVideoPart:
+    """B站视频分P信息"""
+    part_number: int
+    title: str
+    video_id: str
+    url: str
+    duration: int = 0
+    thumbnail: Optional[str] = None
+
+
+@dataclass
+class BiliMultiPartVideo:
+    """B站多P视频信息"""
+    main_url: str
+    main_title: str
+    total_parts: int
+    parts: list["BiliVideoPart"]
+
+    def get_selected_parts(self, part_numbers: list[int]) -> list["BiliVideoPart"]:
+        """根据分P编号获取选中的分P"""
+        return [p for p in self.parts if p.part_number in part_numbers]
+
+
+def detect_multi_part(video_url: str) -> tuple[bool, Optional[dict]]:
+    """
+    检测视频是否为多P
+
+    :param video_url: B站视频URL
+    :return: (是否为多P, 视频信息字典)
+    """
+    logger.info(f"检测多P视频：{video_url}")
+    try:
+        # 关键：noplaylist: False 启用播放列表模式
+        with YoutubeDL({"quiet": True, "noplaylist": False}) as ydl:
+            info_dict = ydl.extract_info(video_url, download=False)
+
+        # 必须检查 entries 长度 > 1，因为某些单P视频也可能返回 playlist 类型
+        is_multipart = (
+            "_type" in info_dict
+            and info_dict["_type"] == "playlist"
+            and len(info_dict.get("entries", [])) > 1
+        )
+
+        logger.info(f"多P检测结果：{is_multipart}, 分P数量：{len(info_dict.get('entries', []))}")
+        return is_multipart, info_dict if is_multipart else None
+
+    except Exception as e:
+        logger.error(f"多P检测失败：{e}", exc_info=True)
+        return False, None
+
+
+def get_multi_part_info(video_url: str) -> Optional[BiliMultiPartVideo]:
+    """
+    获取多P视频信息
+
+    :param video_url: B站视频URL
+    :return: 多P视频信息对象，如果不是多P则返回None
+    """
+    is_multipart, info_dict = detect_multi_part(video_url)
+
+    if not is_multipart or not info_dict:
+        return None
+
+    entries = info_dict.get("entries", [])
+    parts = []
+
+    for idx, entry in enumerate(entries, start=1):
+        if not entry:  # 跳过无效的 entry
+            continue
+
+        parts.append(
+            BiliVideoPart(
+                part_number=idx,
+                title=entry.get("title", f"第{idx}P"),
+                video_id=entry.get("id", ""),
+                url=entry.get("webpage_url") or entry.get("url", ""),
+                duration=entry.get("duration", 0),
+                thumbnail=entry.get("thumbnail"),
+            )
+        )
+
+    multi_part_info = BiliMultiPartVideo(
+        main_url=video_url,
+        main_title=info_dict.get("title", "未知视频"),
+        total_parts=len(parts),
+        parts=parts,
+    )
+
+    logger.info(f"多P视频信息：{multi_part_info.main_title}, 共 {multi_part_info.total_parts} P")
+    return multi_part_info

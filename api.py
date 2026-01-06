@@ -25,12 +25,13 @@ from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
 from src.utils.config import get_config
-from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor
+from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor, MultiPartVideoProcessor
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.api.middleware import register_exception_handlers
 from src.api.inference_queue import get_inference_queue
 from src.utils.logging.logger import get_logger
 from src.utils.helpers.task_manager import get_task_manager
+from src.services.download.bilibili_downloader import get_multi_part_info
 
 # 创建logger
 logger = get_logger(__name__)
@@ -42,6 +43,7 @@ config = get_config()
 audio_processor = AudioProcessor()
 video_processor = VideoProcessor()
 subtitle_processor = SubtitleProcessor()
+multi_part_processor = MultiPartVideoProcessor()
 
 # 获取全局推理队列实例
 inference_queue = get_inference_queue()
@@ -145,6 +147,21 @@ class BatchProcessRequest(BaseModel):
     )
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
     summarize: bool = Field(default=False, description="是否对结果进行总结")
+
+
+class MultiPartVideoRequest(BaseModel):
+    """多P视频处理请求"""
+
+    video_url: str = Field(..., description="B站视频链接")
+    selected_parts: List[int] = Field(..., description="选中的分P编号列表（从1开始）", min_length=1)
+    llm_api: str = Field(default=config.llm.llm_server, description="LLM服务")
+    temperature: float = Field(
+        default=config.llm.llm_temperature, ge=0, le=2, description="温度参数"
+    )
+    max_tokens: int = Field(
+        default=config.llm.llm_max_tokens, gt=0, description="最大token数"
+    )
+    text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
 
 
 class TaskResponse(BaseModel):
@@ -268,6 +285,78 @@ async def process_bilibili_video(request: BilibiliVideoRequest):
         task_id=task_id,
         status="pending",
         message="任务已提交到队列，正在等待处理",
+        created_at=created_at,
+        url=request.video_url,
+    )
+
+
+@app.post("/api/v1/bilibili/check-multipart")
+async def check_multi_part(request: BilibiliVideoRequest):
+    """检查B站视频是否为多P"""
+    try:
+        video_url = request.video_url
+        logger.info(f"检查多P视频：{video_url}")
+
+        multi_part_info = get_multi_part_info(video_url)
+
+        if multi_part_info is None:
+            return {"is_multipart": False, "info": None}
+
+        return {
+            "is_multipart": True,
+            "info": {
+                "main_title": multi_part_info.main_title,
+                "total_parts": multi_part_info.total_parts,
+                "parts": [
+                    {
+                        "part_number": p.part_number,
+                        "title": p.title,
+                        "duration": p.duration,
+                        "url": p.url,
+                    }
+                    for p in multi_part_info.parts
+                ],
+            }
+        }
+    except Exception as e:
+        logger.error(f"检查多P视频失败: {e}", exc_info=True)
+        raise HTTPException(status_code=500, detail=f"检查失败: {str(e)}")
+
+
+@app.post("/api/v1/process/multipart", response_model=TaskResponse)
+async def process_multi_part_video(request: MultiPartVideoRequest):
+    """处理多P视频（异步队列版本）"""
+    task_id = str(uuid.uuid4())
+    created_at = datetime.now().isoformat()
+
+    # 创建任务记录
+    tasks[task_id] = {
+        "status": "pending",
+        "message": f"多P任务已提交，共 {len(request.selected_parts)} 个分P",
+        "created_at": created_at,
+        "url": request.video_url,
+        "filename": None,
+    }
+
+    # 提交任务到异步队列
+    await inference_queue.submit_task(
+        task_id=task_id,
+        task_type="multipart",
+        task_data={
+            "video_url": request.video_url,
+            "selected_parts": request.selected_parts,
+            "llm_api": request.llm_api,
+            "temperature": request.temperature,
+            "max_tokens": request.max_tokens,
+            "text_only": request.text_only,
+        },
+        tasks_store=tasks,
+    )
+
+    return TaskResponse(
+        task_id=task_id,
+        status="pending",
+        message=f"多P任务已提交，共 {len(request.selected_parts)} 个分P",
         created_at=created_at,
         url=request.video_url,
     )

@@ -182,6 +182,10 @@ class InferenceQueue:
                         await self._process_subtitle_task(
                             task_id, task_data, tasks_store
                         )
+                    elif task_type == "multipart":
+                        await self._process_multipart_task(
+                            task_id, task_data, tasks_store
+                        )
                     else:
                         raise ValueError(f"未知的任务类型: {task_type}")
 
@@ -464,6 +468,64 @@ class InferenceQueue:
                     "subtitle_file": subtitle_path,
                     "output_video": video_path,
                     "info": info,
+                },
+                "completed_at": datetime.now().isoformat(),
+            }
+        )
+
+    async def _process_multipart_task(self, task_id: str, data: Dict, tasks_store: Dict):
+        """处理多P视频任务"""
+        loop = asyncio.get_event_loop()
+
+        # 导入多P处理器（延迟导入避免循环依赖）
+        from src.core.processors.multi_part_video import MultiPartVideoProcessor
+
+        # 创建任务（如果不存在）
+        if not self.task_manager.task_exists(task_id):
+            self.task_manager.create_task(task_id)
+
+        # 在线程池中执行同步处理函数
+        result_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
+            None,
+            MultiPartVideoProcessor().process,
+            data["video_url"],
+            data["selected_parts"],
+            data["llm_api"],
+            data["temperature"],
+            data["max_tokens"],
+            data.get("text_only", False),
+            task_id,
+        )
+
+        if self._is_task_cancelled(task_id, tasks_store):
+            self._mark_task_cancelled(task_id, tasks_store)
+            return
+
+        # 如果返回的是错误消息字符串（任务取消）
+        if isinstance(result_data, str):
+            tasks_store[task_id].update(
+                {
+                    "status": "cancelled",
+                    "message": result_data,
+                    "completed_at": datetime.now().isoformat(),
+                }
+            )
+            return
+
+        # 正常完成
+        tasks_store[task_id].update(
+            {
+                "status": "completed",
+                "message": f"多P视频处理完成，成功 {result_data['processed_parts']}/{result_data['total_parts']} 个分P",
+                "result": {
+                    "title": result_data.get("title", ""),
+                    "output_dir": result_data.get("output_dir", ""),
+                    "total_parts": result_data.get("total_parts", 0),
+                    "processed_parts": result_data.get("processed_parts", 0),
+                    "failed_parts": result_data.get("failed_parts"),
+                    "extract_time": extract_time,
+                    "polish_time": polish_time,
+                    "zip_file": zip_file,
                 },
                 "completed_at": datetime.now().isoformat(),
             }
