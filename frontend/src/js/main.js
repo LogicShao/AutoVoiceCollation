@@ -343,16 +343,16 @@ document.addEventListener('alpine:init', () => {
       return String(value);
     },
 
-    // 获取状态颜色
+    // 获取状态颜色（支持暗色主题）
     getStatusColor(status) {
       const colors = {
-        'pending': 'text-yellow-600',
-        'processing': 'text-blue-600',
-        'completed': 'text-green-600',
-        'failed': 'text-red-600',
-        'cancelled': 'text-gray-600'
+        'pending': 'text-yellow-600 dark:text-yellow-400',
+        'processing': 'text-blue-600 dark:text-blue-400',
+        'completed': 'text-green-600 dark:text-green-400',
+        'failed': 'text-red-600 dark:text-red-400',
+        'cancelled': 'text-gray-600 dark:text-gray-400'
       };
-      return colors[status] || 'text-gray-600';
+      return colors[status] || 'text-gray-600 dark:text-gray-400';
     }
   }));
 });
