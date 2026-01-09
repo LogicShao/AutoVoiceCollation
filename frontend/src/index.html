@@ -90,12 +90,21 @@
               type="url"
               x-model="biliUrl">
           </div>
-          <button :disabled="processing"
-                  class="w-full bg-blue-600 dark:bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
-                  type="submit">
-            <span x-show="!processing">检查视频</span>
-            <span x-show="processing">检查中...</span>
-          </button>
+          <div class="flex space-x-3">
+            <button :disabled="processing"
+                    class="flex-1 bg-blue-600 dark:bg-blue-500 text-white px-6 py-3 rounded-lg hover:bg-blue-700 dark:hover:bg-blue-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                    type="submit">
+              <span x-show="!processing">检查视频</span>
+              <span x-show="processing">检查中...</span>
+            </button>
+            <button :disabled="processing || !biliUrl"
+                    @click.prevent="processDirectly"
+                    class="flex-1 bg-green-600 dark:bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-700 dark:hover:bg-green-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
+                    type="button">
+              <span x-show="!processing">直接处理</span>
+              <span x-show="processing">处理中...</span>
+            </button>
+          </div>
         </form>
       </div>
 

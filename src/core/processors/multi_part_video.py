@@ -69,9 +69,7 @@ class MultiPartVideoProcessor(BaseProcessor):
             self._check_cancellation(task_id)
 
             # 2. 创建输出目录
-            output_dir = self.audio_processor._create_output_directory(
-                multi_part_info.main_title
-            )
+            output_dir = self._create_multipart_output_dir(multi_part_info.main_title)
             parts_dir = Path(output_dir) / "parts"
             parts_dir.mkdir(exist_ok=True)
 
@@ -284,3 +282,40 @@ class MultiPartVideoProcessor(BaseProcessor):
         """清理任务"""
         if task_id:
             self.task_manager.remove_task(task_id)
+
+    def _create_multipart_output_dir(self, main_title: str) -> str:
+        """
+        为多P视频创建输出目录
+
+        Args:
+            main_title: 主视频标题
+
+        Returns:
+            str: 输出目录路径
+        """
+        self.config.paths.output_dir.mkdir(parents=True, exist_ok=True)
+
+        # 清理标题作为目录名（移除非法字符）
+        safe_title = "".join(
+            c for c in main_title if c.isalnum() or c in (" ", "-", "_", "（", "）", "【", "】")
+        ).strip()
+        if not safe_title:
+            safe_title = "untitled"
+
+        output_dir = self.config.paths.output_dir / safe_title
+
+        # 避免目录重复
+        if output_dir.exists():
+            suffix_id = 1
+            while (self.config.paths.output_dir / f"{safe_title}_{suffix_id}").exists():
+                suffix_id += 1
+            output_dir = self.config.paths.output_dir / f"{safe_title}_{suffix_id}"
+
+        output_dir.mkdir(parents=True, exist_ok=True)
+
+        # 保存视频信息
+        info_file = output_dir / "video_info.txt"
+        with open(info_file, "w", encoding="utf-8") as f:
+            f.write(f"视频标题: {main_title}\n")
+
+        return str(output_dir)

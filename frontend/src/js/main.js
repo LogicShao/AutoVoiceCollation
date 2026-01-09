@@ -117,6 +117,36 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
+    // 跳过多P检测，直接处理
+    async processDirectly() {
+      if (!this.biliUrl) return;
+
+      this.processing = true;
+      this.result = null;
+
+      try {
+        const response = await fetch('/api/v1/process/bilibili', {
+          method: 'POST',
+          headers: {'Content-Type': 'application/json'},
+          body: JSON.stringify({video_url: this.biliUrl})
+        });
+
+        const data = await response.json();
+
+        if (response.ok) {
+          this.currentTask = data;
+          this.canCancel = true;
+          this.startPolling(data.task_id);
+        } else {
+          alert('错误: ' + (data.detail || '处理失败'));
+          this.processing = false;
+        }
+      } catch (error) {
+        alert('请求失败: ' + error.message);
+        this.processing = false;
+      }
+    },
+
     // 处理多P视频
     async processMultiPart() {
       if (this.selectedParts.length === 0) {
