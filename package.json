@@ -2,29 +2,28 @@
   "name": "autovoicecollation",
   "version": "1.0.0",
   "description": "AutoVoiceCollation 是一个功能强大的自动语音识别（ASR）和文本处理工具，旨在帮助用户快速整理和润色语音转录文本。",
-    "main": "frontend/src/js/main.js",
+  "main": "frontend/src/js/main.js",
   "directories": {
     "doc": "docs",
     "test": "tests"
   },
   "scripts": {
-      "dev": "npm run build:css:watch",
-      "build": "npm run build:css",
-      "build:css": "tailwindcss -i ./frontend/src/css/input.css -o ./frontend/dist/css/output.css --minify",
-      "build:css:watch": "tailwindcss -i ./frontend/src/css/input.css -o ./frontend/dist/css/output.css --watch",
-      "start": "python api.py"
+    "dev": "npm run build:css:watch",
+    "build": "npm run build:css",
+    "build:css": "tailwindcss -i ./frontend/src/css/input.css -o ./frontend/dist/css/output.css --minify",
+    "build:css:watch": "tailwindcss -i ./frontend/src/css/input.css -o ./frontend/dist/css/output.css --watch"
   },
   "repository": {
     "type": "git",
     "url": "git+https://github.com/LogicShao/AutoVoiceCollation.git"
   },
-    "keywords": [
-        "asr",
-        "speech-recognition",
-        "funasr",
-        "llm",
-        "subtitle"
-    ],
+  "keywords": [
+    "asr",
+    "speech-recognition",
+    "funasr",
+    "llm",
+    "subtitle"
+  ],
   "author": "",
   "license": "MIT",
   "type": "commonjs",
@@ -33,11 +32,11 @@
   },
   "homepage": "https://github.com/LogicShao/AutoVoiceCollation#readme",
   "devDependencies": {
-      "tailwindcss": "^3.4.1",
-      "autoprefixer": "^10.4.17",
-      "postcss": "^8.4.35"
+    "autoprefixer": "^10.4.17",
+    "postcss": "^8.4.35",
+    "tailwindcss": "^3.4.1"
   },
-    "dependencies": {
-        "alpinejs": "^3.13.5"
+  "dependencies": {
+    "alpinejs": "^3.13.5"
   }
 }

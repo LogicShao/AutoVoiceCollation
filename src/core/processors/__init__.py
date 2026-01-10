@@ -4,11 +4,11 @@
 提供音频、视频、字幕等处理功能
 """
 
-from .base import BaseProcessor
 from .audio import AudioProcessor
-from .video import VideoProcessor
-from .subtitle import SubtitleProcessor
+from .base import BaseProcessor
 from .multi_part_video import MultiPartVideoProcessor
+from .subtitle import SubtitleProcessor
+from .video import VideoProcessor
 
 __all__ = [
     "BaseProcessor",

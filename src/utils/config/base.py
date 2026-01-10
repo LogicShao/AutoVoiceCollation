@@ -5,6 +5,7 @@
 """
 
 from pathlib import Path
+
 from pydantic import ConfigDict
 from pydantic_settings import BaseSettings
 
@@ -35,9 +36,7 @@ class BaseConfig(BaseSettings):
         # 从当前文件向上查找项目根目录
         current = Path(__file__).resolve()
         while current.parent != current:
-            if (current / ".env.example").exists() or (
-                current / "requirements.txt"
-            ).exists():
+            if (current / ".env.example").exists() or (current / "requirements.txt").exists():
                 return current
             current = current.parent
         return Path.cwd()

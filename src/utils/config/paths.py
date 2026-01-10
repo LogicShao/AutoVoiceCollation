@@ -5,8 +5,9 @@
 """
 
 from pathlib import Path
-from typing import Optional
+
 from pydantic import Field, field_validator
+
 from .base import BaseConfig
 
 
@@ -38,7 +39,7 @@ class PathConfig(BaseConfig):
     )
 
     # 模型目录（None 表示使用系统默认缓存）
-    model_dir: Optional[Path] = Field(
+    model_dir: Path | None = Field(
         default=None, description="模型缓存目录（留空则使用系统默认缓存目录）"
     )
 
@@ -46,7 +47,7 @@ class PathConfig(BaseConfig):
         "output_dir", "download_dir", "temp_dir", "log_dir", "model_dir", mode="before"
     )
     @classmethod
-    def resolve_path(cls, v) -> Optional[Path]:
+    def resolve_path(cls, v) -> Path | None:
         """解析路径为绝对路径（处理空字符串）"""
         # 处理空字符串或 None
         if v is None or (isinstance(v, str) and v.strip() == ""):

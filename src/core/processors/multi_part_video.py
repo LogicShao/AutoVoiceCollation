@@ -4,15 +4,16 @@
 负责B站多P（多分集）视频的下载、处理和合并
 """
 
-from typing import List, Optional, Tuple, Any
 from pathlib import Path
+from typing import Any
 
-from .base import BaseProcessor
-from .audio import AudioProcessor
-from src.services.download import download_bilibili_audio, get_multi_part_info
 from src.core.exceptions import TaskCancelledException
+from src.services.download import download_bilibili_audio, get_multi_part_info
 from src.utils.config import get_config
 from src.utils.helpers.timer import Timer
+
+from .audio import AudioProcessor
+from .base import BaseProcessor
 
 
 class MultiPartVideoProcessor(BaseProcessor):
@@ -26,13 +27,13 @@ class MultiPartVideoProcessor(BaseProcessor):
     def process(
         self,
         video_url: str,
-        selected_parts: List[int],
+        selected_parts: list[int],
         llm_api: str,
         temperature: float,
         max_tokens: int,
         text_only: bool = False,
-        task_id: Optional[str] = None,
-    ) -> Tuple[Any, float, float, Optional[str]]:
+        task_id: str | None = None,
+    ) -> tuple[Any, float, float, str | None]:
         """
         处理多P视频
 
@@ -65,7 +66,9 @@ class MultiPartVideoProcessor(BaseProcessor):
             if not selected_parts_info:
                 raise ValueError(f"无效的分P编号：{selected_parts}")
 
-            self.logger.info(f"多P视频：{multi_part_info.main_title}, 选中 {len(selected_parts_info)} 个分P")
+            self.logger.info(
+                f"多P视频：{multi_part_info.main_title}, 选中 {len(selected_parts_info)} 个分P"
+            )
             self._check_cancellation(task_id)
 
             # 2. 创建输出目录
@@ -85,7 +88,9 @@ class MultiPartVideoProcessor(BaseProcessor):
                 self._check_cancellation(task_id)  # ✅ 每个分P前检查取消
 
                 try:
-                    self.logger.info(f"处理分P {part_info.part_number}/{len(selected_parts_info)}: {part_info.title}")
+                    self.logger.info(
+                        f"处理分P {part_info.part_number}/{len(selected_parts_info)}: {part_info.title}"
+                    )
                     result = self._process_single_part(
                         part_info, parts_dir, llm_api, temperature, max_tokens, task_id
                     )
@@ -100,11 +105,13 @@ class MultiPartVideoProcessor(BaseProcessor):
 
                 except Exception as e:
                     self.logger.error(f"处理分P {part_info.part_number} 失败: {e}", exc_info=True)
-                    failed_parts.append({
-                        "part_number": part_info.part_number,
-                        "title": part_info.title,
-                        "error": str(e)
-                    })
+                    failed_parts.append(
+                        {
+                            "part_number": part_info.part_number,
+                            "title": part_info.title,
+                            "error": str(e),
+                        }
+                    )
                     # 跳过失败的分P，继续处理其他分P
                     continue
 
@@ -154,10 +161,14 @@ class MultiPartVideoProcessor(BaseProcessor):
             # 如果有失败的分P，添加失败信息
             if failed_parts:
                 result_data["failed_parts"] = failed_parts
-                result_data["message"] = f"部分分P处理失败 ({len(failed_parts)}/{len(selected_parts_info)})"
+                result_data["message"] = (
+                    f"部分分P处理失败 ({len(failed_parts)}/{len(selected_parts_info)})"
+                )
                 self.logger.warning(f"部分分P处理失败：{failed_parts}")
 
-            self.logger.info(f"多P视频处理完成，成功 {len(part_results)}/{len(selected_parts_info)} 个分P")
+            self.logger.info(
+                f"多P视频处理完成，成功 {len(part_results)}/{len(selected_parts_info)} 个分P"
+            )
             return result_data, total_extract_time, total_polish_time, zip_file
 
         except TaskCancelledException as e:
@@ -176,7 +187,7 @@ class MultiPartVideoProcessor(BaseProcessor):
         llm_api: str,
         temperature: float,
         max_tokens: int,
-        task_id: Optional[str],
+        task_id: str | None,
     ) -> dict:
         """
         处理单个分P（复用 AudioProcessor 逻辑）
@@ -214,6 +225,7 @@ class MultiPartVideoProcessor(BaseProcessor):
         self._check_cancellation(task_id)
         self.logger.info(f"ASR识别分P {part_info.part_number}...")
         from src.services.asr import transcribe_audio
+
         timer.start()
         audio_text = transcribe_audio(audio_file.path, task_id=task_id)
         asr_time = timer.stop()
@@ -227,6 +239,7 @@ class MultiPartVideoProcessor(BaseProcessor):
         self._check_cancellation(task_id)
         self.logger.info(f"LLM润色分P {part_info.part_number}...")
         from src.text_arrangement import polish_text as polish_text_func
+
         timer.start()
         polished_text, polish_time = polish_text_func(
             audio_text, llm_api, temperature, max_tokens, task_id=task_id
@@ -246,7 +259,7 @@ class MultiPartVideoProcessor(BaseProcessor):
             "polish_time": polish_time,
         }
 
-    def _merge_parts_text(self, part_results: List[dict], output_dir: str) -> str:
+    def _merge_parts_text(self, part_results: list[dict], output_dir: str) -> str:
         """
         合并各分P的文本，添加章节标题
 
@@ -262,9 +275,7 @@ class MultiPartVideoProcessor(BaseProcessor):
         for result in part_results:
             # 章节分隔符（60个等号）
             chapter_header = (
-                f"\n\n{'='*60}\n"
-                f"第 {result['part_number']} P: {result['title']}\n"
-                f"{'='*60}\n\n"
+                f"\n\n{'=' * 60}\n第 {result['part_number']} P: {result['title']}\n{'=' * 60}\n\n"
             )
             merged_parts.append(chapter_header + result["polished_text"])
 

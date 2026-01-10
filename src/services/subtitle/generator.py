@@ -5,7 +5,6 @@ from abc import ABC, abstractmethod
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
-from typing import List, Tuple, Optional
 
 import jieba
 import soundfile as sf
@@ -13,11 +12,11 @@ import torch
 import torchaudio
 
 from src.SenseVoiceSmall.model import SenseVoiceSmall
-from src.utils.device.device_manager import detect_device as get_device
 from src.services.asr import get_asr_service
-from src.utils.logging.logger import get_logger
-from src.services.llm import query_llm, LLMQueryParams
+from src.services.llm import LLMQueryParams, query_llm
 from src.text_arrangement.split_text import clean_asr_text, smart_split
+from src.utils.device.device_manager import detect_device as get_device
+from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -46,9 +45,7 @@ class SubtitleConfig:
     # ASR 参数
     batch_size_s: int = 5  # SenseVoice 批处理大小（秒）
     paraformer_batch_size_s: int = 900  # Paraformer 批处理大小（秒）
-    paraformer_chunk_size_s: int = (
-        30  # Paraformer 音频分块大小（秒，用于提高长视频时间精度）
-    )
+    paraformer_chunk_size_s: int = 30  # Paraformer 音频分块大小（秒，用于提高长视频时间精度）
     sample_rate: int = 16000
 
     # 文本匹配参数
@@ -84,7 +81,7 @@ class ASRResult:
     """ASR 识别结果"""
 
     text: str
-    timestamp: List[Tuple[str, float, float]]  # [(字符, 开始时间, 结束时间), ...]
+    timestamp: list[tuple[str, float, float]]  # [(字符, 开始时间, 结束时间), ...]
 
     def get_clean_text(self) -> str:
         """获取清理后的文本"""
@@ -168,9 +165,7 @@ class TextMatcher:
         return TextMatcher.levenshtein_distance(s1, s2) <= max_distance
 
     @staticmethod
-    def align_text_segments(
-        segments: List[str], original: str, max_distance: int
-    ) -> List[str]:
+    def align_text_segments(segments: list[str], original: str, max_distance: int) -> list[str]:
         """
         将 LLM 切分的文本段与原始文本对齐
 
@@ -178,7 +173,7 @@ class TextMatcher:
         """
         processed = "".join(segments)
         if not TextMatcher.is_similar(processed, original, max_distance):
-            logger.warning(f"切分文本与原文差异过大，放弃对齐")
+            logger.warning("切分文本与原文差异过大，放弃对齐")
             return []
 
         aligned = []
@@ -209,7 +204,7 @@ class TempFileManager:
     def __init__(self, temp_dir: Path):
         self.temp_dir = temp_dir
         self.temp_dir.mkdir(parents=True, exist_ok=True)
-        self._created_files: List[Path] = []
+        self._created_files: list[Path] = []
 
     def create_temp_file(self, prefix: str, suffix: str) -> Path:
         """创建临时文件路径"""
@@ -246,7 +241,7 @@ class AudioSlicer:
 
     def slice(
         self, audio_path: str, batch_size_s: float
-    ) -> List[Tuple[torch.Tensor, float, float]]:
+    ) -> list[tuple[torch.Tensor, float, float]]:
         """
         将音频切分为固定长度的片段
 
@@ -289,7 +284,7 @@ class ASRProcessor(ABC):
 class SenseVoiceProcessor(ASRProcessor):
     """SenseVoice ASR 处理器"""
 
-    def __init__(self, config: SubtitleConfig, device: Optional[str] = None):
+    def __init__(self, config: SubtitleConfig, device: str | None = None):
         self.config = config
         self.device = device or get_device()
         self.model = None
@@ -315,9 +310,7 @@ class SenseVoiceProcessor(ASRProcessor):
 
         with TempFileManager(self.config.temp_dir) as temp_mgr:
             for idx, (audio_tensor, t_start, t_end) in enumerate(slices):
-                logger.info(
-                    f"处理片段 {idx + 1}/{len(slices)}: {t_start:.2f}s - {t_end:.2f}s"
-                )
+                logger.info(f"处理片段 {idx + 1}/{len(slices)}: {t_start:.2f}s - {t_end:.2f}s")
 
                 temp_path = temp_mgr.create_temp_file("clip", ".wav")
                 sf.write(
@@ -398,9 +391,7 @@ class ParaformerProcessor(ASRProcessor):
 
         with TempFileManager(self.config.temp_dir) as temp_mgr:
             for idx, (audio_tensor, t_start, t_end) in enumerate(slices):
-                logger.info(
-                    f"处理片段 {idx + 1}/{len(slices)}: {t_start:.2f}s - {t_end:.2f}s"
-                )
+                logger.info(f"处理片段 {idx + 1}/{len(slices)}: {t_start:.2f}s - {t_end:.2f}s")
 
                 # 保存临时音频文件
                 temp_path = temp_mgr.create_temp_file("para_clip", ".wav")
@@ -420,14 +411,10 @@ class ParaformerProcessor(ASRProcessor):
                     )
 
                     text = res[0]["text"]
-                    sentence_timestamps = res[0][
-                        "timestamp"
-                    ]  # [[begin_ms, end_ms], ...]
+                    sentence_timestamps = res[0]["timestamp"]  # [[begin_ms, end_ms], ...]
 
                     # 将句子级别的时间戳插值为字符级别
-                    char_timestamps = self._interpolate_char_timestamps(
-                        text, sentence_timestamps
-                    )
+                    char_timestamps = self._interpolate_char_timestamps(text, sentence_timestamps)
 
                     # 修正时间戳为全局时间（加上片段起始时间偏移）
                     adjusted_timestamps = [
@@ -451,8 +438,8 @@ class ParaformerProcessor(ASRProcessor):
         return ASRResult(text=full_text, timestamp=full_timestamp)
 
     def _interpolate_char_timestamps(
-        self, text: str, sentence_timestamps: List[List[int]]
-    ) -> List[Tuple[str, float, float]]:
+        self, text: str, sentence_timestamps: list[list[int]]
+    ) -> list[tuple[str, float, float]]:
         """
         将句子级别的时间戳插值为字符级别
 
@@ -507,7 +494,7 @@ class SubtitleSegmenter(ABC):
     """字幕分段器抽象基类"""
 
     @abstractmethod
-    def segment(self, asr_result: ASRResult) -> List[SubtitleSegment]:
+    def segment(self, asr_result: ASRResult) -> list[SubtitleSegment]:
         """将 ASR 结果分段为字幕片段"""
         pass
 
@@ -518,7 +505,7 @@ class PauseBasedSegmenter(SubtitleSegmenter):
     def __init__(self, config: SubtitleConfig):
         self.config = config
 
-    def segment(self, asr_result: ASRResult) -> List[SubtitleSegment]:
+    def segment(self, asr_result: ASRResult) -> list[SubtitleSegment]:
         """基于停顿和语义进行分段"""
         if not asr_result.timestamp:
             return []
@@ -548,9 +535,7 @@ class PauseBasedSegmenter(SubtitleSegmenter):
                 # 使用分词判断语义边界
                 if self._is_semantic_boundary(current_text) or is_pause:
                     segments.append(
-                        SubtitleSegment(
-                            text=current_text, start_time=current_start, end_time=end
-                        )
+                        SubtitleSegment(text=current_text, start_time=current_start, end_time=end)
                     )
                     current_chars = []
                     current_text = ""
@@ -586,7 +571,7 @@ class PunctuationPauseSegmenter(SubtitleSegmenter):
     def __init__(self, config: SubtitleConfig):
         self.config = config
 
-    def segment(self, asr_result: ASRResult) -> List[SubtitleSegment]:
+    def segment(self, asr_result: ASRResult) -> list[SubtitleSegment]:
         """
         基于标点符号和停顿进行分段
 
@@ -626,8 +611,7 @@ class PunctuationPauseSegmenter(SubtitleSegmenter):
             )
             is_over_length = current_len >= self.config.max_chars_per_segment
             is_pause = (
-                next_pause > self.config.pause_threshold
-                and current_len >= min_segment_length
+                next_pause > self.config.pause_threshold and current_len >= min_segment_length
             )
 
             # 分段决策
@@ -636,29 +620,21 @@ class PunctuationPauseSegmenter(SubtitleSegmenter):
             if is_strong_punctuation:
                 # 强标点符号：必定分段
                 should_segment = True
-                logger.debug(
-                    f"强标点分段: '{current_text[-10:]}' (长度: {current_len})"
-                )
+                logger.debug(f"强标点分段: '{current_text[-10:]}' (长度: {current_len})")
 
             elif is_weak_punctuation:
                 # 弱标点符号 + 达到最小长度：分段
                 should_segment = True
-                logger.debug(
-                    f"弱标点分段: '{current_text[-10:]}' (长度: {current_len})"
-                )
+                logger.debug(f"弱标点分段: '{current_text[-10:]}' (长度: {current_len})")
 
             elif is_over_length:
                 # 超过最大长度：寻找最近的标点或停顿
                 if is_pause:
                     should_segment = True
-                    logger.debug(
-                        f"超长+停顿分段: '{current_text[-10:]}' (长度: {current_len})"
-                    )
+                    logger.debug(f"超长+停顿分段: '{current_text[-10:]}' (长度: {current_len})")
                 elif self._is_semantic_boundary(current_text):
                     should_segment = True
-                    logger.debug(
-                        f"超长+语义分段: '{current_text[-10:]}' (长度: {current_len})"
-                    )
+                    logger.debug(f"超长+语义分段: '{current_text[-10:]}' (长度: {current_len})")
 
             elif is_pause:
                 # 仅停顿：分段
@@ -710,7 +686,7 @@ class LLMBasedSegmenter(SubtitleSegmenter):
         self.fallback_segmenter = fallback_segmenter
         self.text_matcher = TextMatcher()
 
-    def segment(self, asr_result: ASRResult) -> List[SubtitleSegment]:
+    def segment(self, asr_result: ASRResult) -> list[SubtitleSegment]:
         """使用 LLM 进行智能分段"""
         if not asr_result.timestamp:
             return []
@@ -732,9 +708,7 @@ class LLMBasedSegmenter(SubtitleSegmenter):
 
         for chunk in text_chunks:
             chunk_clean = chunk.replace(" ", "").replace("\n", "")
-            chunk_segments = self._segment_chunk(
-                chunk_clean, asr_result.timestamp, time_cursor
-            )
+            chunk_segments = self._segment_chunk(chunk_clean, asr_result.timestamp, time_cursor)
 
             if chunk_segments:
                 segments.extend(chunk_segments)
@@ -742,7 +716,7 @@ class LLMBasedSegmenter(SubtitleSegmenter):
                 time_cursor += len(chunk_clean)
             else:
                 # LLM 分段失败，使用回退策略
-                logger.warning(f"LLM 分段失败，使用回退策略处理该块")
+                logger.warning("LLM 分段失败，使用回退策略处理该块")
                 # 找到该块对应的时间戳范围
                 start_idx = time_cursor
                 end_idx = time_cursor + len(chunk_clean)
@@ -759,9 +733,9 @@ class LLMBasedSegmenter(SubtitleSegmenter):
     def _segment_chunk(
         self,
         chunk: str,
-        full_timestamp: List[Tuple[str, float, float]],
+        full_timestamp: list[tuple[str, float, float]],
         time_cursor: int,
-    ) -> List[SubtitleSegment]:
+    ) -> list[SubtitleSegment]:
         """
         使用 LLM 分段单个文本块
 
@@ -805,8 +779,7 @@ class LLMBasedSegmenter(SubtitleSegmenter):
                     return self._align_segments_with_timestamp(
                         split_parts, chunk, full_timestamp, time_cursor
                     )
-                else:
-                    logger.warning(f"LLM 响应与原文不匹配，尝试 {attempt + 1}")
+                logger.warning(f"LLM 响应与原文不匹配，尝试 {attempt + 1}")
 
             except Exception as e:
                 logger.error(f"LLM 查询出错: {e}")
@@ -816,11 +789,11 @@ class LLMBasedSegmenter(SubtitleSegmenter):
 
     def _align_segments_with_timestamp(
         self,
-        split_parts: List[str],
+        split_parts: list[str],
         original_chunk: str,
-        full_timestamp: List[Tuple[str, float, float]],
+        full_timestamp: list[tuple[str, float, float]],
         time_cursor: int,
-    ) -> List[SubtitleSegment]:
+    ) -> list[SubtitleSegment]:
         """将 LLM 切分的文本段与时间戳对齐"""
         # 修复切分结果
         aligned_parts = TextMatcher.align_text_segments(
@@ -838,9 +811,7 @@ class LLMBasedSegmenter(SubtitleSegmenter):
             part_chars = []
             matched_text = ""
 
-            while matched_text != part and (time_cursor + local_cursor) < len(
-                full_timestamp
-            ):
+            while matched_text != part and (time_cursor + local_cursor) < len(full_timestamp):
                 char_info = full_timestamp[time_cursor + local_cursor]
                 part_chars.append(char_info)
                 matched_text += char_info[0]
@@ -867,7 +838,7 @@ class SubtitleFileGenerator:
     """字幕文件生成器"""
 
     @staticmethod
-    def generate_srt(segments: List[SubtitleSegment], output_path: str) -> str:
+    def generate_srt(segments: list[SubtitleSegment], output_path: str) -> str:
         """生成 SRT 字幕文件"""
         lines = []
         for idx, seg in enumerate(segments, 1):
@@ -886,7 +857,7 @@ class SubtitleFileGenerator:
         return output_path
 
     @staticmethod
-    def generate_cc(segments: List[SubtitleSegment], output_path: str) -> str:
+    def generate_cc(segments: list[SubtitleSegment], output_path: str) -> str:
         """生成 CC 字幕文件"""
         lines = []
         for seg in segments:
@@ -911,9 +882,7 @@ class SubtitleVideoEncoder:
     """字幕视频硬编码器"""
 
     @staticmethod
-    def encode(
-        video_path: str, srt_path: str, output_path: Optional[str] = None
-    ) -> str:
+    def encode(video_path: str, srt_path: str, output_path: str | None = None) -> str:
         """
         将 SRT 字幕硬编码到视频中
 
@@ -979,11 +948,11 @@ class SubtitleVideoEncoder:
 
 def generate_subtitle_file(
     audio_path: str,
-    output_path: Optional[str] = None,
+    output_path: str | None = None,
     file_type: str = "srt",
     model: str = "paraformer",
     segmenter_type: str = "pause",
-    config: Optional[SubtitleConfig] = None,
+    config: SubtitleConfig | None = None,
     api_server: str = "gemini-2.0-flash",
     paraformer_chunk_size_s: int = 30,
 ) -> str:
@@ -1053,13 +1022,10 @@ def generate_subtitle_file(
     logger.info(f"生成 {file_type.upper()} 字幕文件")
     if file_type == "srt":
         return SubtitleFileGenerator.generate_srt(segments, output_path)
-    else:
-        return SubtitleFileGenerator.generate_cc(segments, output_path)
+    return SubtitleFileGenerator.generate_cc(segments, output_path)
 
 
-def encode_subtitle_to_video(
-    video_path: str, srt_path: str, output_path: Optional[str] = None
-) -> str:
+def encode_subtitle_to_video(video_path: str, srt_path: str, output_path: str | None = None) -> str:
     """
     将字幕硬编码到视频中（高层 API）
 
@@ -1095,7 +1061,7 @@ def gen_timestamped_text_file(
 
 
 def hard_encode_dot_srt_file(
-    input_video_path: str, input_srt_path: str, output_video_path: Optional[str] = None
+    input_video_path: str, input_srt_path: str, output_video_path: str | None = None
 ) -> str:
     """
     向后兼容的函数（旧接口）
@@ -1109,9 +1075,10 @@ def hard_encode_dot_srt_file(
 
 if __name__ == "__main__":
     import sys
+
     from src.services.download import (
-        extract_audio_from_video,
         download_bilibili_video,
+        extract_audio_from_video,
     )
     from src.utils.config import get_config
 
@@ -1127,29 +1094,33 @@ if __name__ == "__main__":
             sys.exit(1)
     else:
         video_url = input("请输入 B站视频链接: ").strip()
-        video_path = download_bilibili_video(video_url, output_format='mp4', output_dir=str(config.paths.download_dir))
+        video_path = download_bilibili_video(
+            video_url, output_format="mp4", output_dir=str(config.paths.download_dir)
+        )
 
     # 提取音频
-    audio_path = extract_audio_from_video(video_path, output_format='mp3', output_dir=str(config.paths.download_dir))
+    audio_path = extract_audio_from_video(
+        video_path, output_format="mp3", output_dir=str(config.paths.download_dir)
+    )
 
     # 选择配置
-    file_type = input("字幕格式 (srt/cc) [默认 srt]: ").strip().lower() or 'srt'
-    model = input("ASR 模型 (paraformer/sense_voice) [默认 paraformer]: ").strip().lower() or 'paraformer'
-    segmenter = input("分段策略 (pause/llm) [默认 pause]: ").strip().lower() or 'pause'
+    file_type = input("字幕格式 (srt/cc) [默认 srt]: ").strip().lower() or "srt"
+    model = (
+        input("ASR 模型 (paraformer/sense_voice) [默认 paraformer]: ").strip().lower()
+        or "paraformer"
+    )
+    segmenter = input("分段策略 (pause/llm) [默认 pause]: ").strip().lower() or "pause"
 
     # 生成字幕
     subtitle_path = generate_subtitle_file(
-        audio_path=audio_path,
-        file_type=file_type,
-        model=model,
-        segmenter_type=segmenter
+        audio_path=audio_path, file_type=file_type, model=model, segmenter_type=segmenter
     )
 
     logger.info(f"字幕文件已生成: {subtitle_path}")
 
     # 硬编码（仅支持 SRT）
-    if file_type == 'srt':
+    if file_type == "srt":
         encode = input("是否硬编码字幕到视频? (y/n): ").strip().lower()
-        if encode == 'y':
+        if encode == "y":
             output_video = encode_subtitle_to_video(video_path, subtitle_path)
             logger.info(f"硬编码完成: {output_video}")

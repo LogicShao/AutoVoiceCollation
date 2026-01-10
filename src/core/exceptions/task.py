@@ -4,14 +4,13 @@
 定义任务生命周期和管理相关的异常
 """
 
-from typing import Optional
 from .base import AutoVoiceCollationError
 
 
 class TaskError(AutoVoiceCollationError):
     """任务基础异常"""
 
-    def __init__(self, message: str, task_id: Optional[str] = None):
+    def __init__(self, message: str, task_id: str | None = None):
         details = {"task_id": task_id} if task_id else {}
         super().__init__(message, "TASK_ERROR", details)
 
@@ -46,7 +45,7 @@ class TaskAlreadyExistsError(TaskError):
 class TaskTimeoutError(TaskError):
     """任务超时异常"""
 
-    def __init__(self, task_id: str, timeout: Optional[float] = None):
+    def __init__(self, task_id: str, timeout: float | None = None):
         super().__init__(f"任务 {task_id} 执行超时", task_id)
         self.code = "TASK_TIMEOUT"
         if timeout:

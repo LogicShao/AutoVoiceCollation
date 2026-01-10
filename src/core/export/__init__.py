@@ -5,9 +5,9 @@
 """
 
 from .file_manager import (
+    clean_directory,
     copy_output_files,
     move_output_files,
-    clean_directory,
     remove_files,
 )
 

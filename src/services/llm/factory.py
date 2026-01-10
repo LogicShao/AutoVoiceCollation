@@ -5,16 +5,17 @@ LLM服务工厂
 """
 
 import os
-from typing import Callable, Dict
+from collections.abc import Callable
 
 from cerebras.cloud.sdk import Cerebras
 from google import genai
 from google.genai import types
 from openai import OpenAI
 
-from src.utils.logging.logger import get_logger
-from .models import LLMQueryParams, is_local_llm
 from src.utils.config import get_config
+from src.utils.logging.logger import get_logger
+
+from .models import LLMQueryParams, is_local_llm
 
 logger = get_logger(__name__)
 
@@ -217,15 +218,13 @@ def _init_local_llm():
         return
 
     try:
-        from transformers import AutoTokenizer, AutoModelForCausalLM, pipeline
+        from transformers import AutoModelForCausalLM, AutoTokenizer, pipeline
 
         model_name = "Qwen/Qwen2.5-1.5B-Instruct"
         logger.info(f"Loading local model: {model_name} ... This may take a while.")
 
         tokenizer = AutoTokenizer.from_pretrained(model_name)
-        model = AutoModelForCausalLM.from_pretrained(
-            model_name, device_map="auto", dtype="auto"
-        )
+        model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", dtype="auto")
 
         def query_local_qwen2_5(params: LLMQueryParams) -> str:
             pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
@@ -252,7 +251,7 @@ def _init_local_llm():
 
 # ============= LLM服务注册表 =============
 
-_llm_registry: Dict[str, Callable[[LLMQueryParams], str]] = {
+_llm_registry: dict[str, Callable[[LLMQueryParams], str]] = {
     "deepseek-chat": query_deepseek_chat,
     "deepseek-reasoner": query_deepseek_reasoner,
     "gemini-2.0-flash": query_gemini_2_0_flash,
@@ -289,8 +288,7 @@ def query_llm(params: LLMQueryParams) -> str:
     # 处理云端LLM
     if api_server not in _llm_registry:
         raise ValueError(
-            f"Unsupported LLM API: {api_server}. "
-            f"Supported: {list(_llm_registry.keys())}"
+            f"Unsupported LLM API: {api_server}. Supported: {list(_llm_registry.keys())}"
         )
 
     query_func = _llm_registry[api_server]

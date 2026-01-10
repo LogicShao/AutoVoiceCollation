@@ -4,13 +4,13 @@
 统一管理所有配置并提供全局访问接口
 """
 
-from typing import Optional
 from pydantic import Field, field_validator
-from .base import BaseConfig
-from .paths import PathConfig
-from .llm import LLMConfig
+
 from .asr import ASRConfig
+from .base import BaseConfig
+from .llm import LLMConfig
 from .logging import LoggingConfig
+from .paths import PathConfig
 
 
 class AppConfig(BaseConfig):
@@ -39,7 +39,7 @@ class AppConfig(BaseConfig):
     )
 
     # Web 服务器配置
-    web_server_port: Optional[int] = Field(
+    web_server_port: int | None = Field(
         default=None, description="Web 服务器端口（留空则不启动 Web 服务）"
     )
 
@@ -49,9 +49,7 @@ class AppConfig(BaseConfig):
     # 调试配置
     debug_flag: bool = Field(default=False, description="调试模式")
 
-    enable_strict_validation: bool = Field(
-        default=False, description="是否启用严格验证模式"
-    )
+    enable_strict_validation: bool = Field(default=False, description="是否启用严格验证模式")
 
     @field_validator("output_style")
     @classmethod
@@ -66,14 +64,12 @@ class AppConfig(BaseConfig):
             "json",
         ]
         if v not in valid_styles:
-            raise ValueError(
-                f"无效的输出样式: {v}。有效样式: {', '.join(valid_styles)}"
-            )
+            raise ValueError(f"无效的输出样式: {v}。有效样式: {', '.join(valid_styles)}")
         return v
 
     @field_validator("web_server_port", mode="before")
     @classmethod
-    def validate_port(cls, v) -> Optional[int]:
+    def validate_port(cls, v) -> int | None:
         """验证端口号（处理空字符串）"""
         # 处理空字符串或 None
         if v is None or (isinstance(v, str) and v.strip() == ""):
@@ -110,12 +106,11 @@ class AppConfig(BaseConfig):
             message = "警告: 未配置任何 LLM API Key，某些功能可能无法使用"
             if self.enable_strict_validation:
                 raise ValueError(message)
-            else:
-                print(f"⚠️  {message}")
+            print(f"⚠️  {message}")
 
 
 # 全局配置实例
-_config: Optional[AppConfig] = None
+_config: AppConfig | None = None
 
 
 def get_config(reload: bool = False) -> AppConfig:

@@ -6,17 +6,17 @@
 
 import asyncio
 import os
-from pathlib import Path
-from asyncio import Queue
-from typing import Optional, Dict, Any
-from datetime import datetime
 import traceback
+from asyncio import Queue
+from datetime import datetime
+from pathlib import Path
+from typing import Any, Optional
 
-from src.utils.logging.logger import get_logger
-from src.utils.config import get_config
-from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor
+from src.core.processors import AudioProcessor, SubtitleProcessor, VideoProcessor
 from src.text_arrangement.summary_by_llm import summarize_text
+from src.utils.config import get_config
 from src.utils.helpers.task_manager import get_task_manager
+from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -46,7 +46,7 @@ class InferenceQueue:
             return
 
         self.queue: Queue = Queue(maxsize=50)  # 限制队列容量,避免积压
-        self.worker_task: Optional[asyncio.Task] = None
+        self.worker_task: asyncio.Task | None = None
         self._initialized = True
 
         # 初始化处理器（延迟加载模型）
@@ -76,8 +76,8 @@ class InferenceQueue:
         self,
         task_id: str,
         task_type: str,
-        task_data: Dict[str, Any],
-        tasks_store: Dict,
+        task_data: dict[str, Any],
+        tasks_store: dict,
     ):
         """
         提交任务到队列
@@ -109,14 +109,12 @@ class InferenceQueue:
                 }
             )
 
-    def _is_task_cancelled(self, task_id: str, tasks_store: Dict) -> bool:
+    def _is_task_cancelled(self, task_id: str, tasks_store: dict) -> bool:
         task_info = tasks_store.get(task_id, {})
-        return task_info.get("status") == "cancelled" or self.task_manager.should_stop(
-            task_id
-        )
+        return task_info.get("status") == "cancelled" or self.task_manager.should_stop(task_id)
 
     def _mark_task_cancelled(
-        self, task_id: str, tasks_store: Dict, message: str = "任务已取消"
+        self, task_id: str, tasks_store: dict, message: str = "任务已取消"
     ) -> None:
         task_info = tasks_store.get(task_id)
         if task_info is None:
@@ -171,21 +169,15 @@ class InferenceQueue:
 
                     # 根据类型调用处理函数
                     if task_type == "bilibili":
-                        await self._process_bilibili_task(
-                            task_id, task_data, tasks_store
-                        )
+                        await self._process_bilibili_task(task_id, task_data, tasks_store)
                     elif task_type == "audio":
                         await self._process_audio_task(task_id, task_data, tasks_store)
                     elif task_type == "batch":
                         await self._process_batch_task(task_id, task_data, tasks_store)
                     elif task_type == "subtitle":
-                        await self._process_subtitle_task(
-                            task_id, task_data, tasks_store
-                        )
+                        await self._process_subtitle_task(task_id, task_data, tasks_store)
                     elif task_type == "multipart":
-                        await self._process_multipart_task(
-                            task_id, task_data, tasks_store
-                        )
+                        await self._process_multipart_task(task_id, task_data, tasks_store)
                     else:
                         raise ValueError(f"未知的任务类型: {task_type}")
 
@@ -214,7 +206,7 @@ class InferenceQueue:
             except Exception as e:
                 logger.error(f"工作循环异常: {e}", exc_info=True)
 
-    async def _process_bilibili_task(self, task_id: str, data: Dict, tasks_store: Dict):
+    async def _process_bilibili_task(self, task_id: str, data: dict, tasks_store: dict):
         """处理 B站视频任务"""
         loop = asyncio.get_event_loop()
 
@@ -267,9 +259,7 @@ class InferenceQueue:
 
             output_dir = self._extract_output_dir(result_data)
             if output_dir and not result_data.get("zip_file"):
-                result_data["zip_file"] = self._build_lazy_zip_path(
-                    task_id, output_dir
-                )
+                result_data["zip_file"] = self._build_lazy_zip_path(task_id, output_dir)
 
             if self._is_task_cancelled(task_id, tasks_store):
                 self._mark_task_cancelled(task_id, tasks_store)
@@ -304,7 +294,7 @@ class InferenceQueue:
                 }
             )
 
-    async def _process_audio_task(self, task_id: str, data: Dict, tasks_store: Dict):
+    async def _process_audio_task(self, task_id: str, data: dict, tasks_store: dict):
         """处理音频任务"""
         loop = asyncio.get_event_loop()
 
@@ -361,9 +351,7 @@ class InferenceQueue:
 
             output_dir = self._extract_output_dir(result_data)
             if output_dir and not result_data.get("zip_file"):
-                result_data["zip_file"] = self._build_lazy_zip_path(
-                    task_id, output_dir
-                )
+                result_data["zip_file"] = self._build_lazy_zip_path(task_id, output_dir)
 
             if self._is_task_cancelled(task_id, tasks_store):
                 self._mark_task_cancelled(task_id, tasks_store)
@@ -398,7 +386,7 @@ class InferenceQueue:
                 }
             )
 
-    async def _process_batch_task(self, task_id: str, data: Dict, tasks_store: Dict):
+    async def _process_batch_task(self, task_id: str, data: dict, tasks_store: dict):
         """处理批量任务"""
         loop = asyncio.get_event_loop()
 
@@ -440,7 +428,7 @@ class InferenceQueue:
             }
         )
 
-    async def _process_subtitle_task(self, task_id: str, data: Dict, tasks_store: Dict):
+    async def _process_subtitle_task(self, task_id: str, data: dict, tasks_store: dict):
         """处理字幕任务"""
         loop = asyncio.get_event_loop()
 
@@ -473,7 +461,7 @@ class InferenceQueue:
             }
         )
 
-    async def _process_multipart_task(self, task_id: str, data: Dict, tasks_store: Dict):
+    async def _process_multipart_task(self, task_id: str, data: dict, tasks_store: dict):
         """处理多P视频任务"""
         loop = asyncio.get_event_loop()
 
@@ -533,7 +521,7 @@ class InferenceQueue:
 
 
 # 全局单例
-_inference_queue: Optional[InferenceQueue] = None
+_inference_queue: InferenceQueue | None = None
 
 
 def get_inference_queue() -> InferenceQueue:

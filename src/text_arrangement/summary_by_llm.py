@@ -1,5 +1,5 @@
-from src.utils.logging.logger import get_logger
 from src.services.llm import LLMQueryParams, query_llm
+from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
 

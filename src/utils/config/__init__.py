@@ -4,12 +4,12 @@
 基于 Pydantic v2 的类型安全配置系统
 """
 
-from .base import BaseConfig
-from .paths import PathConfig
-from .llm import LLMConfig
 from .asr import ASRConfig
+from .base import BaseConfig
+from .llm import LLMConfig
 from .logging import LoggingConfig
-from .manager import get_config, AppConfig
+from .manager import AppConfig, get_config
+from .paths import PathConfig
 
 __all__ = [
     "BaseConfig",

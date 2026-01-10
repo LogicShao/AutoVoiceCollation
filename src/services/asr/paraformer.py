@@ -4,8 +4,6 @@ Paraformer ASR服务
 封装Paraformer模型的ASR功能
 """
 
-from typing import Optional
-
 from funasr import AutoModel
 
 from src.utils.config import get_config
@@ -16,7 +14,7 @@ from .base import BaseASRService
 class ParaformerService(BaseASRService):
     """Paraformer ASR服务"""
 
-    def __init__(self, device: str, onnx_providers: Optional[list] = None):
+    def __init__(self, device: str, onnx_providers: list | None = None):
         """
         初始化Paraformer服务
 
@@ -48,9 +46,7 @@ class ParaformerService(BaseASRService):
                 "device": self.device,
                 "disable_update": True,
                 "model_hub": "huggingface",
-                "cache_dir": str(config.paths.model_dir)
-                if config.paths.model_dir
-                else None,
+                "cache_dir": str(config.paths.model_dir) if config.paths.model_dir else None,
             }
 
             # 如果启用ONNX且有可用提供者
@@ -67,7 +63,7 @@ class ParaformerService(BaseASRService):
         except Exception as e:
             raise RuntimeError(f"Failed to load Paraformer model: {e}")
 
-    def transcribe(self, audio_path: str, task_id: Optional[str] = None) -> str:
+    def transcribe(self, audio_path: str, task_id: str | None = None) -> str:
         """
         使用Paraformer转录音频
 

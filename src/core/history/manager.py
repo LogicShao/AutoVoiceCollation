@@ -6,13 +6,13 @@
 import hashlib
 import json
 import re
-from dataclasses import dataclass, asdict
+from dataclasses import asdict, dataclass
 from datetime import datetime
 from pathlib import Path
-from typing import Optional, Dict, Any, List
+from typing import Any
 
-from src.utils.logging.logger import get_logger
 from src.utils.config.manager import get_config
+from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -23,20 +23,20 @@ class ProcessRecord:
 
     identifier: str  # 唯一标识符（BV号、文件hash等）
     record_type: str  # 类型：bilibili, local_audio, local_video
-    url: Optional[str]  # B站链接（如果是B站视频）
+    url: str | None  # B站链接（如果是B站视频）
     title: str  # 视频/文件标题
     output_dir: str  # 输出目录
     last_processed: str  # 最后处理时间（ISO格式）
-    config: Dict[str, Any]  # 处理配置
-    outputs: Dict[str, str]  # 输出文件路径
+    config: dict[str, Any]  # 处理配置
+    outputs: dict[str, str]  # 输出文件路径
     process_count: int = 1  # 处理次数
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """转换为字典"""
         return asdict(self)
 
     @classmethod
-    def from_dict(cls, data: Dict[str, Any]) -> "ProcessRecord":
+    def from_dict(cls, data: dict[str, Any]) -> "ProcessRecord":
         """从字典创建实例"""
         return cls(**data)
 
@@ -76,7 +76,7 @@ class ProcessHistoryManager:
 
         self.history_file = Path(history_file)
         self.version = "1.0"
-        self.records: Dict[str, ProcessRecord] = {}
+        self.records: dict[str, ProcessRecord] = {}
 
         # 确保历史文件目录存在
         self.history_file.parent.mkdir(parents=True, exist_ok=True)
@@ -94,7 +94,7 @@ class ProcessHistoryManager:
             return
 
         try:
-            with open(self.history_file, "r", encoding="utf-8") as f:
+            with open(self.history_file, encoding="utf-8") as f:
                 data = json.load(f)
 
             self.version = data.get("version", "1.0")
@@ -122,8 +122,7 @@ class ProcessHistoryManager:
             data = {
                 "version": self.version,
                 "records": {
-                    identifier: record.to_dict()
-                    for identifier, record in self.records.items()
+                    identifier: record.to_dict() for identifier, record in self.records.items()
                 },
             }
 
@@ -135,7 +134,7 @@ class ProcessHistoryManager:
             logger.error(f"保存历史记录失败: {e}", exc_info=True)
 
     @staticmethod
-    def extract_bilibili_id(url: str) -> Optional[str]:
+    def extract_bilibili_id(url: str) -> str | None:
         """
         从B站链接中提取视频ID（BV号或AV号）
         支持多种B站链接格式
@@ -179,7 +178,7 @@ class ProcessHistoryManager:
         """检查标识符是否已被处理过"""
         return identifier in self.records
 
-    def get_record(self, identifier: str) -> Optional[ProcessRecord]:
+    def get_record(self, identifier: str) -> ProcessRecord | None:
         """获取处理记录"""
         return self.records.get(identifier)
 
@@ -195,9 +194,7 @@ class ProcessHistoryManager:
             existing.config = record.config
             existing.outputs = record.outputs
             existing.process_count += 1
-            logger.info(
-                f"更新处理记录: {identifier}，处理次数: {existing.process_count}"
-            )
+            logger.info(f"更新处理记录: {identifier}，处理次数: {existing.process_count}")
         else:
             # 添加新记录
             self.records[identifier] = record
@@ -215,7 +212,7 @@ class ProcessHistoryManager:
             return True
         return False
 
-    def get_all_records(self) -> List[ProcessRecord]:
+    def get_all_records(self) -> list[ProcessRecord]:
         """获取所有处理记录，按时间倒序排列"""
         records = list(self.records.values())
         records.sort(key=lambda r: r.last_processed, reverse=True)
@@ -226,8 +223,8 @@ class ProcessHistoryManager:
         url: str,
         title: str,
         output_dir: str,
-        config: Dict[str, Any],
-        outputs: Dict[str, str],
+        config: dict[str, Any],
+        outputs: dict[str, str],
     ) -> ProcessRecord:
         """
         从B站视频信息创建处理记录
@@ -269,8 +266,8 @@ class ProcessHistoryManager:
         file_type: str,
         title: str,
         output_dir: str,
-        config: Dict[str, Any],
-        outputs: Dict[str, str],
+        config: dict[str, Any],
+        outputs: dict[str, str],
     ) -> ProcessRecord:
         """
         从本地文件信息创建处理记录
@@ -303,18 +300,12 @@ class ProcessHistoryManager:
         self.add_record(record)
         return record
 
-    def get_statistics(self) -> Dict[str, Any]:
+    def get_statistics(self) -> dict[str, Any]:
         """获取处理统计信息"""
         total_count = len(self.records)
-        bilibili_count = sum(
-            1 for r in self.records.values() if r.record_type == "bilibili"
-        )
-        local_audio_count = sum(
-            1 for r in self.records.values() if r.record_type == "local_audio"
-        )
-        local_video_count = sum(
-            1 for r in self.records.values() if r.record_type == "local_video"
-        )
+        bilibili_count = sum(1 for r in self.records.values() if r.record_type == "bilibili")
+        local_audio_count = sum(1 for r in self.records.values() if r.record_type == "local_audio")
+        local_video_count = sum(1 for r in self.records.values() if r.record_type == "local_video")
         total_process_count = sum(r.process_count for r in self.records.values())
 
         return {

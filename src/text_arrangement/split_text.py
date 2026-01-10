@@ -11,7 +11,7 @@ def split_text_by_sentences(txt: str, split_len: int) -> list[str]:
     """
     # 使用正则表达式分割文本为句子（句号、问号、感叹号后切分）
     split_ch = ".。!！？?"
-    pattern = r"([{}])".format(split_ch)
+    pattern = rf"([{split_ch}])"
     sentences = re.split(pattern, txt)[:-1]  # 保留分隔符
     sentences = [sentences[i] + sentences[i + 1] for i in range(0, len(sentences), 2)]
 
@@ -60,10 +60,7 @@ def smart_split(txt: str, split_len: int) -> list[str]:
             # 倒着寻找一个合适的断点（空格 或 两个中文之间）
             j = len(current) - 1
             while j > 0:
-                if current[j].isspace():
-                    break
-                # 判断两个中文之间
-                elif is_chinese(current[j]) and is_chinese(current[j - 1]):
+                if current[j].isspace() or is_chinese(current[j]) and is_chinese(current[j - 1]):
                     break
                 j -= 1
 

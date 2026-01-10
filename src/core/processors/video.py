@@ -4,17 +4,17 @@
 负责B站视频下载和批量处理
 """
 
-from typing import Optional, Tuple, Any
+from typing import Any
 
-from src.utils.helpers.timer import Timer
-from src.services.download import download_bilibili_audio, BiliVideoFile
 from src.core.exceptions import TaskCancelledException
-
-from .base import BaseProcessor
-from .audio import AudioProcessor
+from src.services.download import BiliVideoFile, download_bilibili_audio
 
 # 导入配置系统
 from src.utils.config import get_config
+from src.utils.helpers.timer import Timer
+
+from .audio import AudioProcessor
+from .base import BaseProcessor
 
 
 class VideoProcessor(BaseProcessor):
@@ -32,8 +32,8 @@ class VideoProcessor(BaseProcessor):
         temperature: float,
         max_tokens: int,
         text_only: bool = False,
-        task_id: Optional[str] = None,
-    ) -> Tuple[Any, float, float, Optional[str]]:
+        task_id: str | None = None,
+    ) -> tuple[Any, float, float, str | None]:
         """
         下载并处理B站视频
 
@@ -70,10 +70,8 @@ class VideoProcessor(BaseProcessor):
             self._check_cancellation(task_id)
 
             # 处理音频
-            output_dir, extract_time, polish_time, zip_file = (
-                self.audio_processor.process(
-                    audio_file, llm_api, temperature, max_tokens, text_only, task_id
-                )
+            output_dir, extract_time, polish_time, zip_file = self.audio_processor.process(
+                audio_file, llm_api, temperature, max_tokens, text_only, task_id
             )
 
             # 返回总时间（下载+提取）
@@ -92,8 +90,8 @@ class VideoProcessor(BaseProcessor):
         temperature: float,
         max_tokens: int,
         text_only: bool = False,
-        task_id: Optional[str] = None,
-    ) -> Tuple[str, float, float, None]:
+        task_id: str | None = None,
+    ) -> tuple[str, float, float, None]:
         """
         批量处理B站视频链接
 
@@ -141,15 +139,13 @@ class VideoProcessor(BaseProcessor):
                     self._check_cancellation(task_id)
 
                     # 处理音频
-                    result_data, extract_time, polish_time, zip_file = (
-                        self.audio_processor.process(
-                            audio_file,
-                            llm_api,
-                            temperature,
-                            max_tokens,
-                            text_only,
-                            task_id,
-                        )
+                    result_data, extract_time, polish_time, zip_file = self.audio_processor.process(
+                        audio_file,
+                        llm_api,
+                        temperature,
+                        max_tokens,
+                        text_only,
+                        task_id,
                     )
 
                     # 处理返回结果（可能是字典或字符串）

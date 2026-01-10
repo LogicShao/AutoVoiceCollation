@@ -4,9 +4,10 @@
 定义任务管理 API 的请求和响应模型
 """
 
-from typing import Optional, List, Dict, Any
 from datetime import datetime
 from enum import Enum
+from typing import Any
+
 from pydantic import BaseModel, Field
 
 
@@ -26,20 +27,20 @@ class TaskResponse(BaseModel):
     task_id: str = Field(..., description="任务唯一标识符")
     status: TaskStatus = Field(..., description="任务状态")
     created_at: datetime = Field(..., description="任务创建时间")
-    updated_at: Optional[datetime] = Field(None, description="任务最后更新时间")
-    completed_at: Optional[datetime] = Field(None, description="任务完成时间")
+    updated_at: datetime | None = Field(None, description="任务最后更新时间")
+    completed_at: datetime | None = Field(None, description="任务完成时间")
 
     # 输入信息
-    url: Optional[str] = Field(None, description="处理的视频 URL（B站任务）")
-    file_name: Optional[str] = Field(None, description="处理的文件名（音频上传任务）")
+    url: str | None = Field(None, description="处理的视频 URL（B站任务）")
+    file_name: str | None = Field(None, description="处理的文件名（音频上传任务）")
 
     # 处理结果
-    result: Optional[Dict[str, Any]] = Field(None, description="处理结果详情")
-    error: Optional[str] = Field(None, description="错误信息（如果失败）")
+    result: dict[str, Any] | None = Field(None, description="处理结果详情")
+    error: str | None = Field(None, description="错误信息（如果失败）")
 
     # 输出文件信息
-    output_dir: Optional[str] = Field(None, description="输出目录路径")
-    files: Optional[List[str]] = Field(None, description="生成的文件列表")
+    output_dir: str | None = Field(None, description="输出目录路径")
+    files: list[str] | None = Field(None, description="生成的文件列表")
 
     class Config:
         json_schema_extra = {
@@ -64,7 +65,7 @@ class TaskResponse(BaseModel):
 class TaskListResponse(BaseModel):
     """任务列表响应模型"""
 
-    tasks: List[TaskResponse] = Field(..., description="任务列表")
+    tasks: list[TaskResponse] = Field(..., description="任务列表")
     total: int = Field(..., description="任务总数")
 
     class Config:

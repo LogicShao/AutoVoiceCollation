@@ -2,6 +2,7 @@
 API 单元测试
 使用 FastAPI TestClient 和 pytest 进行单元测试
 """
+
 from io import BytesIO
 from unittest.mock import patch
 
@@ -66,7 +67,7 @@ class TestBilibiliEndpoint:
             "temperature": 0.7,
             "max_tokens": 4000,
             "text_only": False,
-            "summarize": False
+            "summarize": False,
         }
         response = client.post("/api/v1/process/bilibili", json=payload)
 
@@ -85,7 +86,9 @@ class TestBilibiliEndpoint:
         # 配置 mock
         mock_process.return_value = (
             {"polished_text": "测试文本", "title": "测试标题"},
-            10.5, 5.2, None
+            10.5,
+            5.2,
+            None,
         )
         mock_summarize.return_value = "这是总结内容"
 
@@ -93,7 +96,7 @@ class TestBilibiliEndpoint:
         payload = {
             "video_url": "https://www.bilibili.com/video/BV1234567890",
             "text_only": True,
-            "summarize": True
+            "summarize": True,
         }
         response = client.post("/api/v1/process/bilibili", json=payload)
 
@@ -116,10 +119,7 @@ class TestAudioEndpoint:
         file_content = b"fake audio content"
         files = {"file": ("test.txt", BytesIO(file_content), "text/plain")}
 
-        response = client.post(
-            "/api/v1/process/audio",
-            files=files
-        )
+        response = client.post("/api/v1/process/audio", files=files)
         assert response.status_code == 400
         assert "不支持的文件类型" in response.json()["error"]
 
@@ -144,7 +144,9 @@ class TestAudioEndpoint:
             except Exception:
                 print(f"\n[ERROR] Status {response.status_code}")
                 print(f"Response text: {response.text}")
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}. Response: {response.text}"
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}. Response: {response.text}"
+        )
         data = response.json()
         assert "task_id" in data
         assert data["status"] == "pending"
@@ -155,16 +157,15 @@ class TestAudioEndpoint:
         # 配置 mock
         mock_upload.return_value = (
             {"polished_text": "测试文本", "title": "测试标题"},
-            10.5, 5.2, None
+            10.5,
+            5.2,
+            None,
         )
 
         # 创建一个假的音频文件
         file_content = b"fake audio content"
         files = {"file": ("test.mp3", BytesIO(file_content), "audio/mpeg")}
-        data = {
-            "text_only": "true",
-            "summarize": "true"
-        }
+        data = {"text_only": "true", "summarize": "true"}
 
         response = client.post("/api/v1/process/audio", files=files, data=data)
 
@@ -177,7 +178,9 @@ class TestAudioEndpoint:
             except Exception:
                 print(f"\n[ERROR] Status {response.status_code}")
                 print(f"Response text: {response.text}")
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}. Response: {response.text}"
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}. Response: {response.text}"
+        )
         result = response.json()
         assert "task_id" in result
 
@@ -201,9 +204,9 @@ class TestBatchEndpoint:
         payload = {
             "urls": [
                 "https://www.bilibili.com/video/BV1111111111",
-                "https://www.bilibili.com/video/BV2222222222"
+                "https://www.bilibili.com/video/BV2222222222",
             ],
-            "text_only": False
+            "text_only": False,
         }
         response = client.post("/api/v1/process/batch", json=payload)
 
@@ -247,7 +250,9 @@ class TestSubtitleEndpoint:
             except Exception:
                 print(f"\n[ERROR] Status {response.status_code}")
                 print(f"Response text: {response.text}")
-        assert response.status_code == 200, f"Expected 200, got {response.status_code}. Response: {response.text}"
+        assert response.status_code == 200, (
+            f"Expected 200, got {response.status_code}. Response: {response.text}"
+        )
         data = response.json()
         assert "task_id" in data
         assert data["status"] == "pending"
@@ -267,7 +272,7 @@ class TestSummarizeEndpoint:
             "title": "测试标题",
             "llm_api": "http://test-llm",
             "temperature": 0.7,
-            "max_tokens": 4000
+            "max_tokens": 4000,
         }
         response = client.post("/api/v1/summarize", json=payload)
 
@@ -282,10 +287,7 @@ class TestSummarizeEndpoint:
     @patch("api.summarize_text", side_effect=Exception("LLM API 错误"))
     def test_summarize_failure(self, mock_summarize, client):
         """测试总结失败的情况"""
-        payload = {
-            "text": "测试文本",
-            "llm_api": "http://test-llm"
-        }
+        payload = {"text": "测试文本", "llm_api": "http://test-llm"}
         response = client.post("/api/v1/summarize", json=payload)
 
         # 验证响应
@@ -319,7 +321,7 @@ class TestTaskStatusEndpoint:
         tasks[task_id] = {
             "status": "completed",
             "message": "处理完成",
-            "result": {"output_dir": "/output/dir", "extract_time": 10.5}
+            "result": {"output_dir": "/output/dir", "extract_time": 10.5},
         }
 
         response = client.get(f"/api/v1/task/{task_id}")
@@ -350,10 +352,7 @@ class TestDownloadEndpoint:
     def test_download_file_not_exists(self, client):
         """测试下载不存在的文件"""
         task_id = "test-task-999"
-        tasks[task_id] = {
-            "status": "completed",
-            "result": {"zip_file": "/non/existent/file.zip"}
-        }
+        tasks[task_id] = {"status": "completed", "result": {"zip_file": "/non/existent/file.zip"}}
 
         response = client.get(f"/api/v1/download/{task_id}")
         assert response.status_code == 404
@@ -366,10 +365,7 @@ class TestDownloadEndpoint:
         zip_file = tmp_path / "result.zip"
         zip_file.write_bytes(b"fake zip content")
 
-        tasks[task_id] = {
-            "status": "completed",
-            "result": {"zip_file": str(zip_file)}
-        }
+        tasks[task_id] = {"status": "completed", "result": {"zip_file": str(zip_file)}}
 
         response = client.get(f"/api/v1/download/{task_id}")
 
@@ -391,7 +387,7 @@ class TestRequestValidation:
         """测试无效的温度参数"""
         payload = {
             "video_url": "https://www.bilibili.com/video/BV1234567890",
-            "temperature": 3.0  # 超出范围 (0-2)
+            "temperature": 3.0,  # 超出范围 (0-2)
         }
         response = client.post("/api/v1/process/bilibili", json=payload)
         assert response.status_code == 422
@@ -426,7 +422,7 @@ class TestBackgroundTasks:
             temperature=0.7,
             max_tokens=4000,
             text_only=False,
-            summarize=False
+            summarize=False,
         )
 
         # 验证任务状态
@@ -451,7 +447,7 @@ class TestBackgroundTasks:
             temperature=0.7,
             max_tokens=4000,
             text_only=False,
-            summarize=False
+            summarize=False,
         )
 
         # 验证任务状态
@@ -468,7 +464,9 @@ class TestBackgroundTasks:
         # 配置 mock
         mock_process.return_value = (
             {"polished_text": "测试文本", "title": "测试标题"},
-            10.5, 5.2, None
+            10.5,
+            5.2,
+            None,
         )
         mock_summarize.return_value = "这是总结内容"
 
@@ -483,7 +481,7 @@ class TestBackgroundTasks:
             temperature=0.7,
             max_tokens=4000,
             text_only=True,
-            summarize=True
+            summarize=True,
         )
 
         # 验证任务状态和总结结果

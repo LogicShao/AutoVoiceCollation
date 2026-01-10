@@ -5,20 +5,20 @@ API 错误处理中间件
 """
 
 from fastapi import Request, status
-from fastapi.responses import JSONResponse
 from fastapi.exceptions import RequestValidationError
+from fastapi.responses import JSONResponse
 from starlette.exceptions import HTTPException as StarletteHTTPException
 
 from src.core.exceptions import (
-    AutoVoiceCollationError,
-    TaskCancelledException,
-    TaskNotFoundError,
-    ResourceNotFoundError,
-    ValidationError,
     ASRError,
+    AutoVoiceCollationError,
+    LLMAuthenticationError,
     LLMError,
     LLMRateLimitError,
-    LLMAuthenticationError,
+    ResourceNotFoundError,
+    TaskCancelledException,
+    TaskNotFoundError,
+    ValidationError,
 )
 from src.utils.logging.logger import get_logger
 
@@ -58,9 +58,7 @@ async def auto_voice_collation_error_handler(
     return JSONResponse(status_code=status_code, content=exc.to_dict())
 
 
-async def validation_error_handler(
-    request: Request, exc: RequestValidationError
-) -> JSONResponse:
+async def validation_error_handler(request: Request, exc: RequestValidationError) -> JSONResponse:
     """
     处理 Pydantic 验证错误
 
@@ -95,9 +93,7 @@ async def validation_error_handler(
     )
 
 
-async def http_exception_handler(
-    request: Request, exc: StarletteHTTPException
-) -> JSONResponse:
+async def http_exception_handler(request: Request, exc: StarletteHTTPException) -> JSONResponse:
     """
     处理 HTTP 异常
 
@@ -181,9 +177,7 @@ async def general_exception_handler(request: Request, exc: Exception) -> JSONRes
             "error": "服务器内部错误",
             "code": "INTERNAL_SERVER_ERROR",
             "type": "Exception",
-            "details": {
-                "message": str(exc) if logger.level == "DEBUG" else "请联系管理员"
-            },
+            "details": {"message": str(exc) if logger.level == "DEBUG" else "请联系管理员"},
         },
     )
 
@@ -234,9 +228,7 @@ def register_exception_handlers(app):
         app: FastAPI 应用实例
     """
     # 项目自定义异常
-    app.add_exception_handler(
-        AutoVoiceCollationError, auto_voice_collation_error_handler
-    )
+    app.add_exception_handler(AutoVoiceCollationError, auto_voice_collation_error_handler)
 
     # Pydantic 验证错误
     app.add_exception_handler(RequestValidationError, validation_error_handler)

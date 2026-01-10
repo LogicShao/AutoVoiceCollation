@@ -5,8 +5,9 @@
 """
 
 from pathlib import Path
-from typing import Optional
+
 from pydantic import Field, field_validator
+
 from .base import BaseConfig
 
 
@@ -19,9 +20,7 @@ class LoggingConfig(BaseConfig):
     )
 
     # 日志文件
-    log_file: Optional[Path] = Field(
-        default=None, description="日志文件路径（留空则不写入文件）"
-    )
+    log_file: Path | None = Field(default=None, description="日志文件路径（留空则不写入文件）")
 
     # 控制台输出
     log_console_output: bool = Field(default=True, description="是否输出到控制台")
@@ -39,14 +38,12 @@ class LoggingConfig(BaseConfig):
         valid_levels = ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
         v_upper = v.upper()
         if v_upper not in valid_levels:
-            raise ValueError(
-                f"无效的日志级别: {v}。有效级别: {', '.join(valid_levels)}"
-            )
+            raise ValueError(f"无效的日志级别: {v}。有效级别: {', '.join(valid_levels)}")
         return v_upper
 
     @field_validator("log_file", mode="before")
     @classmethod
-    def resolve_log_file(cls, v) -> Optional[Path]:
+    def resolve_log_file(cls, v) -> Path | None:
         """解析日志文件路径（处理空字符串）"""
         # 处理空字符串或 None
         if v is None or (isinstance(v, str) and v.strip() == ""):

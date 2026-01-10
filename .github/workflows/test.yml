@@ -99,7 +99,7 @@ jobs:
           TEST_BILIBILI_TIMEOUT: 600
 
   lint:
-    name: Code Quality Checks
+    name: Code Quality Checks (Ruff)
     runs-on: ubuntu-latest
 
     steps:
@@ -110,30 +110,22 @@ jobs:
         uses: actions/setup-python@v5
         with:
           python-version: '3.11'
-          cache: 'pip'
 
-      - name: Install linting tools
+      - name: Install Ruff
         run: |
           python -m pip install --upgrade pip
-          pip install flake8 black isort mypy
+          pip install ruff
 
-      - name: Run Black (code formatting check)
+      - name: Run Ruff lint check
         run: |
-          black --check --diff api.py src/ tests/
-        continue-on-error: true
+          ruff check . --output-format=github
 
-      - name: Run isort (import sorting check)
+      - name: Run Ruff format check
         run: |
-          isort --check-only --diff api.py src/ tests/
-        continue-on-error: true
-
-      - name: Run flake8 (linting)
-        run: |
-          flake8 api.py src/ tests/ --count --select=E9,F63,F7,F82 --show-source --statistics
-          flake8 api.py src/ tests/ --count --exit-zero --max-complexity=10 --max-line-length=127 --statistics
-        continue-on-error: true
+          ruff format --check .
 
       - name: Run mypy (type checking)
         run: |
-          mypy api.py --ignore-missing-imports
+          pip install mypy
+          mypy api.py src/ --ignore-missing-imports
         continue-on-error: true

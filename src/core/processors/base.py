@@ -6,7 +6,6 @@
 
 import uuid
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from src.utils.logging.logger import get_logger
 
@@ -21,7 +20,7 @@ class BaseProcessor(ABC):
 
         self.task_manager = get_task_manager()
 
-    def _ensure_task(self, task_id: Optional[str] = None) -> str:
+    def _ensure_task(self, task_id: str | None = None) -> str:
         """
         确保任务存在，如果不存在则创建
 

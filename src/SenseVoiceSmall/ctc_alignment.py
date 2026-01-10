@@ -31,26 +31,20 @@ def ctc_forced_align(
 
     _t_a_r_g_e_t_s_ = torch.cat(
         (
-            torch.stack((torch.full_like(targets, blank), targets), dim=-1).flatten(
-                start_dim=1
-            ),
+            torch.stack((torch.full_like(targets, blank), targets), dim=-1).flatten(start_dim=1),
             torch.full_like(targets[:, :1], blank),
         ),
         dim=-1,
     )
     diff_labels = torch.cat(
         (
-            torch.as_tensor([[False, False]], device=targets.device).expand(
-                batch_size, -1
-            ),
+            torch.as_tensor([[False, False]], device=targets.device).expand(batch_size, -1),
             _t_a_r_g_e_t_s_[:, 2:] != _t_a_r_g_e_t_s_[:, :-2],
         ),
         dim=1,
     )
 
-    neg_inf = torch.tensor(
-        float("-inf"), device=log_probs.device, dtype=log_probs.dtype
-    )
+    neg_inf = torch.tensor(float("-inf"), device=log_probs.device, dtype=log_probs.dtype)
     padding_num = 2
     padded_t = padding_num + _t_a_r_g_e_t_s_.size(-1)
     best_score = torch.full(
@@ -74,9 +68,7 @@ def ctc_forced_align(
             )
         )
         prev_max_value, prev_max_idx = prev.max(dim=0)
-        best_score[:, padding_num:] = (
-            log_probs[:, t].gather(-1, _t_a_r_g_e_t_s_) + prev_max_value
-        )
+        best_score[:, padding_num:] = log_probs[:, t].gather(-1, _t_a_r_g_e_t_s_) + prev_max_value
         backpointers[:, t, padding_num:] = prev_max_idx
 
     l1l2 = best_score.gather(
@@ -87,9 +79,7 @@ def ctc_forced_align(
         ),
     )
 
-    path = torch.zeros(
-        (batch_size, input_time_size), device=best_score.device, dtype=torch.long
-    )
+    path = torch.zeros((batch_size, input_time_size), device=best_score.device, dtype=torch.long)
     path[bsz_indices, input_lengths - 1] = (
         padding_num + target_lengths * 2 - 1 + l1l2.argmax(dim=-1)
     )

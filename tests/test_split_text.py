@@ -2,13 +2,14 @@
 文本分割模块单元测试
 测试文本按句子分割、智能分割和 ASR 文本清理功能
 """
+
 import pytest
 
 from src.text_arrangement.split_text import (
-    split_text_by_sentences,
     clean_asr_text,
     is_chinese,
     smart_split,
+    split_text_by_sentences,
 )
 
 
@@ -199,32 +200,32 @@ class TestIsChinese:
 
     def test_is_chinese_true(self):
         """测试中文字符"""
-        assert is_chinese('中') is True
-        assert is_chinese('文') is True
-        assert is_chinese('字') is True
-        assert is_chinese('好') is True
+        assert is_chinese("中") is True
+        assert is_chinese("文") is True
+        assert is_chinese("字") is True
+        assert is_chinese("好") is True
 
     def test_is_chinese_false(self):
         """测试非中文字符"""
-        assert is_chinese('a') is False
-        assert is_chinese('A') is False
-        assert is_chinese('1') is False
-        assert is_chinese(' ') is False
-        assert is_chinese('!') is False
+        assert is_chinese("a") is False
+        assert is_chinese("A") is False
+        assert is_chinese("1") is False
+        assert is_chinese(" ") is False
+        assert is_chinese("!") is False
 
     def test_is_chinese_edge_cases(self):
         """测试边界 Unicode 字符"""
         # Unicode 中文范围: \u4e00 - \u9fff
-        assert is_chinese('\u4e00') is True  # 最小中文字符
-        assert is_chinese('\u9fff') is True  # 最大中文字符
-        assert is_chinese('\u4dff') is False  # 小于范围
-        assert is_chinese('\ua000') is False  # 大于范围
+        assert is_chinese("\u4e00") is True  # 最小中文字符
+        assert is_chinese("\u9fff") is True  # 最大中文字符
+        assert is_chinese("\u4dff") is False  # 小于范围
+        assert is_chinese("\ua000") is False  # 大于范围
 
     def test_is_chinese_special_symbols(self):
         """测试特殊符号"""
-        assert is_chinese('。') is False  # 中文句号
-        assert is_chinese('，') is False  # 中文逗号
-        assert is_chinese('？') is False  # 中文问号
+        assert is_chinese("。") is False  # 中文句号
+        assert is_chinese("，") is False  # 中文逗号
+        assert is_chinese("？") is False  # 中文问号
 
 
 class TestSmartSplit:
@@ -373,8 +374,8 @@ class TestEdgeCasesAndRobustness:
 
     def test_is_chinese_emoji(self):
         """测试 emoji 不是中文"""
-        assert is_chinese('😀') is False
-        assert is_chinese('🎉') is False
+        assert is_chinese("😀") is False
+        assert is_chinese("🎉") is False
 
 
 if __name__ == "__main__":

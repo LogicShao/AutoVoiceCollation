@@ -8,6 +8,7 @@
 - src/utils/config/ 目录下的配置模块
 - Pydantic 自动处理类型转换和验证
 """
+
 import pytest
 
 # 标记整个模块为已废弃

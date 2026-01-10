@@ -2,19 +2,19 @@ import json
 import os
 import platform
 from datetime import datetime
-from typing import Optional, List, Dict, Any
+from typing import Any
 
-from PIL import Image, ImageDraw, ImageFont
 from pdf2image import convert_from_path
+from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_JUSTIFY, TA_CENTER
+from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
 from reportlab.lib.fonts import addMapping
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
 from reportlab.lib.units import mm
 from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
-from reportlab.platypus import SimpleDocTemplate, Paragraph
+from reportlab.platypus import Paragraph, SimpleDocTemplate
 
 from src.utils.logging.logger import get_logger
 
@@ -27,7 +27,7 @@ _pre_text = (
 )
 
 
-def get_system_font_paths() -> List[str]:
+def get_system_font_paths() -> list[str]:
     """
     根据操作系统获取字体搜索路径
     :return: 字体路径列表
@@ -57,7 +57,7 @@ def get_system_font_paths() -> List[str]:
     return [p for p in paths if os.path.exists(p)]
 
 
-def find_chinese_font() -> Optional[str]:
+def find_chinese_font() -> str | None:
     """
     跨平台查找可用的中文字体
     :return: 找到的字体文件路径，如果未找到则返回 None
@@ -256,9 +256,7 @@ def text_to_pdf(
 
     # 正文处理
     paragraphs = [
-        Paragraph(line.strip(), normal_style)
-        for line in txt.strip().split("\n")
-        if line.strip()
+        Paragraph(line.strip(), normal_style) for line in txt.strip().split("\n") if line.strip()
     ]
     story.extend(paragraphs)
 
@@ -323,9 +321,7 @@ def wrap_text_by_display_width(txt: str, max_width: int) -> list:
     line = ""
     line_width = 0
     for ch in txt:
-        ch_width = (
-            2 if "\u4e00" <= ch <= "\u9fff" or ch in "，。！？：“”‘’（）《》【】" else 1
-        )
+        ch_width = 2 if "\u4e00" <= ch <= "\u9fff" or ch in "，。！？：“”‘’（）《》【】" else 1
         if line_width + ch_width > max_width:
             lines.append(line)
             line = ch
@@ -338,7 +334,7 @@ def wrap_text_by_display_width(txt: str, max_width: int) -> list:
     return lines
 
 
-def text_to_one_image(txt: str, output_path: str, title: Optional[str] = None) -> str:
+def text_to_one_image(txt: str, output_path: str, title: str | None = None) -> str:
     """
     将文本转换为单张图片
     :param txt: 文本内容
@@ -362,9 +358,7 @@ def text_to_one_image(txt: str, output_path: str, title: Optional[str] = None) -
     indent_spaces = "　　"
     max_display_width = 56  # 每行最大显示宽度：28个中文或等效宽度
 
-    paragraphs = [
-        indent_spaces + line.strip() for line in txt.strip().split("\n") if line.strip()
-    ]
+    paragraphs = [indent_spaces + line.strip() for line in txt.strip().split("\n") if line.strip()]
     font = ImageFont.truetype(font_path, font_size)
     lines = []
 
@@ -400,10 +394,10 @@ def text_to_img_or_pdf(
     output_style: str,
     output_path: str,
     ASR_model: str,
-    title: Optional[str] = None,
+    title: str | None = None,
     LLM_info: str = "",
-    metadata: Optional[Dict[str, Any]] = None,
-    summary_text: Optional[str] = None,
+    metadata: dict[str, Any] | None = None,
+    summary_text: str | None = None,
 ) -> str:
     """
     将文本转换为图片或PDF/Markdown/JSON
@@ -431,7 +425,7 @@ def text_to_img_or_pdf(
             LLM_info=LLM_info,
             ASR_model=ASR_model,
         )
-    elif output_style == "pdf_only":
+    if output_style == "pdf_only":
         return text_to_pdf(
             txt,
             with_img=False,
@@ -440,9 +434,9 @@ def text_to_img_or_pdf(
             LLM_info=LLM_info,
             ASR_model=ASR_model,
         )
-    elif output_style == "img_only":
+    if output_style == "img_only":
         return text_to_one_image(txt, output_path=output_path, title=title)
-    elif output_style == "markdown":
+    if output_style == "markdown":
         return text_to_markdown(
             txt,
             output_path=output_path,
@@ -450,7 +444,7 @@ def text_to_img_or_pdf(
             metadata=metadata,
             summary_text=summary_text,
         )
-    elif output_style in ("json", "text_only"):
+    if output_style in ("json", "text_only"):
         return text_to_json(
             txt,
             output_path=output_path,
@@ -458,16 +452,15 @@ def text_to_img_or_pdf(
             metadata=metadata,
             summary_text=summary_text,
         )
-    else:
-        raise ValueError(f"Unsupported output style: {output_style}")
+    raise ValueError(f"Unsupported output style: {output_style}")
 
 
 def text_to_markdown(
     txt: str,
     output_path: str,
-    title: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    summary_text: Optional[str] = None,
+    title: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    summary_text: str | None = None,
 ) -> str:
     """
     将文本转换为 Markdown
@@ -519,9 +512,9 @@ def text_to_markdown(
 def text_to_json(
     txt: str,
     output_path: str,
-    title: Optional[str] = None,
-    metadata: Optional[Dict[str, Any]] = None,
-    summary_text: Optional[str] = None,
+    title: str | None = None,
+    metadata: dict[str, Any] | None = None,
+    summary_text: str | None = None,
 ) -> str:
     """
     将文本转换为 JSON

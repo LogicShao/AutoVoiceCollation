@@ -11,12 +11,12 @@ from pathlib import Path
 project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
-from src.process_history import get_history_manager
 from src.core_process_utils import (
     check_bilibili_processed,
     record_bilibili_process,
-    record_local_file_process
+    record_local_file_process,
 )
+from src.process_history import get_history_manager
 
 
 def test_basic_functionality():
@@ -35,7 +35,7 @@ def test_basic_functionality():
     test_urls = [
         "https://www.bilibili.com/video/BV1xx411c7mD",
         "https://b23.tv/BV1xx411c7mD",
-        "https://www.bilibili.com/video/av12345678"
+        "https://www.bilibili.com/video/av12345678",
     ]
 
     print("\n📝 测试URL解析:")
@@ -64,12 +64,12 @@ def test_record_creation():
         "asr_model": "paraformer",
         "llm_api": "deepseek-chat",
         "temperature": 0.1,
-        "max_tokens": 6000
+        "max_tokens": 6000,
     }
     test_outputs = {
         "audio_transcription": "out/test_video/audio_transcription.txt",
         "polish_text": "out/test_video/polish_text.txt",
-        "summary_text": "out/test_video/summary_text.md"
+        "summary_text": "out/test_video/summary_text.md",
     }
 
     record = record_bilibili_process(
@@ -77,11 +77,11 @@ def test_record_creation():
         title="测试视频标题",
         output_dir="out/test_video",
         config=test_config,
-        outputs=test_outputs
+        outputs=test_outputs,
     )
 
     if record:
-        print(f"  ✅ 记录已创建")
+        print("  ✅ 记录已创建")
         print(f"     ID: {record.identifier}")
         print(f"     标题: {record.title}")
         print(f"     处理时间: {record.last_processed}")
@@ -102,12 +102,12 @@ def test_history_check():
     record = check_bilibili_processed(test_url)
 
     if record:
-        print(f"  ✅ 找到处理记录:")
+        print("  ✅ 找到处理记录:")
         print(f"     标题: {record.title}")
         print(f"     输出目录: {record.output_dir}")
         print(f"     上次处理: {record.last_processed}")
         print(f"     处理次数: {record.process_count}")
-        print(f"     使用配置:")
+        print("     使用配置:")
         for key, value in record.config.items():
             print(f"       - {key}: {value}")
     else:
@@ -169,11 +169,11 @@ def test_duplicate_processing():
         "asr_model": "sense_voice",
         "llm_api": "gemini-2.0-flash",
         "temperature": 0.3,
-        "max_tokens": 8000
+        "max_tokens": 8000,
     }
     test_outputs = {
         "audio_transcription": "out/test_video_1/audio_transcription.txt",
-        "polish_text": "out/test_video_1/polish_text.txt"
+        "polish_text": "out/test_video_1/polish_text.txt",
     }
 
     record = record_bilibili_process(
@@ -181,11 +181,11 @@ def test_duplicate_processing():
         title="测试视频标题",
         output_dir="out/test_video_1",
         config=test_config,
-        outputs=test_outputs
+        outputs=test_outputs,
     )
 
     if record:
-        print(f"  ✅ 记录已更新")
+        print("  ✅ 记录已更新")
         print(f"     处理次数: {record.process_count} (应该增加了)")
         print(f"     最新输出目录: {record.output_dir}")
         print(f"     最新配置: {record.config}")
@@ -211,16 +211,16 @@ def test_local_file_record():
             "asr_model": "paraformer",
             "llm_api": "deepseek-chat",
             "temperature": 0.1,
-            "max_tokens": 6000
+            "max_tokens": 6000,
         },
         outputs={
             "audio_transcription": "out/test_audio/audio_transcription.txt",
-            "polish_text": "out/test_audio/polish_text.txt"
-        }
+            "polish_text": "out/test_audio/polish_text.txt",
+        },
     )
 
     if record:
-        print(f"  ✅ 本地文件记录已创建")
+        print("  ✅ 本地文件记录已创建")
         print(f"     ID: {record.identifier}")
         print(f"     类型: {record.record_type}")
         print(f"     文件: {test_file}")
@@ -255,12 +255,14 @@ def main():
         history_manager = get_history_manager()
         print(f"📁 历史文件位置: {history_manager.history_file}")
         print(
-            f"   文件大小: {history_manager.history_file.stat().st_size if history_manager.history_file.exists() else 0} 字节")
+            f"   文件大小: {history_manager.history_file.stat().st_size if history_manager.history_file.exists() else 0} 字节"
+        )
         print()
 
     except Exception as e:
         print(f"\n❌ 测试过程中出现错误: {e}")
         import traceback
+
         traceback.print_exc()
 
 

@@ -5,12 +5,12 @@
 """
 
 from .generator import (
+    ASRResult,
     SubtitleConfig,
     SubtitleSegment,
-    ASRResult,
-    generate_subtitle_file,
     encode_subtitle_to_video,
     gen_timestamped_text_file,
+    generate_subtitle_file,
     hard_encode_dot_srt_file,
 )
 

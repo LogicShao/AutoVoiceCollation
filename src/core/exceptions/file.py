@@ -4,8 +4,9 @@
 定义文件读写操作中的异常类型
 """
 
-from typing import Optional, Dict, Any
 from pathlib import Path
+from typing import Any
+
 from .base import AutoVoiceCollationError
 
 
@@ -15,9 +16,9 @@ class FileOperationError(AutoVoiceCollationError):
     def __init__(
         self,
         message: str,
-        file_path: Optional[Path] = None,
+        file_path: Path | None = None,
         code: str = "FILE_OPERATION_ERROR",
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         """
         初始化文件操作异常
@@ -56,8 +57,8 @@ class FileWriteError(FileOperationError):
     def __init__(
         self,
         file_path: Path,
-        reason: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        reason: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         if details is None:
             details = {}
@@ -82,8 +83,8 @@ class FileReadError(FileOperationError):
     def __init__(
         self,
         file_path: Path,
-        reason: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        reason: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         if details is None:
             details = {}

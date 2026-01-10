@@ -1,5 +1,4 @@
 import os
-from typing import Optional
 
 from src.utils.logging.logger import get_logger
 
@@ -7,7 +6,7 @@ logger = get_logger(__name__)
 
 
 def display_api_key(
-    api_key: Optional[str], front_display_num: int = 6, back_display_num: int = 4
+    api_key: str | None, front_display_num: int = 6, back_display_num: int = 4
 ) -> str:
     """
     显示 API 密钥的部分内容，前后各显示指定数量的字符。
@@ -20,12 +19,11 @@ def display_api_key(
         return "未设置"
     if len(api_key) <= front_display_num + back_display_num:
         return "*" * len(api_key)  # 如果密钥长度小于等于前后显示字符数之和，则全部隐藏
-    else:
-        return (
-            api_key[:front_display_num]
-            + "*" * (len(api_key) - front_display_num - back_display_num)
-            + api_key[-back_display_num:]
-        )
+    return (
+        api_key[:front_display_num]
+        + "*" * (len(api_key) - front_display_num - back_display_num)
+        + api_key[-back_display_num:]
+    )
 
 
 def check_api_keys(debug: bool = False):
@@ -41,9 +39,7 @@ def check_api_keys(debug: bool = False):
     _cerebras_api_key = os.getenv("CEREBRAS_API_KEY")
 
     # 验证至少有一个API密钥被设置
-    if not any(
-        [_deepseek_api_key, _gemini_api_key, _dashscope_api_key, _cerebras_api_key]
-    ):
+    if not any([_deepseek_api_key, _gemini_api_key, _dashscope_api_key, _cerebras_api_key]):
         logger.warning("未检测到任何 API 密钥！")
         logger.warning("请在 .env 文件或系统环境变量中设置以下至少一个变量：")
         logger.warning("  - DEEPSEEK_API_KEY")

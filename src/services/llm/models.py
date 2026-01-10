@@ -6,7 +6,6 @@ LLM数据模型
 
 from dataclasses import dataclass
 from enum import StrEnum
-from typing import Optional
 
 
 class LLMProvider(StrEnum):
@@ -31,8 +30,8 @@ class LLMQueryParams:
     system_instruction: str = "You are a helpful assistant."
     temperature: float = 0.3
     max_tokens: int = 1024
-    top_k: Optional[int] = None
-    top_p: Optional[float] = None
+    top_k: int | None = None
+    top_p: float | None = None
     api_server: str = "gemini-2.0-flash"
 
 

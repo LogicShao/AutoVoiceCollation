@@ -2,18 +2,19 @@
 设备管理器单元测试
 测试设备检测、CUDA 可用性检查和 ONNX Runtime 提供者配置
 """
+
 from unittest.mock import patch
 
 import pytest
 
 from src.utils.device.device_manager import (
-    is_torch_available,
-    is_cuda_available,
-    get_cuda_device_count,
-    is_onnxruntime_available,
-    get_onnxruntime_providers,
     detect_device,
+    get_cuda_device_count,
     get_onnx_providers,
+    get_onnxruntime_providers,
+    is_cuda_available,
+    is_onnxruntime_available,
+    is_torch_available,
     print_device_info,
 )
 
@@ -26,14 +27,15 @@ class TestTorchAvailability:
         # 在测试环境中，conftest.py 已经 mock 了 torch
         assert is_torch_available() is True
 
-    @patch('sys.modules', {})
+    @patch("sys.modules", {})
     def test_torch_not_available(self):
         """测试 torch 不可用的情况"""
         # 临时移除 torch 模块
         import sys
+
         original_modules = sys.modules.copy()
-        if 'torch' in sys.modules:
-            del sys.modules['torch']
+        if "torch" in sys.modules:
+            del sys.modules["torch"]
 
         try:
             result = is_torch_available()
@@ -68,7 +70,7 @@ class TestOnnxRuntimeAvailability:
         """测试获取 ONNX Runtime 提供者列表"""
         providers = get_onnxruntime_providers()
         # conftest.py 中配置返回 ['CPUExecutionProvider']
-        assert 'CPUExecutionProvider' in providers
+        assert "CPUExecutionProvider" in providers
 
 
 class TestDeviceDetection:
@@ -118,22 +120,22 @@ class TestDeviceDetection:
         assert detect_device("  cpu  ") == "cpu"
         assert detect_device(" auto ") == "cpu"
 
-    @patch('src.utils.device.device_manager.is_cuda_available', return_value=True)
-    @patch('src.utils.device.device_manager.get_cuda_device_count', return_value=2)
+    @patch("src.utils.device.device_manager.is_cuda_available", return_value=True)
+    @patch("src.utils.device.device_manager.get_cuda_device_count", return_value=2)
     def test_detect_device_auto_with_cuda(self, mock_count, mock_available):
         """测试 auto 配置在有 CUDA 时选择 GPU"""
         device = detect_device("auto")
         assert device == "cuda:0"
 
-    @patch('src.utils.device.device_manager.is_cuda_available', return_value=True)
-    @patch('src.utils.device.device_manager.get_cuda_device_count', return_value=3)
+    @patch("src.utils.device.device_manager.is_cuda_available", return_value=True)
+    @patch("src.utils.device.device_manager.get_cuda_device_count", return_value=3)
     def test_detect_device_cuda_index_out_of_range(self, mock_count, mock_available):
         """测试 CUDA 设备索引超出范围"""
         device = detect_device("cuda:5")
         assert device == "cuda:0"  # 应该回退到 cuda:0
 
-    @patch('src.utils.device.device_manager.is_cuda_available', return_value=True)
-    @patch('src.utils.device.device_manager.get_cuda_device_count', return_value=2)
+    @patch("src.utils.device.device_manager.is_cuda_available", return_value=True)
+    @patch("src.utils.device.device_manager.get_cuda_device_count", return_value=2)
     def test_detect_device_cuda_valid_index(self, mock_count, mock_available):
         """测试有效的 CUDA 设备索引"""
         device = detect_device("cuda:1")
@@ -152,69 +154,68 @@ class TestOnnxProviders:
     def test_get_onnx_providers_cpu(self):
         """测试 CPU 设备的 ONNX 提供者"""
         providers = get_onnx_providers("cpu")
-        assert 'CPUExecutionProvider' in providers
+        assert "CPUExecutionProvider" in providers
 
     def test_get_onnx_providers_cuda_fallback(self):
         """测试 CUDA 设备在无 GPU 提供者时回退到 CPU"""
         providers = get_onnx_providers("cuda:0")
         # 测试环境只有 CPUExecutionProvider
-        assert 'CPUExecutionProvider' in providers
+        assert "CPUExecutionProvider" in providers
 
     def test_get_onnx_providers_custom_valid(self):
         """测试自定义有效的 ONNX 提供者"""
         providers = get_onnx_providers("cpu", custom_providers="CPUExecutionProvider")
-        assert 'CPUExecutionProvider' in providers
+        assert "CPUExecutionProvider" in providers
 
     def test_get_onnx_providers_custom_invalid(self):
         """测试自定义无效的 ONNX 提供者"""
         providers = get_onnx_providers("cpu", custom_providers="InvalidProvider")
         # 无效提供者会被跳过，返回默认配置
-        assert 'CPUExecutionProvider' in providers
+        assert "CPUExecutionProvider" in providers
 
     def test_get_onnx_providers_custom_multiple(self):
         """测试多个自定义 ONNX 提供者（逗号分隔）"""
         providers = get_onnx_providers(
-            "cpu",
-            custom_providers="CPUExecutionProvider,InvalidProvider"
+            "cpu", custom_providers="CPUExecutionProvider,InvalidProvider"
         )
-        assert 'CPUExecutionProvider' in providers
-        assert 'InvalidProvider' not in providers
+        assert "CPUExecutionProvider" in providers
+        assert "InvalidProvider" not in providers
 
     def test_get_onnx_providers_empty_custom(self):
         """测试空的自定义提供者字符串"""
         providers = get_onnx_providers("cpu", custom_providers="")
-        assert 'CPUExecutionProvider' in providers
+        assert "CPUExecutionProvider" in providers
 
     def test_get_onnx_providers_whitespace_custom(self):
         """测试只有空格的自定义提供者"""
         providers = get_onnx_providers("cpu", custom_providers="   ")
-        assert 'CPUExecutionProvider' in providers
+        assert "CPUExecutionProvider" in providers
 
-    @patch('src.utils.device.device_manager.is_onnxruntime_available', return_value=False)
+    @patch("src.utils.device.device_manager.is_onnxruntime_available", return_value=False)
     def test_get_onnx_providers_onnx_not_available(self, mock_available):
         """测试 ONNX Runtime 不可用"""
         providers = get_onnx_providers("cpu")
         assert providers == []
 
-    @patch('src.utils.device.device_manager.get_onnxruntime_providers')
+    @patch("src.utils.device.device_manager.get_onnxruntime_providers")
     def test_get_onnx_providers_cuda_with_cuda_provider(self, mock_get_providers):
         """测试 CUDA 设备且有 CUDA 执行提供者"""
-        mock_get_providers.return_value = ['CUDAExecutionProvider', 'CPUExecutionProvider']
+        mock_get_providers.return_value = ["CUDAExecutionProvider", "CPUExecutionProvider"]
         providers = get_onnx_providers("cuda:0")
 
-        assert 'CUDAExecutionProvider' in providers
-        assert 'CPUExecutionProvider' in providers
+        assert "CUDAExecutionProvider" in providers
+        assert "CPUExecutionProvider" in providers
 
-    @patch('src.utils.device.device_manager.get_onnxruntime_providers')
+    @patch("src.utils.device.device_manager.get_onnxruntime_providers")
     def test_get_onnx_providers_cuda_with_tensorrt(self, mock_get_providers):
         """测试 CUDA 设备且有 TensorRT 执行提供者"""
-        mock_get_providers.return_value = ['TensorrtExecutionProvider', 'CPUExecutionProvider']
+        mock_get_providers.return_value = ["TensorrtExecutionProvider", "CPUExecutionProvider"]
         providers = get_onnx_providers("cuda:0")
 
-        assert 'TensorrtExecutionProvider' in providers
-        assert 'CPUExecutionProvider' in providers
+        assert "TensorrtExecutionProvider" in providers
+        assert "CPUExecutionProvider" in providers
 
-    @patch('src.utils.device.device_manager.get_onnxruntime_providers')
+    @patch("src.utils.device.device_manager.get_onnxruntime_providers")
     def test_get_onnx_providers_no_providers_available(self, mock_get_providers):
         """测试没有可用的 ONNX 提供者"""
         mock_get_providers.return_value = []
@@ -225,7 +226,7 @@ class TestOnnxProviders:
 class TestPrintDeviceInfo:
     """测试设备信息打印功能"""
 
-    @patch('src.utils.device.device_manager.is_torch_available', return_value=True)
+    @patch("src.utils.device.device_manager.is_torch_available", return_value=True)
     def test_print_device_info_no_exception(self, mock_torch):
         """测试打印设备信息不抛出异常"""
         # 这个函数主要用于调试，只需要确保不抛出异常
@@ -238,8 +239,8 @@ class TestPrintDeviceInfo:
 
         assert success
 
-    @patch('src.utils.device.device_manager.is_torch_available', return_value=False)
-    @patch('src.utils.device.device_manager.is_onnxruntime_available', return_value=False)
+    @patch("src.utils.device.device_manager.is_torch_available", return_value=False)
+    @patch("src.utils.device.device_manager.is_onnxruntime_available", return_value=False)
     def test_print_device_info_no_dependencies(self, mock_onnx, mock_torch):
         """测试在没有依赖库的情况下打印设备信息"""
         try:
@@ -260,8 +261,8 @@ class TestEdgeCases:
         with pytest.raises(AttributeError):
             detect_device(None)
 
-    @patch('src.utils.device.device_manager.is_cuda_available', return_value=True)
-    @patch('src.utils.device.device_manager.get_cuda_device_count', return_value=0)
+    @patch("src.utils.device.device_manager.is_cuda_available", return_value=True)
+    @patch("src.utils.device.device_manager.get_cuda_device_count", return_value=0)
     def test_detect_device_cuda_available_but_no_devices(self, mock_count, mock_available):
         """测试 CUDA 可用但没有设备"""
         # 这是一个矛盾的情况，但应该能处理

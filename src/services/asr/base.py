@@ -5,7 +5,6 @@ ASR服务基类接口
 """
 
 from abc import ABC, abstractmethod
-from typing import Optional
 
 from src.utils.logging.logger import get_logger
 
@@ -32,7 +31,7 @@ class BaseASRService(ABC):
         pass
 
     @abstractmethod
-    def transcribe(self, audio_path: str, task_id: Optional[str] = None) -> str:
+    def transcribe(self, audio_path: str, task_id: str | None = None) -> str:
         """
         转录音频文件
 
@@ -49,7 +48,7 @@ class BaseASRService(ABC):
         """
         pass
 
-    def check_cancellation(self, task_id: Optional[str]) -> None:
+    def check_cancellation(self, task_id: str | None) -> None:
         """
         检查任务是否被取消
 

@@ -4,10 +4,9 @@
 """
 
 import threading
-from typing import Dict
 
-from src.utils.logging.logger import get_logger
 from src.core.exceptions import TaskCancelledException
+from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -30,7 +29,7 @@ class TaskManager:
         if self._initialized:
             return
         self._initialized = True
-        self._stop_flags: Dict[str, bool] = {}
+        self._stop_flags: dict[str, bool] = {}
         self._flags_lock = threading.Lock()
 
     def create_task(self, task_id: str) -> None:

@@ -3,7 +3,6 @@
 支持自动检测 CPU/GPU，以及 ONNX Runtime 的执行提供者配置
 """
 
-from typing import List, Optional
 import sys
 
 from src.utils.logging.logger import get_logger
@@ -55,7 +54,7 @@ def is_onnxruntime_available() -> bool:
         return False
 
 
-def get_onnxruntime_providers() -> List[str]:
+def get_onnxruntime_providers() -> list[str]:
     """获取 ONNX Runtime 可用的执行提供者列表"""
     if not is_onnxruntime_available():
         return []
@@ -144,9 +143,7 @@ def detect_device(device_config: str = "auto") -> str:
     return device
 
 
-def get_onnx_providers(
-    device: str, custom_providers: Optional[str] = None
-) -> List[str]:
+def get_onnx_providers(device: str, custom_providers: str | None = None) -> list[str]:
     """
     根据设备配置和自定义提供者获取 ONNX Runtime 执行提供者
 
@@ -177,8 +174,7 @@ def get_onnx_providers(
 
         if providers:
             return providers
-        else:
-            logger.warning("所有自定义 ONNX 提供者均不可用，使用默认配置")
+        logger.warning("所有自定义 ONNX 提供者均不可用，使用默认配置")
 
     # 根据设备自动选择提供者
     providers = []

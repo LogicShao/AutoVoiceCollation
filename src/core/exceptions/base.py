@@ -4,8 +4,8 @@
 定义项目统一的异常基类和通用异常类型
 """
 
-from typing import Optional, Dict, Any
 from datetime import datetime
+from typing import Any
 
 
 class AutoVoiceCollationError(Exception):
@@ -24,7 +24,7 @@ class AutoVoiceCollationError(Exception):
         self,
         message: str,
         code: str = "INTERNAL_ERROR",
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         self.message = message
         self.code = code
@@ -32,7 +32,7 @@ class AutoVoiceCollationError(Exception):
         self.timestamp = datetime.now().isoformat()
         super().__init__(self.message)
 
-    def to_dict(self) -> Dict[str, Any]:
+    def to_dict(self) -> dict[str, Any]:
         """
         转换为字典格式（用于 API 响应）
 
@@ -51,15 +51,13 @@ class AutoVoiceCollationError(Exception):
         return f"[{self.code}] {self.message}"
 
     def __repr__(self) -> str:
-        return (
-            f"{self.__class__.__name__}(message={self.message!r}, code={self.code!r})"
-        )
+        return f"{self.__class__.__name__}(message={self.message!r}, code={self.code!r})"
 
 
 class ConfigurationError(AutoVoiceCollationError):
     """配置错误异常"""
 
-    def __init__(self, message: str, config_key: Optional[str] = None):
+    def __init__(self, message: str, config_key: str | None = None):
         details = {"config_key": config_key} if config_key else {}
         super().__init__(message, "CONFIG_ERROR", details)
 
@@ -67,7 +65,7 @@ class ConfigurationError(AutoVoiceCollationError):
 class ValidationError(AutoVoiceCollationError):
     """数据验证错误异常"""
 
-    def __init__(self, message: str, field: Optional[str] = None):
+    def __init__(self, message: str, field: str | None = None):
         details = {"field": field} if field else {}
         super().__init__(message, "VALIDATION_ERROR", details)
 
@@ -78,8 +76,8 @@ class ResourceNotFoundError(AutoVoiceCollationError):
     def __init__(
         self,
         message: str,
-        resource_type: Optional[str] = None,
-        resource_id: Optional[str] = None,
+        resource_type: str | None = None,
+        resource_id: str | None = None,
     ):
         details = {}
         if resource_type:
@@ -92,9 +90,7 @@ class ResourceNotFoundError(AutoVoiceCollationError):
 class NetworkError(AutoVoiceCollationError):
     """网络请求错误异常"""
 
-    def __init__(
-        self, message: str, url: Optional[str] = None, status_code: Optional[int] = None
-    ):
+    def __init__(self, message: str, url: str | None = None, status_code: int | None = None):
         details = {}
         if url:
             details["url"] = url
@@ -109,8 +105,8 @@ class FileOperationError(AutoVoiceCollationError):
     def __init__(
         self,
         message: str,
-        file_path: Optional[str] = None,
-        operation: Optional[str] = None,
+        file_path: str | None = None,
+        operation: str | None = None,
     ):
         details = {}
         if file_path:

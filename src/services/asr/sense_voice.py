@@ -4,8 +4,6 @@ SenseVoice ASR服务
 封装SenseVoiceSmall模型的ASR功能
 """
 
-from typing import Optional
-
 from funasr import AutoModel
 
 from src.text_arrangement.split_text import clean_asr_text
@@ -17,7 +15,7 @@ from .base import BaseASRService
 class SenseVoiceService(BaseASRService):
     """SenseVoice ASR服务"""
 
-    def __init__(self, device: str, onnx_providers: Optional[list] = None):
+    def __init__(self, device: str, onnx_providers: list | None = None):
         """
         初始化SenseVoice服务
 
@@ -48,9 +46,7 @@ class SenseVoiceService(BaseASRService):
                 "device": self.device,
                 "disable_update": True,
                 "model_hub": "huggingface",
-                "cache_dir": str(config.paths.model_dir)
-                if config.paths.model_dir
-                else None,
+                "cache_dir": str(config.paths.model_dir) if config.paths.model_dir else None,
             }
 
             # 如果启用ONNX且有可用提供者
@@ -67,7 +63,7 @@ class SenseVoiceService(BaseASRService):
         except Exception as e:
             raise RuntimeError(f"Failed to load SenseVoiceSmall model: {e}")
 
-    def transcribe(self, audio_path: str, task_id: Optional[str] = None) -> str:
+    def transcribe(self, audio_path: str, task_id: str | None = None) -> str:
         """
         使用SenseVoice转录音频
 

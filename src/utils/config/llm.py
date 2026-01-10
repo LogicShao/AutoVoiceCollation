@@ -4,8 +4,8 @@ LLM 配置
 管理大语言模型相关配置
 """
 
-from typing import Optional, List
 from pydantic import Field, field_validator
+
 from .base import BaseConfig
 
 
@@ -13,42 +13,26 @@ class LLMConfig(BaseConfig):
     """LLM 配置"""
 
     # API Keys
-    deepseek_api_key: Optional[str] = Field(
-        default=None, description="DeepSeek API Key"
-    )
-    gemini_api_key: Optional[str] = Field(
-        default=None, description="Google Gemini API Key"
-    )
-    dashscope_api_key: Optional[str] = Field(
-        default=None, description="阿里云 DashScope API Key"
-    )
-    cerebras_api_key: Optional[str] = Field(
-        default=None, description="Cerebras API Key"
-    )
+    deepseek_api_key: str | None = Field(default=None, description="DeepSeek API Key")
+    gemini_api_key: str | None = Field(default=None, description="Google Gemini API Key")
+    dashscope_api_key: str | None = Field(default=None, description="阿里云 DashScope API Key")
+    cerebras_api_key: str | None = Field(default=None, description="Cerebras API Key")
 
     # LLM 服务配置
-    llm_server: str = Field(
-        default="Cerebras:Qwen-3-235B-Instruct", description="LLM 服务选择"
-    )
+    llm_server: str = Field(default="Cerebras:Qwen-3-235B-Instruct", description="LLM 服务选择")
 
     llm_temperature: float = Field(
         default=0.1, ge=0.0, le=2.0, description="LLM 温度（0.0-2.0，越高越随机）"
     )
 
-    llm_max_tokens: int = Field(
-        default=6000, ge=1, le=32000, description="LLM 最大 tokens"
-    )
+    llm_max_tokens: int = Field(default=6000, ge=1, le=32000, description="LLM 最大 tokens")
 
-    llm_top_p: float = Field(
-        default=0.95, ge=0.0, le=1.0, description="LLM Top-p（0.0-1.0）"
-    )
+    llm_top_p: float = Field(default=0.95, ge=0.0, le=1.0, description="LLM Top-p（0.0-1.0）")
 
     llm_top_k: int = Field(default=64, ge=0, description="LLM Top-k")
 
     # 文本处理配置
-    split_limit: int = Field(
-        default=1000, ge=1, description="文本分段长度（每段文本的最大字符数）"
-    )
+    split_limit: int = Field(default=1000, ge=1, description="文本分段长度（每段文本的最大字符数）")
 
     async_flag: bool = Field(default=True, description="是否使用异步处理")
 
@@ -57,9 +41,7 @@ class LLMConfig(BaseConfig):
         default="Cerebras:Qwen-3-235B-Thinking", description="摘要 LLM 服务"
     )
 
-    summary_llm_temperature: float = Field(
-        default=1.0, ge=0.0, le=2.0, description="摘要 LLM 温度"
-    )
+    summary_llm_temperature: float = Field(default=1.0, ge=0.0, le=2.0, description="摘要 LLM 温度")
 
     summary_llm_max_tokens: int = Field(
         default=8192, ge=1, le=32000, description="摘要 LLM 最大 tokens"
@@ -73,7 +55,7 @@ class LLMConfig(BaseConfig):
     local_llm_enabled: bool = Field(default=False, description="是否启用本地 LLM")
 
     # 支持的 LLM 服务列表
-    llm_server_supported: List[str] = Field(
+    llm_server_supported: list[str] = Field(
         default=[
             "qwen3-plus",
             "qwen3-max",

@@ -1,20 +1,20 @@
 import argparse
-import sys
 import os
+import sys
 
-from src.utils.config import get_config
-from src.utils.helpers.timer import Timer
+from src.core.processors import AudioProcessor, SubtitleProcessor, VideoProcessor
+from src.services.asr import transcribe_audio
 from src.services.download import (
-    download_bilibili_audio,
     BiliVideoFile,
+    download_bilibili_audio,
     new_local_bili_file,
 )
-from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor
-from src.services.asr import transcribe_audio
-from src.utils.logging.logger import configure_third_party_loggers
 from src.text_arrangement.polish_by_llm import polish_text
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.text_arrangement.text_exporter import text_to_img_or_pdf
+from src.utils.config import get_config
+from src.utils.helpers.timer import Timer
+from src.utils.logging.logger import configure_third_party_loggers
 
 # 加载配置
 config = get_config()
@@ -70,9 +70,7 @@ def cli():
 
     # 字幕添加
     subtitle_parser = subparsers.add_parser("subtitle", help="为本地视频添加字幕")
-    subtitle_parser.add_argument(
-        "--video", type=str, required=True, help="本地视频文件路径"
-    )
+    subtitle_parser.add_argument("--video", type=str, required=True, help="本地视频文件路径")
 
     args = parser.parse_args()
 
@@ -101,7 +99,7 @@ def cli():
         else:
             print("请指定 --audio、--video 或 --bili 参数。")
     elif args.command == "batch":
-        with open(args.url_file, "r", encoding="utf-8") as f:
+        with open(args.url_file, encoding="utf-8") as f:
             urls = f.read()
         print("批量处理B站链接...")
         result = video_processor.process_batch(
@@ -121,9 +119,7 @@ def main(local_audio_path: str = None):
     config = get_config()
 
     if local_audio_path is None:
-        video_url = input(
-            "请输入B站视频链接（例如：https://www.bilibili.com/video/BV1...）：\n"
-        )
+        video_url = input("请输入B站视频链接（例如：https://www.bilibili.com/video/BV1...）：\n")
         timer.start()
         print("正在下载音频...")
         audio_file: BiliVideoFile = download_bilibili_audio(
@@ -136,9 +132,7 @@ def main(local_audio_path: str = None):
 
     timer.start()
     print("正在提取音频文本...")
-    audio_text = transcribe_audio(
-        audio_path=audio_file.path, model_type=config.asr.asr_model
-    )
+    audio_text = transcribe_audio(audio_path=audio_file.path, model_type=config.asr.asr_model)
     print("音频文本提取完成，用时：", timer.stop(), "秒")
 
     output_dir = os.path.join(str(config.paths.output_dir), audio_file.title)

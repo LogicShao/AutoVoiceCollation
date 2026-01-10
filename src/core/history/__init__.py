@@ -5,8 +5,8 @@
 """
 
 from .manager import (
-    ProcessRecord,
     ProcessHistoryManager,
+    ProcessRecord,
     get_history_manager,
 )
 

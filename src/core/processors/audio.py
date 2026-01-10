@@ -4,22 +4,22 @@
 负责音频文件的ASR识别、LLM润色和输出生成
 """
 
-import os
 import json
+import os
 import shutil
-from typing import Optional, Any, Tuple
+from typing import Any
 
-from src.utils.helpers.timer import Timer
-from src.services.download.bilibili_downloader import BiliVideoFile, new_local_bili_file
-from src.services.asr import transcribe_audio
 from src.core.exceptions import TaskCancelledException
+from src.services.asr import transcribe_audio
+from src.services.download.bilibili_downloader import BiliVideoFile, new_local_bili_file
 from src.text_arrangement.summary_by_llm import summarize_text
 from src.text_arrangement.text_exporter import text_to_img_or_pdf
 
-from .base import BaseProcessor
-
 # 导入配置系统
 from src.utils.config import get_config
+from src.utils.helpers.timer import Timer
+
+from .base import BaseProcessor
 
 
 class AudioProcessor(BaseProcessor):
@@ -82,9 +82,7 @@ class AudioProcessor(BaseProcessor):
         # 避免目录重复
         if output_dir.exists():
             suffix_id = 1
-            while (
-                self.config.paths.output_dir / f"{audio_file_name}_{suffix_id}"
-            ).exists():
+            while (self.config.paths.output_dir / f"{audio_file_name}_{suffix_id}").exists():
                 suffix_id += 1
             output_dir = self.config.paths.output_dir / f"{audio_file_name}_{suffix_id}"
 
@@ -98,7 +96,7 @@ class AudioProcessor(BaseProcessor):
 
     def _extract_text(
         self, audio_file: BiliVideoFile, output_dir: str, task_id: str
-    ) -> Tuple[str, float]:
+    ) -> tuple[str, float]:
         """
         执行ASR文本提取
 
@@ -136,7 +134,7 @@ class AudioProcessor(BaseProcessor):
         temperature: float,
         max_tokens: int,
         task_id: str,
-    ) -> Tuple[str, float]:
+    ) -> tuple[str, float]:
         """
         执行LLM文本润色
 
@@ -245,7 +243,7 @@ class AudioProcessor(BaseProcessor):
             ASR_model=self.config.asr.asr_model,
         )
 
-    def _zip_output(self, output_dir: str) -> Optional[str]:
+    def _zip_output(self, output_dir: str) -> str | None:
         """
         压缩输出目录
 
@@ -269,8 +267,8 @@ class AudioProcessor(BaseProcessor):
         temperature: float,
         max_tokens: int,
         text_only: bool = False,
-        task_id: Optional[str] = None,
-    ) -> Tuple[Any, float, float, Optional[str]]:
+        task_id: str | None = None,
+    ) -> tuple[Any, float, float, str | None]:
         """
         处理音频文件，提取文本并润色
 
@@ -299,9 +297,7 @@ class AudioProcessor(BaseProcessor):
             self._check_cancellation(task_id)
 
             # ASR 提取文本
-            audio_text, extract_time = self._extract_text(
-                audio_file, output_dir, task_id
-            )
+            audio_text, extract_time = self._extract_text(audio_file, output_dir, task_id)
             self._check_cancellation(task_id)
 
             # LLM 润色文本
@@ -343,15 +339,11 @@ class AudioProcessor(BaseProcessor):
                 return result_data, extract_time, polish_time, None
 
             # 正常模式：生成PDF/图片
-            self._export_output(
-                polished_text, output_dir, audio_file.title, llm_api, temperature
-            )
+            self._export_output(polished_text, output_dir, audio_file.title, llm_api, temperature)
             self._check_cancellation(task_id)
 
             # 生成摘要
-            summary_text = self._generate_summary(
-                polished_text, output_dir, audio_file.title
-            )
+            summary_text = self._generate_summary(polished_text, output_dir, audio_file.title)
             self._check_cancellation(task_id)
 
             # 压缩输出
@@ -381,8 +373,8 @@ class AudioProcessor(BaseProcessor):
         temperature: float,
         max_tokens: int,
         text_only: bool = False,
-        task_id: Optional[str] = None,
-    ) -> Tuple[Any, float, float, Optional[str]]:
+        task_id: str | None = None,
+    ) -> tuple[Any, float, float, str | None]:
         """
         处理上传的音频文件
 
@@ -401,6 +393,4 @@ class AudioProcessor(BaseProcessor):
             return "请上传一个音频文件。", None, None, None
 
         audio_file = new_local_bili_file(audio_path)
-        return self.process(
-            audio_file, llm_api, temperature, max_tokens, text_only, task_id
-        )
+        return self.process(audio_file, llm_api, temperature, max_tokens, text_only, task_id)

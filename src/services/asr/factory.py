@@ -4,16 +4,13 @@ ASR服务工厂
 提供ASR服务的创建和管理
 """
 
-from typing import Optional
-
+from src.utils.config import get_config
 from src.utils.device.device_manager import detect_device, get_onnx_providers
 from src.utils.logging.logger import get_logger
-from src.utils.config import get_config
 
 from .base import BaseASRService
-from .sense_voice import SenseVoiceService
 from .paraformer import ParaformerService
-
+from .sense_voice import SenseVoiceService
 
 logger = get_logger(__name__)
 
@@ -21,8 +18,8 @@ logger = get_logger(__name__)
 config = get_config()
 
 # 全局单例缓存
-_sense_voice_instance: Optional[SenseVoiceService] = None
-_paraformer_instance: Optional[ParaformerService] = None
+_sense_voice_instance: SenseVoiceService | None = None
+_paraformer_instance: ParaformerService | None = None
 
 
 def get_asr_service(model_type: str = "paraformer") -> BaseASRService:
@@ -50,21 +47,19 @@ def get_asr_service(model_type: str = "paraformer") -> BaseASRService:
             _sense_voice_instance = SenseVoiceService(device, onnx_providers)
         return _sense_voice_instance
 
-    elif model_type == "paraformer":
+    if model_type == "paraformer":
         if _paraformer_instance is None:
             logger.info(f"Creating Paraformer service instance (device: {device})")
             _paraformer_instance = ParaformerService(device, onnx_providers)
         return _paraformer_instance
 
-    else:
-        raise ValueError(
-            f"Unsupported model type: {model_type}. "
-            f"Supported types: 'sense_voice', 'paraformer'"
-        )
+    raise ValueError(
+        f"Unsupported model type: {model_type}. Supported types: 'sense_voice', 'paraformer'"
+    )
 
 
 def transcribe_audio(
-    audio_path: str, model_type: str = "paraformer", task_id: Optional[str] = None
+    audio_path: str, model_type: str = "paraformer", task_id: str | None = None
 ) -> str:
     """
     转录音频文件（便捷函数）

@@ -10,28 +10,32 @@ import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
-from typing import List, Optional
 
 import uvicorn
 from fastapi import (
     FastAPI,
     File,
-    UploadFile,
-    HTTPException,
     Form,
+    HTTPException,
+    UploadFile,
 )
 from fastapi.responses import FileResponse, HTMLResponse
 from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from src.utils.config import get_config
-from src.core.processors import AudioProcessor, VideoProcessor, SubtitleProcessor, MultiPartVideoProcessor
-from src.text_arrangement.summary_by_llm import summarize_text
-from src.api.middleware import register_exception_handlers
 from src.api.inference_queue import get_inference_queue
-from src.utils.logging.logger import get_logger
-from src.utils.helpers.task_manager import get_task_manager
+from src.api.middleware import register_exception_handlers
+from src.core.processors import (
+    AudioProcessor,
+    MultiPartVideoProcessor,
+    SubtitleProcessor,
+    VideoProcessor,
+)
 from src.services.download.bilibili_downloader import get_multi_part_info
+from src.text_arrangement.summary_by_llm import summarize_text
+from src.utils.config import get_config
+from src.utils.helpers.task_manager import get_task_manager
+from src.utils.logging.logger import get_logger
 
 # 创建logger
 logger = get_logger(__name__)
@@ -48,6 +52,7 @@ multi_part_processor = MultiPartVideoProcessor()
 # 获取全局推理队列实例
 inference_queue = get_inference_queue()
 task_manager = get_task_manager()
+
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
@@ -114,9 +119,7 @@ class SummarizeRequest(BaseModel):
     temperature: float = Field(
         default=config.llm.llm_temperature, ge=0, le=2, description="温度参数"
     )
-    max_tokens: int = Field(
-        default=config.llm.llm_max_tokens, gt=0, description="最大token数"
-    )
+    max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
 
 
 class BilibiliVideoRequest(BaseModel):
@@ -127,9 +130,7 @@ class BilibiliVideoRequest(BaseModel):
     temperature: float = Field(
         default=config.llm.llm_temperature, ge=0, le=2, description="温度参数"
     )
-    max_tokens: int = Field(
-        default=config.llm.llm_max_tokens, gt=0, description="最大token数"
-    )
+    max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
     summarize: bool = Field(default=False, description="是否对结果进行总结")
 
@@ -137,14 +138,12 @@ class BilibiliVideoRequest(BaseModel):
 class BatchProcessRequest(BaseModel):
     """批量处理请求"""
 
-    urls: List[str] = Field(..., description="B站视频链接列表")
+    urls: list[str] = Field(..., description="B站视频链接列表")
     llm_api: str = Field(default=config.llm.llm_server, description="LLM服务")
     temperature: float = Field(
         default=config.llm.llm_temperature, ge=0, le=2, description="温度参数"
     )
-    max_tokens: int = Field(
-        default=config.llm.llm_max_tokens, gt=0, description="最大token数"
-    )
+    max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
     summarize: bool = Field(default=False, description="是否对结果进行总结")
 
@@ -153,14 +152,12 @@ class MultiPartVideoRequest(BaseModel):
     """多P视频处理请求"""
 
     video_url: str = Field(..., description="B站视频链接")
-    selected_parts: List[int] = Field(..., description="选中的分P编号列表（从1开始）", min_length=1)
+    selected_parts: list[int] = Field(..., description="选中的分P编号列表（从1开始）", min_length=1)
     llm_api: str = Field(default=config.llm.llm_server, description="LLM服务")
     temperature: float = Field(
         default=config.llm.llm_temperature, ge=0, le=2, description="温度参数"
     )
-    max_tokens: int = Field(
-        default=config.llm.llm_max_tokens, gt=0, description="最大token数"
-    )
+    max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
 
 
@@ -168,26 +165,20 @@ class TaskResponse(BaseModel):
     """任务响应"""
 
     task_id: str = Field(..., description="任务ID")
-    status: str = Field(
-        ..., description="任务状态: pending, processing, completed, failed"
-    )
+    status: str = Field(..., description="任务状态: pending, processing, completed, failed")
     message: str = Field(default="", description="消息")
-    result: Optional[dict] = Field(default=None, description="处理结果")
-    error: Optional[str] = Field(default=None, description="错误信息")
-    created_at: Optional[str] = Field(
-        default=None, description="任务创建时间（ISO格式）"
-    )
-    completed_at: Optional[str] = Field(
-        default=None, description="任务完成时间（ISO格式）"
-    )
-    url: Optional[str] = Field(default=None, description="处理的URL（如果有）")
-    filename: Optional[str] = Field(default=None, description="处理的文件名（如果有）")
+    result: dict | None = Field(default=None, description="处理结果")
+    error: str | None = Field(default=None, description="错误信息")
+    created_at: str | None = Field(default=None, description="任务创建时间（ISO格式）")
+    completed_at: str | None = Field(default=None, description="任务完成时间（ISO格式）")
+    url: str | None = Field(default=None, description="处理的URL（如果有）")
+    filename: str | None = Field(default=None, description="处理的文件名（如果有）")
 
 
 class TaskListResponse(BaseModel):
     """任务列表响应"""
 
-    tasks: List[TaskResponse] = Field(..., description="任务列表")
+    tasks: list[TaskResponse] = Field(..., description="任务列表")
     total: int = Field(..., description="任务总数")
 
 
@@ -197,7 +188,7 @@ class ProcessResult(BaseModel):
     output_dir: str = Field(..., description="输出目录")
     extract_time: float = Field(..., description="提取时间（秒）")
     polish_time: float = Field(..., description="润色时间（秒）")
-    zip_file: Optional[str] = Field(default=None, description="ZIP文件路径")
+    zip_file: str | None = Field(default=None, description="ZIP文件路径")
 
 
 # API端点
@@ -205,7 +196,7 @@ class ProcessResult(BaseModel):
 async def root():
     """根端点，返回前端页面"""
     try:
-        with open("frontend/src/index.html", "r", encoding="utf-8") as f:
+        with open("frontend/src/index.html", encoding="utf-8") as f:
             return f.read()
     except FileNotFoundError:
         return HTMLResponse(
@@ -316,7 +307,7 @@ async def check_multi_part(request: BilibiliVideoRequest):
                     }
                     for p in multi_part_info.parts
                 ],
-            }
+            },
         }
     except Exception as e:
         logger.error(f"检查多P视频失败: {e}", exc_info=True)
@@ -698,9 +689,7 @@ async def download_result(task_id: str):
         root_dir=output_dir,
     )
 
-    return FileResponse(
-        zip_file, media_type="application/zip", filename=os.path.basename(zip_file)
-    )
+    return FileResponse(zip_file, media_type="application/zip", filename=os.path.basename(zip_file))
 
 
 def is_port_available(host: str, port: int) -> bool:
@@ -779,7 +768,7 @@ if __name__ == "__main__":
     if available_port != preferred_port:
         print(f"注意: 配置的端口 {preferred_port} 不可用，已自动切换到端口 {available_port}")
 
-    print(f"正在启动 AutoVoiceCollation API 服务器...")
+    print("正在启动 AutoVoiceCollation API 服务器...")
     print(f"访问地址: http://{host}:{available_port}")
     print(f"API 文档: http://{host}:{available_port}/docs")
     print(f"健康检查: http://{host}:{available_port}/health")

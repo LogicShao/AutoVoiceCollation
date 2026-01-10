@@ -5,17 +5,16 @@
 """
 
 import os
-from typing import Optional, Tuple
 
+from src.core.exceptions import TaskCancelledException
 from src.services.download.bilibili_downloader import extract_audio_from_video
 from src.services.subtitle import (
-    generate_subtitle_file,
-    encode_subtitle_to_video,
-    hard_encode_dot_srt_file,
-    gen_timestamped_text_file,
     SubtitleConfig,
+    encode_subtitle_to_video,
+    gen_timestamped_text_file,
+    generate_subtitle_file,
+    hard_encode_dot_srt_file,
 )
-from src.core.exceptions import TaskCancelledException
 
 from .base import BaseProcessor
 
@@ -25,7 +24,7 @@ from .base import BaseProcessor
 class SubtitleProcessor(BaseProcessor):
     """字幕处理器"""
 
-    def process_simple(self, video_file: str) -> Tuple[str, str]:
+    def process_simple(self, video_file: str) -> tuple[str, str]:
         """
         生成视频字幕并硬编码到视频
 
@@ -53,13 +52,13 @@ class SubtitleProcessor(BaseProcessor):
         model: str = "paraformer",
         segmenter_type: str = "pause",
         output_type: str = "subtitle_only",
-        api_server: Optional[str] = None,
+        api_server: str | None = None,
         pause_threshold: float = 0.6,
         max_chars: int = 16,
         batch_size_s: int = 5,
         paraformer_chunk_size_s: int = 30,
-        task_id: Optional[str] = None,
-    ) -> Tuple[Optional[str], Optional[str], str]:
+        task_id: str | None = None,
+    ) -> tuple[str | None, str | None, str]:
         """
         增强版字幕生成函数，支持更多配置选项
 
@@ -148,9 +147,7 @@ class SubtitleProcessor(BaseProcessor):
             video_with_subtitle = None
             if output_type == "video_with_subtitle":
                 if not is_video:
-                    info_msg = (
-                        "警告: 输入为音频文件，无法生成带字幕的视频。仅返回字幕文件。"
-                    )
+                    info_msg = "警告: 输入为音频文件，无法生成带字幕的视频。仅返回字幕文件。"
                     self.logger.warning(info_msg)
                 elif file_type != "srt":
                     info_msg = "警告: 硬编码仅支持 SRT 格式，将跳过视频生成。"

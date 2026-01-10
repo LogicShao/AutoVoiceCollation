@@ -4,7 +4,8 @@
 定义视频/音频下载过程中的异常类型
 """
 
-from typing import Optional, Dict, Any
+from typing import Any
+
 from .base import AutoVoiceCollationError
 
 
@@ -14,9 +15,9 @@ class DownloadError(AutoVoiceCollationError):
     def __init__(
         self,
         message: str,
-        url: Optional[str] = None,
+        url: str | None = None,
         code: str = "DOWNLOAD_ERROR",
-        details: Optional[Dict[str, Any]] = None,
+        details: dict[str, Any] | None = None,
     ):
         """
         初始化下载异常
@@ -42,9 +43,7 @@ class VideoNotFoundError(DownloadError):
     """视频不存在异常"""
 
     def __init__(self, url: str):
-        super().__init__(
-            message=f"视频不存在或无法访问: {url}", url=url, code="VIDEO_NOT_FOUND"
-        )
+        super().__init__(message=f"视频不存在或无法访问: {url}", url=url, code="VIDEO_NOT_FOUND")
 
 
 class VideoUnavailableError(DownloadError):
@@ -53,8 +52,8 @@ class VideoUnavailableError(DownloadError):
     def __init__(
         self,
         url: str,
-        reason: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        reason: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
         if details is None:
             details = {}
@@ -65,9 +64,7 @@ class VideoUnavailableError(DownloadError):
         if reason:
             message += f" (原因: {reason})"
 
-        super().__init__(
-            message=message, url=url, code="VIDEO_UNAVAILABLE", details=details
-        )
+        super().__init__(message=message, url=url, code="VIDEO_UNAVAILABLE", details=details)
 
 
 class NetworkError(DownloadError):
@@ -76,9 +73,7 @@ class NetworkError(DownloadError):
     def __init__(
         self,
         message: str,
-        url: Optional[str] = None,
-        details: Optional[Dict[str, Any]] = None,
+        url: str | None = None,
+        details: dict[str, Any] | None = None,
     ):
-        super().__init__(
-            message=message, url=url, code="NETWORK_ERROR", details=details
-        )
+        super().__init__(message=message, url=url, code="NETWORK_ERROR", details=details)

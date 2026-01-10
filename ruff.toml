@@ -1,0 +1,72 @@
+# Ruff 配置文件
+# 文档: https://docs.astral.sh/ruff/
+
+# 目标 Python 版本
+target-version = "py311"
+
+# 每行最大字符数
+line-length = 100
+
+# 排除的目录
+extend-exclude = [
+    ".git",
+    ".pytest_cache",
+    "__pycache__",
+    "venv",
+    "temp",
+    "out",
+    "download",
+    "models",
+    "logs",
+]
+
+[lint]
+# 启用的规则集
+select = [
+    "E",     # pycodestyle errors
+    "W",     # pycodestyle warnings
+    "F",     # pyflakes
+    "I",     # isort (import sorting)
+    "N",     # pep8-naming
+    "UP",    # pyupgrade (Python 版本升级建议)
+    "B",     # flake8-bugbear (常见错误)
+    "C4",    # flake8-comprehensions (列表推导式优化)
+    "SIM",   # flake8-simplify (代码简化建议)
+    "RET",   # flake8-return (return 语句优化)
+]
+
+# 忽略的规则
+ignore = [
+    "E501",   # 行太长（由 formatter 处理）
+    "E402",   # 导入不在文件顶部（某些情况需要延迟导入）
+    "B008",   # 函数调用作为默认参数（FastAPI 依赖注入需要）
+    "SIM108", # 使用三元运算符（有时 if-else 更清晰）
+]
+
+# 每个文件允许的未使用变量
+dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
+
+[lint.per-file-ignores]
+# 测试文件可以有未使用的导入和重复代码
+"tests/**/*.py" = ["F401", "F811", "E402"]
+# __init__.py 可以有未使用的导入（用于导出）
+"**/__init__.py" = ["F401"]
+
+[lint.isort]
+# import 排序配置
+known-first-party = ["src", "tests"]
+section-order = ["future", "standard-library", "third-party", "first-party", "local-folder"]
+
+[lint.mccabe]
+# 圈复杂度限制
+max-complexity = 15
+
+[format]
+# 代码格式化配置
+quote-style = "double"
+indent-style = "space"
+skip-magic-trailing-comma = false
+line-ending = "auto"
+
+# 字符串引号规范化
+docstring-code-format = true

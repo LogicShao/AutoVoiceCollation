@@ -5,19 +5,18 @@ import os
 import threading
 import time
 from collections import deque
-from typing import Optional
 
-from src.utils.config import get_config
-from src.utils.logging.logger import get_logger
+from src.core.exceptions import TaskCancelledException
 from src.services.llm import (
-    LLMQueryParams,
-    query_llm,
-    is_local_llm,
     LLMProvider,
+    LLMQueryParams,
+    is_local_llm,
+    query_llm,
 )
 from src.text_arrangement.split_text import split_text_by_sentences
-from src.core.exceptions import TaskCancelledException
+from src.utils.config import get_config
 from src.utils.helpers.task_manager import get_task_manager
+from src.utils.logging.logger import get_logger
 
 # 初始化logger
 logger = get_logger(__name__)
@@ -37,9 +36,7 @@ system_prompt = """你是一个高级语言处理助手，专注于文本清理�
 """
 
 
-def polish_each_text(
-    txt: str, api_server: str, temperature: float, max_tokens: int
-) -> str:
+def polish_each_text(txt: str, api_server: str, temperature: float, max_tokens: int) -> str:
     """
     根据API服务选择对应的润色函数
     :param txt: 要润色的文本
@@ -114,7 +111,7 @@ def polish_text(
     max_tokens: int,
     debug_flag: bool,
     async_flag: bool = True,
-    task_id: Optional[str] = None,
+    task_id: str | None = None,
 ) -> str:
     """
     异步润��函数，支持每分钟请求限制 + 最大并发数控制 + 异常重试。
@@ -128,17 +125,13 @@ def polish_text(
     :param task_id: 任务ID，用于终止控制
     :return: 润色后的文本
     """
-    assert split_len <= max_tokens * 0.7, (
-        "分段长度不能超过最大令牌数的70%，可能导致输出不完整。"
-    )
+    assert split_len <= max_tokens * 0.7, "分段长度不能超过最大令牌数的70%，可能导致输出不完整。"
 
     # 获取 task_manager 实例
     task_manager = get_task_manager() if task_id else None
     # TODO: 改进异步调用
     logger.info(f"Using {api_service} API for polishing text.")
-    logger.info(
-        f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}"
-    )
+    logger.info(f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}")
     split_text = split_text_by_sentences(txt, split_len=split_len)
     logger.info(f"Splitting text into {len(split_text)} chunks for processing.")
 
@@ -152,9 +145,7 @@ def polish_text(
                 task_manager.check_cancellation(task_id)
 
             logger.info(f"processing chunk {i + 1}/{len(split_text)}")
-            polish_chunks.append(
-                polish_each_text(chunk, api_service, temperature, max_tokens)
-            )
+            polish_chunks.append(polish_each_text(chunk, api_service, temperature, max_tokens))
             logger.info(f"Chunk {i + 1} polished successfully.")
         return "\n\n".join(polish_chunks).strip()
 
@@ -201,10 +192,7 @@ def polish_text(
             async with semaphore:
                 return await safe_polish(chunk, chunk_id)
 
-        tasks = [
-            sem_safe_polish(chunk, chunk_id)
-            for chunk_id, chunk in enumerate(split_text)
-        ]
+        tasks = [sem_safe_polish(chunk, chunk_id) for chunk_id, chunk in enumerate(split_text)]
         results = await asyncio.gather(*tasks)
         return results
 
@@ -254,9 +242,7 @@ def polish_text(
             logging.error(f"Failed to process chunk after {MAX_RETRIES} attempts.")
             return chunk
 
-        with concurrent.futures.ThreadPoolExecutor(
-            max_workers=MAX_CONCURRENT_REQUESTS
-        ) as executor:
+        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
             futures = [
                 executor.submit(sync_safe_polish, chunk, chunk_id)
                 for chunk_id, chunk in enumerate(split_text)
@@ -267,9 +253,7 @@ def polish_text(
     if debug_flag:
         config = get_config()
         debug_text = ""
-        for i, polished, original in zip(
-            range(len(polished_chunks)), polished_chunks, split_text
-        ):
+        for i, polished, original in zip(range(len(polished_chunks)), polished_chunks, split_text):
             debug_text += f"Chunk {i + 1}:\n"
             debug_text += f"Original: {original}\n"
             debug_text += f"Polished: {polished}\n\n"

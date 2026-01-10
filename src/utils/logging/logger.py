@@ -6,7 +6,6 @@
 import logging
 import sys
 from pathlib import Path
-from typing import Optional
 
 
 class ColoredFormatter(logging.Formatter):
@@ -36,7 +35,7 @@ class ColoredFormatter(logging.Formatter):
 def setup_logger(
     name: str,
     log_level: str = "INFO",
-    log_file: Optional[str] = None,
+    log_file: str | None = None,
     console_output: bool = True,
     colored_output: bool = True,
 ) -> logging.Logger:

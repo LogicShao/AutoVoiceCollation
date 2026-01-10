@@ -4,7 +4,6 @@ ASR 相关异常类
 定义 ASR（自动语音识别）服务相关的异常
 """
 
-from typing import Optional
 from .base import AutoVoiceCollationError
 
 
@@ -14,8 +13,8 @@ class ASRError(AutoVoiceCollationError):
     def __init__(
         self,
         message: str,
-        model: Optional[str] = None,
-        audio_file: Optional[str] = None,
+        model: str | None = None,
+        audio_file: str | None = None,
     ):
         details = {}
         if model:
@@ -38,7 +37,7 @@ class ASRModelLoadError(ASRError):
 class ASRInferenceError(ASRError):
     """ASR 推理失败异常"""
 
-    def __init__(self, message: str, model: str, audio_file: Optional[str] = None):
+    def __init__(self, message: str, model: str, audio_file: str | None = None):
         super().__init__(message, model, audio_file)
         self.code = f"ASR_INFERENCE_ERROR_{model.upper()}"
 
@@ -46,7 +45,7 @@ class ASRInferenceError(ASRError):
 class ASRDeviceError(ASRError):
     """ASR 设备错误异常（如 CUDA OOM）"""
 
-    def __init__(self, message: str, device: str, model: Optional[str] = None):
+    def __init__(self, message: str, device: str, model: str | None = None):
         details = {"device": device}
         if model:
             details["model"] = model
@@ -58,7 +57,7 @@ class ASRDeviceError(ASRError):
 class AudioFormatError(ASRError):
     """音频格式不支持异常"""
 
-    def __init__(self, message: str, audio_file: str, format: Optional[str] = None):
+    def __init__(self, message: str, audio_file: str, format: str | None = None):
         details = {"audio_file": audio_file}
         if format:
             details["format"] = format

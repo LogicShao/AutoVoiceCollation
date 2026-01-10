@@ -4,16 +4,13 @@ LLM 相关异常类
 定义 LLM（大语言模型）服务相关的异常
 """
 
-from typing import Optional
 from .base import AutoVoiceCollationError
 
 
 class LLMError(AutoVoiceCollationError):
     """LLM 服务基础异常"""
 
-    def __init__(
-        self, message: str, provider: Optional[str] = None, model: Optional[str] = None
-    ):
+    def __init__(self, message: str, provider: str | None = None, model: str | None = None):
         details = {}
         if provider:
             details["provider"] = provider
@@ -31,8 +28,8 @@ class LLMAPIError(LLMError):
         self,
         message: str,
         provider: str,
-        status_code: Optional[int] = None,
-        api_error_code: Optional[str] = None,
+        status_code: int | None = None,
+        api_error_code: str | None = None,
     ):
         super().__init__(message, provider)
         self.code = f"LLM_API_ERROR_{provider.upper()}"
@@ -45,7 +42,7 @@ class LLMAPIError(LLMError):
 class LLMRateLimitError(LLMError):
     """LLM API 速率限制异常"""
 
-    def __init__(self, message: str, provider: str, retry_after: Optional[int] = None):
+    def __init__(self, message: str, provider: str, retry_after: int | None = None):
         super().__init__(message, provider)
         self.code = f"LLM_RATE_LIMIT_{provider.upper()}"
         if retry_after:
@@ -63,7 +60,7 @@ class LLMAuthenticationError(LLMError):
 class LLMTimeoutError(LLMError):
     """LLM API 超时异常"""
 
-    def __init__(self, message: str, provider: str, timeout: Optional[float] = None):
+    def __init__(self, message: str, provider: str, timeout: float | None = None):
         super().__init__(message, provider)
         self.code = f"LLM_TIMEOUT_{provider.upper()}"
         if timeout:
@@ -73,7 +70,7 @@ class LLMTimeoutError(LLMError):
 class LLMResponseError(LLMError):
     """LLM 响应格式错误异常"""
 
-    def __init__(self, message: str, provider: str, response: Optional[str] = None):
+    def __init__(self, message: str, provider: str, response: str | None = None):
         super().__init__(message, provider)
         self.code = f"LLM_RESPONSE_ERROR_{provider.upper()}"
         if response:
