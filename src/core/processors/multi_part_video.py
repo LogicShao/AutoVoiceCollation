@@ -84,7 +84,7 @@ class MultiPartVideoProcessor(BaseProcessor):
             total_polish_time = 0.0
             failed_parts = []
 
-            for idx, part_info in enumerate(selected_parts_info, start=1):
+            for _, part_info in enumerate(selected_parts_info, start=1):
                 self._check_cancellation(task_id)  # ✅ 每个分P前检查取消
 
                 try:

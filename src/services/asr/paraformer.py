@@ -61,7 +61,7 @@ class ParaformerService(BaseASRService):
             self.logger.info("Paraformer model loaded successfully.")
 
         except Exception as e:
-            raise RuntimeError(f"Failed to load Paraformer model: {e}")
+            raise RuntimeError(f"Failed to load Paraformer model: {e}") from e
 
     def transcribe(self, audio_path: str, task_id: str | None = None) -> str:
         """
@@ -93,4 +93,4 @@ class ParaformerService(BaseASRService):
             return res[0]["text"]
 
         except Exception as e:
-            raise RuntimeError(f"Failed to transcribe audio with Paraformer: {e}")
+            raise RuntimeError(f"Failed to transcribe audio with Paraformer: {e}") from e

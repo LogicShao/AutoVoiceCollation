@@ -311,7 +311,7 @@ async def check_multi_part(request: BilibiliVideoRequest):
         }
     except Exception as e:
         logger.error(f"检查多P视频失败: {e}", exc_info=True)
-        raise HTTPException(status_code=500, detail=f"检查失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"检查失败: {str(e)}") from e
 
 
 @app.post("/api/v1/process/multipart", response_model=TaskResponse)
@@ -399,7 +399,7 @@ async def process_audio_file(
             "message": f"文件保存失败: {str(e)}",
             "created_at": created_at,
         }
-        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}") from e
 
     # 如果是视频文件，提取音频到 download 目录
     if is_video:
@@ -431,7 +431,7 @@ async def process_audio_file(
             }
             if os.path.exists(temp_file_path):
                 os.remove(temp_file_path)
-            raise HTTPException(status_code=500, detail=f"音频提取失败: {str(e)}")
+            raise HTTPException(status_code=500, detail=f"音频提取失败: {str(e)}") from e
 
     # ✅ 提交任务到异步队列（立即返回）
     await inference_queue.submit_task(
@@ -532,7 +532,7 @@ async def process_video_subtitle(file: UploadFile = File(...)):
             "message": f"文件保存失败: {str(e)}",
             "created_at": created_at,
         }
-        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}") from e
 
     # ✅ 提交任务到异步队列（立即返回）
     await inference_queue.submit_task(
@@ -569,7 +569,7 @@ async def summarize_text_endpoint(request: SummarizeRequest):
             "summary_length": len(summary),
         }
     except Exception as e:
-        raise HTTPException(status_code=500, detail=f"总结失败: {str(e)}")
+        raise HTTPException(status_code=500, detail=f"总结失败: {str(e)}") from e
 
 
 @app.get("/api/v1/task/{task_id}", response_model=TaskResponse)

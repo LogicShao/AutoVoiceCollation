@@ -61,7 +61,7 @@ class SenseVoiceService(BaseASRService):
             self.logger.info("SenseVoiceSmall model loaded successfully.")
 
         except Exception as e:
-            raise RuntimeError(f"Failed to load SenseVoiceSmall model: {e}")
+            raise RuntimeError(f"Failed to load SenseVoiceSmall model: {e}") from e
 
     def transcribe(self, audio_path: str, task_id: str | None = None) -> str:
         """
@@ -95,8 +95,7 @@ class SenseVoiceService(BaseASRService):
                 merge_length_s=15,
             )
 
-            text = clean_asr_text(res[0]["text"])
-            return text
+            return clean_asr_text(res[0]["text"])
 
         except Exception as e:
-            raise RuntimeError(f"Failed to transcribe audio with SenseVoice: {e}")
+            raise RuntimeError(f"Failed to transcribe audio with SenseVoice: {e}") from e

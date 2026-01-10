@@ -47,10 +47,20 @@ ignore = [
 dummy-variable-rgx = "^(_+|(_+[a-zA-Z0-9_]*[a-zA-Z0-9]+?))$"
 
 [lint.per-file-ignores]
-# 测试文件可以有未使用的导入和重复代码
-"tests/**/*.py" = ["F401", "F811", "E402"]
+# 第三方代码（SenseVoice 模型）- 忽略所有检查
+"src/SenseVoiceSmall/**/*.py" = ["ALL"]
+# 测试文件可以有未使用的导入、变量、重复代码和简单断言
+"tests/**/*.py" = ["F401", "F811", "E402", "F841", "B007", "B011", "SIM102"]
 # __init__.py 可以有未使用的导入（用于导出）
 "**/__init__.py" = ["F401"]
+# text_arrangement 模块允许的优化建议（遗留代码）
+"src/text_arrangement/**/*.py" = ["RET504", "SIM105", "B905", "N803"]
+# 设备管理器允许条件导入（用于特性检测）
+"src/utils/device/device_manager.py" = ["F401"]
+# 任务异常命名是有意为之（表示操作取消而非错误）
+"src/core/exceptions/task.py" = ["N818"]
+# 字幕生成器允许的优化建议（复杂遗留代码）
+"src/services/subtitle/generator.py" = ["SIM102", "F841", "UP022"]
 
 [lint.isort]
 # import 排序配置

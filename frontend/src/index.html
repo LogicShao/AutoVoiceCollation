@@ -358,7 +358,8 @@
         <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-24">状态:</span>
         <span :class="getStatusColor(currentTask?.status)" class="text-sm" x-text="currentTask?.status"></span>
       </div>
-      <div x-show="currentTask?.progress">
+      <!-- 修复：使用严格判断，确保 progress 为 0 时也显示进度条 -->
+      <div x-show="currentTask?.progress !== undefined && currentTask?.progress !== null">
         <div class="flex items-center mb-2">
           <span class="text-sm font-medium text-gray-700 dark:text-gray-300 w-24">进度:</span>
           <span class="text-sm text-gray-900 dark:text-gray-100" x-text="currentTask?.progress"></span>

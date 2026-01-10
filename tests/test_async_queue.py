@@ -65,9 +65,7 @@ def test_health_during_inference():
     health_response = requests.get(f"{BASE_URL}/health")
     health_time = health_response.elapsed.total_seconds()
 
-    assert (
-        health_response.status_code == 200
-    ), f"健康检查失败: {health_response.status_code}"
+    assert health_response.status_code == 200, f"健康检查失败: {health_response.status_code}"
 
     print("✅ 健康检查成功（推理期间仍可响应）")
     print(f"   响应时间: {health_time:.3f}秒")
@@ -90,9 +88,7 @@ def test_concurrent_tasks():
 
     start_time = time.time()
     for i, url in enumerate(test_urls, 1):
-        response = requests.post(
-            f"{BASE_URL}/api/v1/process/bilibili", json={"video_url": url}
-        )
+        response = requests.post(f"{BASE_URL}/api/v1/process/bilibili", json={"video_url": url})
 
         assert response.status_code == 200, f"任务 {i} 提交失败: {response.status_code}"
 
@@ -151,9 +147,7 @@ def test_task_status_query():
         print(f"  响应时间: {response.elapsed.total_seconds():.3f}秒")
 
         # 验证状态应该是有效的
-        assert (
-            task_info["status"] in valid_statuses
-        ), f"无效的任务状态: {task_info['status']}"
+        assert task_info["status"] in valid_statuses, f"无效的任务状态: {task_info['status']}"
 
         # 只要能成功查询到状态（即使是pending），就算成功
         status_query_success = True

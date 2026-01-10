@@ -78,8 +78,8 @@ class AppConfig(BaseConfig):
         # 转换为整数
         try:
             port = int(v)
-        except (ValueError, TypeError):
-            raise ValueError(f"无效的端口号: {v}。必须是 1-65535 之间的整数或留空")
+        except (ValueError, TypeError) as e:
+            raise ValueError(f"无效的端口号: {v}。必须是 1-65535 之间的整数或留空") from e
 
         # 验证端口范围
         if port < 1 or port > 65535:

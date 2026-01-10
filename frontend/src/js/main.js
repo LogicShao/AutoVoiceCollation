@@ -163,7 +163,8 @@ document.addEventListener('alpine:init', () => {
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             video_url: this.biliUrl,
-            selected_parts: this.selectedParts
+            // 转换为数字类型，匹配后端 API 期望的 list[int]
+            selected_parts: this.selectedParts.map(p => Number(p))
           })
         });
 
@@ -196,7 +197,8 @@ document.addEventListener('alpine:init', () => {
     // 全选分P
     selectAllParts() {
       if (this.multiPartInfo) {
-        this.selectedParts = this.multiPartInfo.parts.map(p => p.part_number);
+        // 确保使用字符串类型，与 HTML checkbox value 保持一致
+        this.selectedParts = this.multiPartInfo.parts.map(p => String(p.part_number));
       }
     },
 
@@ -208,7 +210,8 @@ document.addEventListener('alpine:init', () => {
     // 反选
     inverseSelectParts() {
       if (this.multiPartInfo) {
-        const allParts = this.multiPartInfo.parts.map(p => p.part_number);
+        // 确保使用字符串类型，与 HTML checkbox value 保持一致
+        const allParts = this.multiPartInfo.parts.map(p => String(p.part_number));
         this.selectedParts = allParts.filter(p => !this.selectedParts.includes(p));
       }
     },
@@ -362,9 +365,24 @@ document.addEventListener('alpine:init', () => {
               alert('任务失败: ' + (data.error || '未知错误'));
             }
           }
+        } else {
+          // 后端返回错误状态码（如 404、500）
+          console.error('查询任务状态失败，状态码:', response.status);
+          // 如果是 404（任务不存在），停止轮询并重置状态
+          if (response.status === 404) {
+            clearInterval(this.pollInterval);
+            this.processing = false;
+            this.canCancel = false;
+            alert('任务不存在或已过期');
+          }
         }
       } catch (error) {
+        // 网络错误或其他异常，停止轮询并重置状态，避免 UI 永久卡住
         console.error('查询任务状态失败:', error);
+        clearInterval(this.pollInterval);
+        this.processing = false;
+        this.canCancel = false;
+        alert('网络错误，无法查询任务状态。请刷新页面或检查网络连接。');
       }
     },
 
