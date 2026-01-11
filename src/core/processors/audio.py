@@ -223,6 +223,7 @@ class AudioProcessor(BaseProcessor):
         title: str,
         llm_api: str,
         temperature: float,
+        pdf_filename: str | None = None,
     ) -> None:
         """
         导出输出文件(PDF/图片)
@@ -233,6 +234,7 @@ class AudioProcessor(BaseProcessor):
             title: 标题
             llm_api: LLM API服务
             temperature: 温度参数
+            pdf_filename: PDF 文件名（不含扩展名），用于智能命名
         """
         text_to_img_or_pdf(
             polished_text,
@@ -241,6 +243,7 @@ class AudioProcessor(BaseProcessor):
             output_path=output_dir,
             LLM_info=f"({llm_api},温度:{temperature})",
             ASR_model=self.config.asr.asr_model,
+            pdf_filename=pdf_filename,
         )
 
     def _zip_output(self, output_dir: str) -> str | None:
@@ -338,8 +341,44 @@ class AudioProcessor(BaseProcessor):
                 self.logger.info("all done")
                 return result_data, extract_time, polish_time, None
 
+            # ✨ 生成智能 PDF 文件名
+            pdf_filename = None
+            if audio_file.title:
+                # B站视频：直接使用标题
+                pdf_filename = audio_file.title
+                self.logger.info(f"使用视频标题作为文件名: {pdf_filename}")
+            else:
+                # 本地文件：尝试通过 LLM 生成标题
+                self.logger.info("本地文件无标题，尝试通过 LLM 生成...")
+                try:
+                    from src.utils.helpers.filename import generate_title_from_text
+
+                    # 同步调用（不再需要 asyncio）
+                    generated_title = generate_title_from_text(
+                        text=audio_text,  # 使用原始转录文本
+                        llm_service=llm_api,
+                        max_length=50,
+                    )
+                    if generated_title:
+                        pdf_filename = generated_title
+                        # 更新 audio_file.title 以便其他地方使用
+                        audio_file.title = generated_title
+                        self.logger.info(f"LLM 生成标题成功: {generated_title}")
+                    else:
+                        self.logger.warning("LLM 标题生成失败，使用默认文件名")
+                except Exception as e:
+                    self.logger.error(f"标题生成异常: {e}", exc_info=True)
+                    # 失败时不影响主流程，pdf_filename 保持为 None
+
             # 正常模式：生成PDF/图片
-            self._export_output(polished_text, output_dir, audio_file.title, llm_api, temperature)
+            self._export_output(
+                polished_text,
+                output_dir,
+                audio_file.title or "未命名",
+                llm_api,
+                temperature,
+                pdf_filename=pdf_filename,
+            )
             self._check_cancellation(task_id)
 
             # 生成摘要

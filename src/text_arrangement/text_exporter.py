@@ -196,9 +196,19 @@ def text_to_pdf(
     output_dir: str,
     ASR_model: str,
     LLM_info: str = "",
+    pdf_filename: str | None = None,
 ) -> str:
     """
     将文本转换为 PDF，并将每页转换为图片
+
+    Args:
+        txt: 文本内容
+        with_img: 是否生成图片
+        title: 标题
+        output_dir: 输出目录
+        ASR_model: ASR 模型名称
+        LLM_info: LLM 信息
+        pdf_filename: PDF 文件名（不含扩展名），如果为 None 则使用默认名称 "output"
     """
     # 延迟加载字体（仅在实际需要生成 PDF 时）
     _ensure_font_loaded()
@@ -207,7 +217,18 @@ def text_to_pdf(
     os.makedirs(output_dir, exist_ok=True)
 
     # PDF 保存路径
-    pdf_path = os.path.join(output_dir, "output.pdf")
+    if pdf_filename:
+        # 使用工具函数安全化文件名
+        from src.utils.helpers.filename import sanitize_filename
+
+        safe_filename = sanitize_filename(pdf_filename)
+        # 确保有 .pdf 扩展名
+        if not safe_filename.lower().endswith(".pdf"):
+            safe_filename += ".pdf"
+        pdf_path = os.path.join(output_dir, safe_filename)
+    else:
+        # 向后兼容：保留原行为
+        pdf_path = os.path.join(output_dir, "output.pdf")
 
     # 文档配置
     font_size = 14
@@ -398,6 +419,7 @@ def text_to_img_or_pdf(
     LLM_info: str = "",
     metadata: dict[str, Any] | None = None,
     summary_text: str | None = None,
+    pdf_filename: str | None = None,
 ) -> str:
     """
     将文本转换为图片或PDF/Markdown/JSON
@@ -408,6 +430,7 @@ def text_to_img_or_pdf(
     :param LLM_info: LLM信息（可选）
     :param metadata: 元信息（JSON/Markdown 使用）
     :param summary_text: 摘要文本（JSON/Markdown 可选）
+    :param pdf_filename: PDF 文件名（不含扩展名），用于智能命名
     :return: 输出文件路径
     """
     if metadata is None:
@@ -424,6 +447,7 @@ def text_to_img_or_pdf(
             output_dir=output_path,
             LLM_info=LLM_info,
             ASR_model=ASR_model,
+            pdf_filename=pdf_filename,
         )
     if output_style == "pdf_only":
         return text_to_pdf(
@@ -433,6 +457,7 @@ def text_to_img_or_pdf(
             output_dir=output_path,
             LLM_info=LLM_info,
             ASR_model=ASR_model,
+            pdf_filename=pdf_filename,
         )
     if output_style == "img_only":
         return text_to_one_image(txt, output_path=output_path, title=title)
