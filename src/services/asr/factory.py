@@ -9,8 +9,6 @@ from src.utils.device.device_manager import detect_device, get_onnx_providers
 from src.utils.logging.logger import get_logger
 
 from .base import BaseASRService
-from .paraformer import ParaformerService
-from .sense_voice import SenseVoiceService
 
 logger = get_logger(__name__)
 
@@ -18,8 +16,8 @@ logger = get_logger(__name__)
 config = get_config()
 
 # 全局单例缓存
-_sense_voice_instance: SenseVoiceService | None = None
-_paraformer_instance: ParaformerService | None = None
+_sense_voice_instance: BaseASRService | None = None
+_paraformer_instance: BaseASRService | None = None
 
 
 def get_asr_service(model_type: str = "paraformer") -> BaseASRService:
@@ -43,12 +41,16 @@ def get_asr_service(model_type: str = "paraformer") -> BaseASRService:
 
     if model_type == "sense_voice":
         if _sense_voice_instance is None:
+            from .sense_voice import SenseVoiceService
+
             logger.info(f"Creating SenseVoice service instance (device: {device})")
             _sense_voice_instance = SenseVoiceService(device, onnx_providers)
         return _sense_voice_instance
 
     if model_type == "paraformer":
         if _paraformer_instance is None:
+            from .paraformer import ParaformerService
+
             logger.info(f"Creating Paraformer service instance (device: {device})")
             _paraformer_instance = ParaformerService(device, onnx_providers)
         return _paraformer_instance

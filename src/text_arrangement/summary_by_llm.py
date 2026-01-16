@@ -1,4 +1,4 @@
-from src.services.llm import LLMQueryParams, query_llm
+from src.services.llm.models import LLMQueryParams
 from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
@@ -41,6 +41,8 @@ def summarize_text(
     logger.info(
         f"Summarizing text with API server: {api_server}, temperature: {temperature}, max_tokens: {max_tokens}"
     )
+
+    from src.services.llm import query_llm
 
     return query_llm(
         LLMQueryParams(

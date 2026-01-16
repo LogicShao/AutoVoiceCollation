@@ -3,15 +3,16 @@ FastAPI 服务接口
 提供RESTful API用于与其他程序交互
 """
 
+import asyncio
 import os
 import shutil
 import socket
+import sys
 import uuid
 from contextlib import asynccontextmanager
 from datetime import datetime
 from pathlib import Path
 
-import uvicorn
 from fastapi import (
     FastAPI,
     File,
@@ -20,44 +21,91 @@ from fastapi import (
     UploadFile,
 )
 from fastapi.responses import FileResponse, HTMLResponse
-from fastapi.staticfiles import StaticFiles
 from pydantic import BaseModel, Field
 
-from src.api.inference_queue import get_inference_queue
-from src.api.middleware import register_exception_handlers
-from src.core.processors import (
-    AudioProcessor,
-    MultiPartVideoProcessor,
-    SubtitleProcessor,
-    VideoProcessor,
-)
-from src.services.download.bilibili_downloader import get_multi_part_info
-from src.text_arrangement.summary_by_llm import summarize_text
 from src.utils.config import get_config
 from src.utils.helpers.task_manager import get_task_manager
 from src.utils.logging.logger import get_logger
 
+
+def _import_log(message: str) -> None:
+    if os.getenv("AVC_IMPORT_LOG"):
+        print(f"[import] {message}", file=sys.stderr, flush=True)
+
+
 # 创建logger
+_import_log("initializing logger")
 logger = get_logger(__name__)
 
 # 获取配置
+_import_log("loading config")
 config = get_config()
+_import_log("config loaded")
 
-# 实例化处理器
-audio_processor = AudioProcessor()
-video_processor = VideoProcessor()
-subtitle_processor = SubtitleProcessor()
-multi_part_processor = MultiPartVideoProcessor()
 
-# 获取全局推理队列实例
-inference_queue = get_inference_queue()
 task_manager = get_task_manager()
+_inference_queue = None
+_static_files_cls = None
+_exception_handlers_registered = False
+
+
+def _get_inference_queue():
+    global _inference_queue
+    if _inference_queue is None:
+        from src.api.inference_queue import get_inference_queue as _load_inference_queue
+
+        _inference_queue = _load_inference_queue()
+    return _inference_queue
+
+
+def _get_static_files():
+    global _static_files_cls
+    if _static_files_cls is None:
+        from fastapi.staticfiles import StaticFiles as _StaticFiles
+
+        _static_files_cls = _StaticFiles
+    return _static_files_cls
+
+
+def _register_exception_handlers(app: FastAPI):
+    global _exception_handlers_registered
+    if _exception_handlers_registered:
+        return
+    from src.api.middleware import register_exception_handlers
+
+    register_exception_handlers(app)
+
+    _exception_handlers_registered = True
+
+
+class _LazyProcessorProxy:
+    def __init__(self, loader, method_names):
+        self._loader = loader
+        self._instance = None
+        for name in method_names:
+            setattr(self, name, self._make_proxy(name))
+
+    def _make_proxy(self, name):
+        def _proxy(*args, **kwargs):
+            return getattr(self._load(), name)(*args, **kwargs)
+
+        return _proxy
+
+    def _load(self):
+        if self._instance is None:
+            self._instance = self._loader()
+        return self._instance
+
+    def __getattr__(self, name):
+        return getattr(self._load(), name)
 
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
     """应用生命周期事件处理"""
     logger.info("启动 FastAPI 服务...")
+    _register_exception_handlers(app)
+    inference_queue = _get_inference_queue()
     await inference_queue.start()
     logger.info("推理队列已启动")
     try:
@@ -69,29 +117,34 @@ async def lifespan(app: FastAPI):
 
 
 # 创建FastAPI应用
+_import_log("creating FastAPI app")
 app = FastAPI(
     title="AutoVoiceCollation API",
     description="自动语音识别和文本整理服务API",
     version="1.0.0",
     lifespan=lifespan,
 )
+_import_log("FastAPI app created")
 
 # 注册统一异常处理器
-register_exception_handlers(app)
+_register_exception_handlers(app)
 
 # 挂载静态文件目录（仅当目录存在时）
 # 这样可以让测试环境和未构建前端的开发环境也能正常运行
 if Path("frontend/dist").exists():
+    StaticFiles = _get_static_files()
     app.mount("/dist", StaticFiles(directory="frontend/dist"), name="dist")
     logger.info("已挂载静态文件目录: /dist")
 else:
     logger.warning("前端构建目录 'frontend/dist' 不存在，跳过挂载")
 
 if Path("frontend/src").exists():
+    StaticFiles = _get_static_files()
     app.mount("/src", StaticFiles(directory="frontend/src"), name="src")
     logger.info("已挂载静态文件目录: /src")
 
 if Path("assets").exists():
+    StaticFiles = _get_static_files()
     app.mount("/assets", StaticFiles(directory="assets"), name="assets")
     logger.info("已挂载静态文件目录: /assets")
 
@@ -107,6 +160,43 @@ if Path("assets").exists():
 #     "filename": "处理的文件名（如果有）"
 # }
 tasks = {}
+
+
+def _load_video_processor():
+    from src.core.processors.video import VideoProcessor
+
+    return VideoProcessor()
+
+
+def _load_audio_processor():
+    from src.core.processors.audio import AudioProcessor
+
+    return AudioProcessor()
+
+
+def _load_subtitle_processor():
+    from src.core.processors.subtitle import SubtitleProcessor
+
+    return SubtitleProcessor()
+
+
+video_processor = _LazyProcessorProxy(_load_video_processor, ["process", "process_batch"])
+audio_processor = _LazyProcessorProxy(_load_audio_processor, ["process_uploaded_audio"])
+subtitle_processor = _LazyProcessorProxy(_load_subtitle_processor, ["process", "process_simple"])
+
+
+def summarize_text(
+    txt: str, api_server: str, temperature: float, max_tokens: int, title: str = ""
+) -> str:
+    from src.text_arrangement.summary_by_llm import summarize_text as _summarize_text
+
+    return _summarize_text(
+        txt=txt,
+        api_server=api_server,
+        temperature=temperature,
+        max_tokens=max_tokens,
+        title=title,
+    )
 
 
 # Pydantic模型定义
@@ -258,6 +348,7 @@ async def process_bilibili_video(request: BilibiliVideoRequest):
     }
 
     # ✅ 提交任务到异步队列（立即返回）
+    inference_queue = _get_inference_queue()
     await inference_queue.submit_task(
         task_id=task_id,
         task_type="bilibili",
@@ -281,12 +372,104 @@ async def process_bilibili_video(request: BilibiliVideoRequest):
     )
 
 
+async def process_bilibili_task(
+    task_id: str,
+    video_url: str,
+    llm_api: str,
+    temperature: float,
+    max_tokens: int,
+    text_only: bool,
+    summarize: bool,
+):
+    def _extract_output_dir(output_data):
+        if isinstance(output_data, dict):
+            return output_data.get("output_dir", "")
+        return output_data or ""
+
+    task_info = tasks.get(task_id)
+    if task_info is None:
+        tasks[task_id] = {"status": "pending", "created_at": datetime.now().isoformat()}
+        task_info = tasks[task_id]
+
+    task_info.update({"status": "processing", "message": "任务处理中"})
+
+    loop = asyncio.get_running_loop()
+    try:
+        output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
+            None,
+            video_processor.process,
+            video_url,
+            llm_api,
+            temperature,
+            max_tokens,
+            text_only,
+            task_id,
+        )
+        completed_at = datetime.now().isoformat()
+
+        if text_only:
+            result_data = output_data
+
+            if summarize and isinstance(result_data, dict) and "polished_text" in result_data:
+                summary = await loop.run_in_executor(
+                    None,
+                    summarize_text,
+                    result_data["polished_text"],
+                    llm_api,
+                    temperature,
+                    max_tokens,
+                    result_data.get("title", ""),
+                )
+                result_data["summary"] = summary
+                completed_at = datetime.now().isoformat()
+
+            output_dir = _extract_output_dir(result_data)
+            if isinstance(result_data, dict) and output_dir and not result_data.get("zip_file"):
+                result_data["zip_file"] = build_lazy_zip_path(task_id, output_dir)
+
+            tasks[task_id].update(
+                {
+                    "status": "completed",
+                    "message": "处理完成",
+                    "result": result_data,
+                    "completed_at": completed_at,
+                }
+            )
+        else:
+            output_dir = _extract_output_dir(output_data)
+            zip_file_path = zip_file or build_lazy_zip_path(task_id, output_dir)
+            tasks[task_id].update(
+                {
+                    "status": "completed",
+                    "message": "处理完成",
+                    "result": {
+                        "output_dir": output_dir,
+                        "extract_time": extract_time,
+                        "polish_time": polish_time,
+                        "zip_file": zip_file_path,
+                    },
+                    "completed_at": completed_at,
+                }
+            )
+    except Exception as e:
+        tasks[task_id].update(
+            {
+                "status": "failed",
+                "message": f"处理错误: {str(e)}",
+                "error": str(e),
+                "completed_at": datetime.now().isoformat(),
+            }
+        )
+
+
 @app.post("/api/v1/bilibili/check-multipart")
 async def check_multi_part(request: BilibiliVideoRequest):
     """检查B站视频是否为多P"""
     try:
         video_url = request.video_url
         logger.info(f"检查多P视频：{video_url}")
+
+        from src.services.download.bilibili_downloader import get_multi_part_info
 
         multi_part_info = get_multi_part_info(video_url)
 
@@ -330,6 +513,7 @@ async def process_multi_part_video(request: MultiPartVideoRequest):
     }
 
     # 提交任务到异步队列
+    inference_queue = _get_inference_queue()
     await inference_queue.submit_task(
         task_id=task_id,
         task_type="multipart",
@@ -434,6 +618,7 @@ async def process_audio_file(
             raise HTTPException(status_code=500, detail=f"音频提取失败: {str(e)}") from e
 
     # ✅ 提交任务到异步队列（立即返回）
+    inference_queue = _get_inference_queue()
     await inference_queue.submit_task(
         task_id=task_id,
         task_type="audio",
@@ -478,6 +663,7 @@ async def process_batch_videos(request: BatchProcessRequest):
     urls_text = "\n".join(request.urls)
 
     # ✅ 提交任务到异步队列（立即返回）
+    inference_queue = _get_inference_queue()
     await inference_queue.submit_task(
         task_id=task_id,
         task_type="batch",
@@ -535,6 +721,7 @@ async def process_video_subtitle(file: UploadFile = File(...)):
         raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}") from e
 
     # ✅ 提交任务到异步队列（立即返回）
+    inference_queue = _get_inference_queue()
     await inference_queue.submit_task(
         task_id=task_id,
         task_type="subtitle",
@@ -749,6 +936,8 @@ def find_available_port(host: str, start_port: int, max_attempts: int = 50) -> i
 
 
 if __name__ == "__main__":
+    import uvicorn
+
     # 获取配置的端口
     preferred_port = config.web_server_port or 8000
 

@@ -17,6 +17,10 @@ document.addEventListener('alpine:init', () => {
     // 多P视频相关状态
     multiPartInfo: null,
     selectedParts: [],
+    checking: false,
+    checkStatus: 'idle',
+    checkMessage: '',
+    canStartSingle: false,
 
     // 状态
     processing: false,
@@ -33,6 +37,9 @@ document.addEventListener('alpine:init', () => {
     init() {
       this.refreshTasks();
       this.startTasksPolling();
+      this.$watch('biliUrl', () => {
+        this.resetBiliCheckState(false);
+      });
     },
 
     // 主题切换
@@ -54,6 +61,10 @@ document.addEventListener('alpine:init', () => {
     // 处理 B站视频
     async processBilibili() {
       if (!this.biliUrl) return;
+      if (!this.canStartSingle) {
+        alert('请先检查视频');
+        return;
+      }
 
       this.processing = true;
       this.result = null;
@@ -85,7 +96,12 @@ document.addEventListener('alpine:init', () => {
     async checkMultiPart() {
       if (!this.biliUrl) return;
 
-      this.processing = true;
+      this.checking = true;
+      this.checkStatus = 'checking';
+      this.checkMessage = '';
+      this.canStartSingle = false;
+      this.multiPartInfo = null;
+      this.selectedParts = [];
       this.result = null;
 
       try {
@@ -99,53 +115,33 @@ document.addEventListener('alpine:init', () => {
 
         if (response.ok) {
           if (data.is_multipart) {
-            // 多P视频，显示选择界面
             this.multiPartInfo = data.info;
             this.selectedParts = [];
-            this.processing = false;
+            this.checkStatus = 'multi';
+            this.checkMessage = '检测到多P视频，请选择分P';
+            this.canStartSingle = false;
           } else {
-            // 单P视频，直接处理
-            this.processBilibili();
+            this.checkStatus = 'single';
+            this.checkMessage = '单P视频，无需选分P';
+            this.canStartSingle = true;
           }
+          this.checking = false;
         } else {
           alert('错误: ' + (data.detail || '检查失败'));
-          this.processing = false;
+          this.checkStatus = 'error';
+          this.checkMessage = data.detail || '检查失败';
+          this.checking = false;
         }
       } catch (error) {
         alert('请求失败: ' + error.message);
-        this.processing = false;
+        this.checkStatus = 'error';
+        this.checkMessage = '请求失败，请稍后重试';
+        this.checking = false;
       }
     },
 
     // 跳过多P检测，直接处理
-    async processDirectly() {
-      if (!this.biliUrl) return;
 
-      this.processing = true;
-      this.result = null;
-
-      try {
-        const response = await fetch('/api/v1/process/bilibili', {
-          method: 'POST',
-          headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({video_url: this.biliUrl})
-        });
-
-        const data = await response.json();
-
-        if (response.ok) {
-          this.currentTask = data;
-          this.canCancel = true;
-          this.startPolling(data.task_id);
-        } else {
-          alert('错误: ' + (data.detail || '处理失败'));
-          this.processing = false;
-        }
-      } catch (error) {
-        alert('请求失败: ' + error.message);
-        this.processing = false;
-      }
-    },
 
     // 处理多P视频
     async processMultiPart() {
@@ -187,11 +183,21 @@ document.addEventListener('alpine:init', () => {
       }
     },
 
-    // 重置多P选择
-    resetMultiPart() {
+    resetBiliCheckState(clearUrl = false) {
       this.multiPartInfo = null;
       this.selectedParts = [];
-      this.biliUrl = '';
+      this.checking = false;
+      this.checkStatus = 'idle';
+      this.checkMessage = '';
+      this.canStartSingle = false;
+      if (clearUrl) {
+        this.biliUrl = '';
+      }
+    },
+
+    // 重置多P选择
+    resetMultiPart() {
+      this.resetBiliCheckState(true);
     },
 
     // 全选分P

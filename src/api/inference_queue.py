@@ -12,8 +12,6 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
-from src.core.processors import AudioProcessor, SubtitleProcessor, VideoProcessor
-from src.text_arrangement.summary_by_llm import summarize_text
 from src.utils.config import get_config
 from src.utils.helpers.task_manager import get_task_manager
 from src.utils.logging.logger import get_logger
@@ -50,12 +48,41 @@ class InferenceQueue:
         self._initialized = True
 
         # 初始化处理器（延迟加载模型）
-        self.audio_processor = AudioProcessor()
-        self.video_processor = VideoProcessor()
-        self.subtitle_processor = SubtitleProcessor()
+        self.audio_processor = None
+        self.video_processor = None
+        self.subtitle_processor = None
+        self.multipart_processor = None
         self.task_manager = get_task_manager()
 
         logger.info("推理队列初始化完成")
+
+    def _get_audio_processor(self):
+        if self.audio_processor is None:
+            from src.core.processors.audio import AudioProcessor
+
+            self.audio_processor = AudioProcessor()
+        return self.audio_processor
+
+    def _get_video_processor(self):
+        if self.video_processor is None:
+            from src.core.processors.video import VideoProcessor
+
+            self.video_processor = VideoProcessor()
+        return self.video_processor
+
+    def _get_subtitle_processor(self):
+        if self.subtitle_processor is None:
+            from src.core.processors.subtitle import SubtitleProcessor
+
+            self.subtitle_processor = SubtitleProcessor()
+        return self.subtitle_processor
+
+    def _get_multipart_processor(self):
+        if self.multipart_processor is None:
+            from src.core.processors.multi_part_video import MultiPartVideoProcessor
+
+            self.multipart_processor = MultiPartVideoProcessor()
+        return self.multipart_processor
 
     async def start(self):
         """启动工作循环"""
@@ -217,7 +244,7 @@ class InferenceQueue:
         # 在线程池中执行同步处理函数
         output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
             None,
-            self.video_processor.process,
+            self._get_video_processor().process,
             data["video_url"],
             data["llm_api"],
             data["temperature"],
@@ -245,6 +272,8 @@ class InferenceQueue:
                     self._mark_task_cancelled(task_id, tasks_store)
                     return
                 tasks_store[task_id]["message"] = "正在生成总结"
+                from src.text_arrangement.summary_by_llm import summarize_text
+
                 summary = await loop.run_in_executor(
                     None,
                     summarize_text,
@@ -305,7 +334,7 @@ class InferenceQueue:
         # 在线程池中执行同步处理函数
         output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
             None,
-            self.audio_processor.process_uploaded_audio,
+            self._get_audio_processor().process_uploaded_audio,
             data["audio_path"],
             data["llm_api"],
             data["temperature"],
@@ -337,6 +366,8 @@ class InferenceQueue:
                     self._mark_task_cancelled(task_id, tasks_store)
                     return
                 tasks_store[task_id]["message"] = "正在生成总结"
+                from src.text_arrangement.summary_by_llm import summarize_text
+
                 summary = await loop.run_in_executor(
                     None,
                     summarize_text,
@@ -403,7 +434,7 @@ class InferenceQueue:
         # 在线程池中执行同步处理函数
         status_message, total_time, _, _, _, _ = await loop.run_in_executor(
             None,
-            self.video_processor.process_batch,
+            self._get_video_processor().process_batch,
             urls,
             data["llm_api"],
             data["temperature"],
@@ -439,7 +470,7 @@ class InferenceQueue:
         # 在线程池中执行同步处理函数
         subtitle_path, video_path, info = await loop.run_in_executor(
             None,
-            self.subtitle_processor.process,
+            self._get_subtitle_processor().process,
             data["video_path"],
             # 传递其他字幕配置参数...
         )
@@ -466,7 +497,6 @@ class InferenceQueue:
         loop = asyncio.get_event_loop()
 
         # 导入多P处理器（延迟导入避免循环依赖）
-        from src.core.processors.multi_part_video import MultiPartVideoProcessor
 
         # 创建任务（如果不存在）
         if not self.task_manager.task_exists(task_id):
@@ -475,7 +505,7 @@ class InferenceQueue:
         # 在线程池中执行同步处理函数
         result_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
             None,
-            MultiPartVideoProcessor().process,
+            self._get_multipart_processor().process,
             data["video_url"],
             data["selected_parts"],
             data["llm_api"],

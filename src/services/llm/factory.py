@@ -7,11 +7,6 @@ LLM服务工厂
 import os
 from collections.abc import Callable
 
-from cerebras.cloud.sdk import Cerebras
-from google import genai
-from google.genai import types
-from openai import OpenAI
-
 from src.utils.config import get_config
 from src.utils.logging.logger import get_logger
 
@@ -34,6 +29,8 @@ def _get_deepseek_client():
     """获取DeepSeek客户端（延迟初始化）"""
     global _deepseek_client
     if _deepseek_client is None:
+        from openai import OpenAI
+
         _deepseek_client = OpenAI(
             api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com"
         )
@@ -44,6 +41,8 @@ def _get_gemini_client():
     """获取Gemini客户端（延迟初始化）"""
     global _gemini_client
     if _gemini_client is None:
+        from google import genai
+
         _gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
     return _gemini_client
 
@@ -52,6 +51,8 @@ def _get_dashscope_client():
     """获取Dashscope客户端（延迟初始化）"""
     global _dashscope_client
     if _dashscope_client is None:
+        from openai import OpenAI
+
         _dashscope_client = OpenAI(
             api_key=os.getenv("DASHSCOPE_API_KEY"),
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
@@ -63,6 +64,8 @@ def _get_cerebras_client():
     """获取Cerebras客户端（延迟初始化）"""
     global _cerebras_client
     if _cerebras_client is None:
+        from cerebras.cloud.sdk import Cerebras
+
         _cerebras_client = Cerebras(api_key=os.getenv("CEREBRAS_API_KEY"))
     return _cerebras_client
 
@@ -104,6 +107,8 @@ def query_deepseek_reasoner(params: LLMQueryParams) -> str:
 
 def query_gemini_2_0_flash(params: LLMQueryParams) -> str:
     """查询Gemini 2.0 Flash模型"""
+    from google.genai import types
+
     client = _get_gemini_client()
 
     config_params_dict = {

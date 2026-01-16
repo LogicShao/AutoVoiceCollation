@@ -145,4 +145,6 @@ nul
 tests/local
 tests/fake_font.ttf
 
+AGENTS.md
+
 # End of file
