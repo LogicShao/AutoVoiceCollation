@@ -237,8 +237,10 @@ sys.modules["reportlab.lib.fonts"] = mock_reportlab_fonts
 
 # Mock requests module for DeepSeek API calls
 @pytest.fixture(autouse=True)
-def mock_requests_post(monkeypatch):
-    """Mock requests.post to return sample responses for LLM API calls"""
+def mock_requests_post(monkeypatch, request):
+    """Mock requests.post to return sample responses for LLM API calls."""
+    if request.node.get_closest_marker("integration"):
+        return
     import requests
 
     class MockResponse:
