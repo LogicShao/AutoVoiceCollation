@@ -97,13 +97,14 @@
               <span x-show="!checking">检查视频</span>
               <span x-show="checking">检查中...</span>
             </button>
-            <button :disabled="processing || checking || !canStartSingle"
+            <button :disabled="processing || checking || !biliUrl"
                     @click.prevent="processBilibili"
                     class="flex-1 bg-green-600 dark:bg-green-500 text-white px-6 py-3 rounded-lg hover:bg-green-700 dark:hover:bg-green-600 disabled:bg-gray-400 dark:disabled:bg-gray-600 disabled:cursor-not-allowed transition-colors"
                     type="button">
               <span x-show="!processing">开始处理</span>
               <span x-show="processing">处理中...</span>
             </button>
+
           </div>
           <div x-show="checkMessage"
                :class="checkStatus === 'single' ? 'text-green-600 dark:text-green-400' : (checkStatus === 'multi' ? 'text-blue-600 dark:text-blue-400' : 'text-red-600 dark:text-red-400')"

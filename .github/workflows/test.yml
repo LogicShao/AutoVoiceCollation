@@ -62,8 +62,8 @@ jobs:
   test-integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    # 只在推送到主分支时运行集成测试
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main')
+    # Only run integration tests on master/main pushes when explicitly enabled.
+    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && secrets.RUN_INTEGRATION_TESTS == 'true'
 
     steps:
       - name: Checkout code

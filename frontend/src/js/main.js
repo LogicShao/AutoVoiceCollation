@@ -20,7 +20,6 @@ document.addEventListener('alpine:init', () => {
     checking: false,
     checkStatus: 'idle',
     checkMessage: '',
-    canStartSingle: false,
 
     // 状态
     processing: false,
@@ -61,10 +60,6 @@ document.addEventListener('alpine:init', () => {
     // 处理 B站视频
     async processBilibili() {
       if (!this.biliUrl) return;
-      if (!this.canStartSingle) {
-        alert('请先检查视频');
-        return;
-      }
 
       this.processing = true;
       this.result = null;
@@ -99,7 +94,6 @@ document.addEventListener('alpine:init', () => {
       this.checking = true;
       this.checkStatus = 'checking';
       this.checkMessage = '';
-      this.canStartSingle = false;
       this.multiPartInfo = null;
       this.selectedParts = [];
       this.result = null;
@@ -119,11 +113,9 @@ document.addEventListener('alpine:init', () => {
             this.selectedParts = [];
             this.checkStatus = 'multi';
             this.checkMessage = '检测到多P视频，请选择分P';
-            this.canStartSingle = false;
           } else {
             this.checkStatus = 'single';
             this.checkMessage = '单P视频，无需选分P';
-            this.canStartSingle = true;
           }
           this.checking = false;
         } else {
@@ -139,8 +131,6 @@ document.addEventListener('alpine:init', () => {
         this.checking = false;
       }
     },
-
-    // 跳过多P检测，直接处理
 
 
     // 处理多P视频
@@ -189,7 +179,6 @@ document.addEventListener('alpine:init', () => {
       this.checking = false;
       this.checkStatus = 'idle';
       this.checkMessage = '';
-      this.canStartSingle = false;
       if (clearUrl) {
         this.biliUrl = '';
       }
