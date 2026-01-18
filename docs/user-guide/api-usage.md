@@ -917,10 +917,13 @@ out/
 | 配置项 | 默认值 | 说明 |
 |--------|--------|------|
 | `LOG_LEVEL` | `INFO` | 日志级别：`DEBUG`, `INFO`, `WARNING`, `ERROR`, `CRITICAL` |
-| `LOG_FILE` | `./logs/AutoVoiceCollation.log` | 日志文件路径（留空则不写入文件） |
+| `LOG_FILE` | `./logs/AutoVoiceCollation.log` | ????????????? LOG_DIR/AutoVoiceCollation.log? |
 | `LOG_CONSOLE_OUTPUT` | `true` | 是否输出到控制台 |
 | `LOG_COLORED_OUTPUT` | `true` | 控制台输出是否使用彩色 |
 | `THIRD_PARTY_LOG_LEVEL` | `ERROR` | 第三方库日志级别（建议 `WARNING` 或 `ERROR` 以减少噪音） |
+
+??????????????? `LOG_FILE` ? `LOG_DIR` ???
+
 
 #### 功能开关
 

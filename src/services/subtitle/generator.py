@@ -980,7 +980,11 @@ def generate_subtitle_file(
 
     # 使用默认配置或更新配置
     if config is None:
-        config = SubtitleConfig()
+        from src.utils.config import get_config
+
+        app_config = get_config()
+        temp_dir = app_config.paths.temp_dir or Path("./temp")
+        config = SubtitleConfig(temp_dir=temp_dir)
 
     # 更新 Paraformer 分块大小
     config.paraformer_chunk_size_s = paraformer_chunk_size_s
@@ -1054,7 +1058,11 @@ def gen_timestamped_text_file(
     """
     向后兼容的函数（旧接口）
     """
-    config = SubtitleConfig(batch_size_s=batch_size_s)
+    from src.utils.config import get_config
+
+    app_config = get_config()
+    temp_dir = app_config.paths.temp_dir or Path("./temp")
+    config = SubtitleConfig(batch_size_s=batch_size_s, temp_dir=temp_dir)
     return generate_subtitle_file(
         audio_path=audio_path, file_type=file_type, model=model, config=config
     )

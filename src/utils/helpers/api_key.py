@@ -1,5 +1,4 @@
-import os
-
+from src.utils.config import get_config
 from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
@@ -33,10 +32,11 @@ def check_api_keys(debug: bool = False):
     :return: None
     """
     # 读取API密钥
-    _deepseek_api_key = os.getenv("DEEPSEEK_API_KEY")
-    _gemini_api_key = os.getenv("GEMINI_API_KEY")
-    _dashscope_api_key = os.getenv("DASHSCOPE_API_KEY")
-    _cerebras_api_key = os.getenv("CEREBRAS_API_KEY")
+    config = get_config()
+    _deepseek_api_key = config.llm.deepseek_api_key
+    _gemini_api_key = config.llm.gemini_api_key
+    _dashscope_api_key = config.llm.dashscope_api_key
+    _cerebras_api_key = config.llm.cerebras_api_key
 
     # 验证至少有一个API密钥被设置
     if not any([_deepseek_api_key, _gemini_api_key, _dashscope_api_key, _cerebras_api_key]):

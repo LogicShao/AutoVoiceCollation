@@ -5,6 +5,7 @@
 """
 
 import os
+from pathlib import Path
 
 from src.core.exceptions import TaskCancelledException
 from src.services.download.bilibili_downloader import extract_audio_from_video
@@ -15,6 +16,7 @@ from src.services.subtitle import (
     generate_subtitle_file,
     hard_encode_dot_srt_file,
 )
+from src.utils.config import get_config
 
 from .base import BaseProcessor
 
@@ -110,11 +112,14 @@ class SubtitleProcessor(BaseProcessor):
             self._check_cancellation(task_id)
 
             # 创建字幕配置
+            app_config = get_config()
+            temp_dir = app_config.paths.temp_dir or Path("./temp")
             config = SubtitleConfig(
                 pause_threshold=pause_threshold,
                 max_chars_per_segment=max_chars,
                 batch_size_s=batch_size_s,
                 paraformer_chunk_size_s=paraformer_chunk_size_s,
+                temp_dir=temp_dir,
             )
 
             # 设置 LLM API 服务器（如果使用 LLM 分段）
@@ -139,6 +144,7 @@ class SubtitleProcessor(BaseProcessor):
                 config=config,
                 api_server=api_server,
                 paraformer_chunk_size_s=paraformer_chunk_size_s,
+                temp_dir=temp_dir,
             )
 
             self._check_cancellation(task_id)

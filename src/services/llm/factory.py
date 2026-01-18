@@ -4,7 +4,6 @@ LLM服务工厂
 统一管理所有LLM提供商的查询接口
 """
 
-import os
 from collections.abc import Callable
 
 from src.utils.config import get_config
@@ -32,7 +31,7 @@ def _get_deepseek_client():
         from openai import OpenAI
 
         _deepseek_client = OpenAI(
-            api_key=os.getenv("DEEPSEEK_API_KEY"), base_url="https://api.deepseek.com"
+            api_key=config.llm.deepseek_api_key, base_url="https://api.deepseek.com"
         )
     return _deepseek_client
 
@@ -43,7 +42,7 @@ def _get_gemini_client():
     if _gemini_client is None:
         from google import genai
 
-        _gemini_client = genai.Client(api_key=os.getenv("GEMINI_API_KEY"))
+        _gemini_client = genai.Client(api_key=config.llm.gemini_api_key)
     return _gemini_client
 
 
@@ -54,7 +53,7 @@ def _get_dashscope_client():
         from openai import OpenAI
 
         _dashscope_client = OpenAI(
-            api_key=os.getenv("DASHSCOPE_API_KEY"),
+            api_key=config.llm.dashscope_api_key,
             base_url="https://dashscope.aliyuncs.com/compatible-mode/v1",
         )
     return _dashscope_client
@@ -66,7 +65,7 @@ def _get_cerebras_client():
     if _cerebras_client is None:
         from cerebras.cloud.sdk import Cerebras
 
-        _cerebras_client = Cerebras(api_key=os.getenv("CEREBRAS_API_KEY"))
+        _cerebras_client = Cerebras(api_key=config.llm.cerebras_api_key)
     return _cerebras_client
 
 

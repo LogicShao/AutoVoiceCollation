@@ -96,6 +96,8 @@ class AppConfig(BaseConfig):
         """
         # 创建目录
         self.paths.ensure_dirs(strict=self.enable_strict_validation)
+        if self.logging.log_file is None and self.paths.log_dir is not None:
+            self.logging.log_file = self.paths.log_dir / "AutoVoiceCollation.log"
         self.logging.ensure_log_dir(strict=self.enable_strict_validation)
 
         # 验证 LLM 服务支持
