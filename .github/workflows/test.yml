@@ -62,8 +62,8 @@ jobs:
   test-integration:
     name: Integration Tests
     runs-on: ubuntu-latest
-    # Only run integration tests on master/main pushes when explicitly enabled.
-    if: github.event_name == 'push' && (github.ref == 'refs/heads/master' || github.ref == 'refs/heads/main') && secrets.RUN_INTEGRATION_TESTS == 'true'
+    # 需要密钥的集成测试在 CI 中禁用，本地运行即可。
+    if: false
 
     steps:
       - name: Checkout code

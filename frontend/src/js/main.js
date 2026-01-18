@@ -77,14 +77,14 @@ document.addEventListener('alpine:init', () => {
           this.currentTask = data;
           this.canCancel = true;
           this.startPolling(data.task_id);
+          this.refreshTasks();
         } else {
           alert('错误: ' + (data.detail || '处理失败'));
-          this.processing = false;
         }
       } catch (error) {
         alert('请求失败: ' + error.message);
-        this.processing = false;
       }
+      this.processing = false;
     },
 
     // 检查是否为多P视频
@@ -160,17 +160,17 @@ document.addEventListener('alpine:init', () => {
           this.currentTask = data;
           this.canCancel = true;
           this.startPolling(data.task_id);
+          this.refreshTasks();
           // 重置多P状态
           this.multiPartInfo = null;
           this.selectedParts = [];
         } else {
           alert('错误: ' + (data.detail || '处理失败'));
-          this.processing = false;
         }
       } catch (error) {
         alert('请求失败: ' + error.message);
-        this.processing = false;
       }
+      this.processing = false;
     },
 
     resetBiliCheckState(clearUrl = false) {
@@ -246,14 +246,14 @@ document.addEventListener('alpine:init', () => {
           this.currentTask = data;
           this.canCancel = true;
           this.startPolling(data.task_id);
+          this.refreshTasks();
         } else {
           alert('错误: ' + (data.detail || '处理失败'));
-          this.processing = false;
         }
       } catch (error) {
         alert('请求失败: ' + error.message);
-        this.processing = false;
       }
+      this.processing = false;
     },
 
     // 批量处理
@@ -285,14 +285,14 @@ document.addEventListener('alpine:init', () => {
           this.currentTask = data;
           this.canCancel = true;
           this.startPolling(data.task_id);
+          this.refreshTasks();
         } else {
           alert('错误: ' + (data.detail || '处理失败'));
-          this.processing = false;
         }
       } catch (error) {
         alert('请求失败: ' + error.message);
-        this.processing = false;
       }
+      this.processing = false;
     },
 
     // 生成字幕
@@ -318,14 +318,14 @@ document.addEventListener('alpine:init', () => {
           this.currentTask = data;
           this.canCancel = true;
           this.startPolling(data.task_id);
+          this.refreshTasks();
         } else {
           alert('错误: ' + (data.detail || '处理失败'));
-          this.processing = false;
         }
       } catch (error) {
         alert('请求失败: ' + error.message);
-        this.processing = false;
       }
+      this.processing = false;
     },
 
     // 开始轮询任务状态
@@ -351,7 +351,6 @@ document.addEventListener('alpine:init', () => {
           // 任务完成或失败时停止轮询
           if (data.status === 'completed' || data.status === 'failed' || data.status === 'cancelled') {
             clearInterval(this.pollInterval);
-            this.processing = false;
             this.canCancel = false;
 
             if (data.status === 'completed') {
@@ -366,7 +365,6 @@ document.addEventListener('alpine:init', () => {
           // 如果是 404（任务不存在），停止轮询并重置状态
           if (response.status === 404) {
             clearInterval(this.pollInterval);
-            this.processing = false;
             this.canCancel = false;
             alert('任务不存在或已过期');
           }
@@ -375,7 +373,6 @@ document.addEventListener('alpine:init', () => {
         // 网络错误或其他异常，停止轮询并重置状态，避免 UI 永久卡住
         console.error('查询任务状态失败:', error);
         clearInterval(this.pollInterval);
-        this.processing = false;
         this.canCancel = false;
         alert('网络错误，无法查询任务状态。请刷新页面或检查网络连接。');
       }
