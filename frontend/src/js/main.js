@@ -434,8 +434,20 @@ document.addEventListener('alpine:init', () => {
       });
     },
 
+    getResultNotice(result) {
+      if (!result) return '';
+      if (typeof result === 'string') {
+        return result.includes('请输入正确的B站链接') ? result : '';
+      }
+      if (typeof result !== 'object') return '';
+      const outputDir = result.output_dir;
+      if (typeof outputDir !== 'string') return '';
+      return outputDir.includes('请输入正确的B站链接') ? outputDir : '';
+    },
+
     getResultEntries(result) {
       if (!result || typeof result !== 'object') return [];
+      if (this.getResultNotice(result)) return [];
 
       const preferredKeys = [
         'title',

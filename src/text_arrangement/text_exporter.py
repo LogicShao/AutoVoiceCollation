@@ -7,7 +7,7 @@ from typing import Any
 from pdf2image import convert_from_path
 from PIL import Image, ImageDraw, ImageFont
 from reportlab.lib import colors
-from reportlab.lib.enums import TA_CENTER, TA_JUSTIFY
+from reportlab.lib.enums import TA_CENTER, TA_LEFT
 from reportlab.lib.fonts import addMapping
 from reportlab.lib.pagesizes import A4
 from reportlab.lib.styles import ParagraphStyle
@@ -189,6 +189,42 @@ def _ensure_font_loaded():
         raise
 
 
+def _needs_space_between_lines(prev: str, next_line: str) -> bool:
+    if not prev or not next_line:
+        return False
+    prev_char = prev[-1]
+    next_char = next_line[0]
+    if not (prev_char.isascii() and next_char.isascii()):
+        return False
+    if prev_char.isalnum() and next_char.isalnum():
+        return True
+    if prev_char in ",.;:!?)]}%":
+        return next_char.isalnum()
+    return False
+
+
+def _merge_lines_to_paragraphs(txt: str) -> list[str]:
+    paragraphs = []
+    current = ""
+    for raw_line in txt.splitlines():
+        line = raw_line.strip()
+        if not line:
+            if current:
+                paragraphs.append(current)
+                current = ""
+            continue
+        if not current:
+            current = line
+            continue
+        if _needs_space_between_lines(current, line):
+            current = f"{current} {line}"
+        else:
+            current = f"{current}{line}"
+    if current:
+        paragraphs.append(current)
+    return paragraphs
+
+
 def text_to_pdf(
     txt: str,
     with_img: bool,
@@ -231,10 +267,10 @@ def text_to_pdf(
         pdf_path = os.path.join(output_dir, "output.pdf")
 
     # 文档配置
-    font_size = 14
-    leading = font_size * 1.2  # 1.2倍行距
-    margin_x = 10 * mm
-    margin_y = 10 * mm
+    font_size = 15
+    leading = font_size * 1.6  # 1.6倍行距
+    margin_x = 18 * mm
+    margin_y = 18 * mm
 
     # 样式定义
     normal_style = ParagraphStyle(
@@ -242,19 +278,21 @@ def text_to_pdf(
         fontName="ChineseFont",
         fontSize=font_size,
         leading=leading,
-        firstLineIndent=18,
-        spaceAfter=6,
-        alignment=TA_JUSTIFY,
+        firstLineIndent=font_size * 2,
+        spaceAfter=8,
+        alignment=TA_LEFT,
+        wordWrap="CJK",
     )
 
     pre_style = ParagraphStyle(
         name="PreText",
         fontName="ChineseFont",
         fontSize=font_size - 1,
-        leading=font_size * 1.1,
+        leading=(font_size - 1) * 1.5,
         textColor=colors.gray,
         spaceAfter=12,
-        alignment=TA_JUSTIFY,
+        alignment=TA_LEFT,
+        wordWrap="CJK",
     )
 
     title_style = ParagraphStyle(
@@ -276,9 +314,7 @@ def text_to_pdf(
     story.append(Paragraph(pre_text, pre_style))
 
     # 正文处理
-    paragraphs = [
-        Paragraph(line.strip(), normal_style) for line in txt.strip().split("\n") if line.strip()
-    ]
+    paragraphs = [Paragraph(p, normal_style) for p in _merge_lines_to_paragraphs(txt)]
     story.extend(paragraphs)
 
     # 构建 PDF
