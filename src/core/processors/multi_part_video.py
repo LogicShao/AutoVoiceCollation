@@ -128,17 +128,23 @@ class MultiPartVideoProcessor(BaseProcessor):
 
             # 5. 生成摘要（可选）
             summary_text = None
-            if not self.config.disable_llm_summary:
+            if not self.config.llm.disable_llm_summary:
                 self.logger.info("生成摘要...")
                 summary_text = self.audio_processor._generate_summary(
-                    merged_polished_text, llm_api, task_id
+                    merged_polished_text, output_dir, multi_part_info.main_title
                 )
 
             self._check_cancellation(task_id)
 
             # 6. 导出PDF/图片
             self.logger.info("导出最终结果...")
-            self.audio_processor._export_output(merged_polished_text, output_dir, task_id)
+            self.audio_processor._export_output(
+                merged_polished_text,
+                output_dir,
+                multi_part_info.main_title,
+                llm_api,
+                temperature,
+            )
 
             self._check_cancellation(task_id)
 
@@ -238,12 +244,20 @@ class MultiPartVideoProcessor(BaseProcessor):
         # LLM润色
         self._check_cancellation(task_id)
         self.logger.info(f"LLM润色分P {part_info.part_number}...")
-        from src.text_arrangement import polish_text as polish_text_func
+        from src.text_arrangement.polish_by_llm import polish_text
 
         timer.start()
-        polished_text, polish_time = polish_text_func(
-            audio_text, llm_api, temperature, max_tokens, task_id=task_id
+        polished_text = polish_text(
+            audio_text,
+            api_service=llm_api,
+            split_len=round(max_tokens * 0.7),
+            temperature=temperature,
+            max_tokens=max_tokens,
+            debug_flag=self.config.debug_flag,
+            async_flag=self.config.llm.async_flag,
+            task_id=task_id,
         )
+        polish_time = timer.stop()
         self.logger.info(f"LLM润色完成，耗时 {polish_time:.1f} 秒")
 
         # 保存润色文本

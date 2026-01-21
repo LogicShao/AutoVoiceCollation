@@ -162,8 +162,7 @@ document.addEventListener('alpine:init', () => {
           this.startPolling(data.task_id);
           this.refreshTasks();
           // 重置多P状态
-          this.multiPartInfo = null;
-          this.selectedParts = [];
+          this.resetBiliCheckState(false);
         } else {
           alert('错误: ' + (data.detail || '处理失败'));
         }
