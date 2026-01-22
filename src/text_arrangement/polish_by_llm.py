@@ -13,6 +13,7 @@ from src.services.llm import (
     is_local_llm,
     query_llm,
 )
+from src.services.llm.prompts import PromptSpec, get_prompt
 from src.text_arrangement.split_text import split_text_by_sentences
 from src.utils.config import get_config
 from src.utils.helpers.task_manager import get_task_manager
@@ -26,17 +27,14 @@ RETRY_BACKOFF = 30
 MAX_CONCURRENT_REQUESTS = 5
 MAX_REQUESTS_PER_MINUTE = 10
 
-system_prompt = """你是一个高级语言处理助手，专注于文本清理、分段与拼写修正。请按照以下要求处理以下文本：
-1. **去除冗余内容**：删除所有的口吃、语气词、重复的词汇或无关的表达（例如：“呃”，“嗯”，“啊”）。
-2. **合理分段**：根据上下文将文本分段，使其更加清晰易懂。
-3. **拼写和语法修正**：自动修正拼写错误、语法错误和标点符号问题。
-4. **保留原意和风格**：在修改过程中，请尽量保留文本的原意和风格，不做任何不必要的改写。
-5. **简化和优化**：适当去除冗余、重复的内容，但确保不改变原文的核心信息。
-根据这些要求，处理下面的文本：
-"""
 
-
-def polish_each_text(txt: str, api_server: str, temperature: float, max_tokens: int) -> str:
+def polish_each_text(
+    txt: str,
+    api_server: str,
+    temperature: float,
+    max_tokens: int,
+    prompt_spec: PromptSpec | None = None,
+) -> str:
     """
     根据API服务选择对应的润色函数
     :param txt: 要润色的文本
@@ -45,16 +43,13 @@ def polish_each_text(txt: str, api_server: str, temperature: float, max_tokens: 
     :param max_tokens: 最大令牌数
     :return: 润色后的文本
     """
-    prompt = (
-        f"以下是语音识别的原始文本：\n{txt}\n\n"
-        f"请你仅仅输出整理后的文本，不要增加多余的文字，"
-        f"也不要使用任何markdown形式的文字，只使用plain text的形式。"
-    )
+    prompt_spec = prompt_spec or get_prompt("polish")
+    prompt = prompt_spec.render_user(text=txt)
 
     return query_llm(
         LLMQueryParams(
             content=prompt,
-            system_instruction=system_prompt,
+            system_instruction=prompt_spec.render_system(),
             temperature=temperature,
             max_tokens=max_tokens,
             api_server=LLMProvider(api_server),
@@ -132,6 +127,7 @@ def polish_text(
     # TODO: 改进异步调用
     logger.info(f"Using {api_service} API for polishing text.")
     logger.info(f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}")
+    prompt_spec = get_prompt("polish")
     split_text = split_text_by_sentences(txt, split_len=split_len)
     logger.info(f"Splitting text into {len(split_text)} chunks for processing.")
 
@@ -145,7 +141,9 @@ def polish_text(
                 task_manager.check_cancellation(task_id)
 
             logger.info(f"processing chunk {i + 1}/{len(split_text)}")
-            polish_chunks.append(polish_each_text(chunk, api_service, temperature, max_tokens))
+            polish_chunks.append(
+                polish_each_text(chunk, api_service, temperature, max_tokens, prompt_spec)
+            )
             logger.info(f"Chunk {i + 1} polished successfully.")
         return "\n\n".join(polish_chunks).strip()
 
@@ -172,6 +170,7 @@ def polish_text(
                     api_service,
                     temperature,
                     max_tokens,
+                    prompt_spec,
                 )
                 logger.info(f"Chunk {chunk_id + 1} polished successfully.")
                 return ret
@@ -231,7 +230,9 @@ def polish_text(
 
                     # 使用同步速率限制
                     rate_limiter.wait_for_slot_sync()
-                    return polish_each_text(chunk, api_service, temperature, max_tokens)
+                    return polish_each_text(
+                        chunk, api_service, temperature, max_tokens, prompt_spec
+                    )
                 except TaskCancelledException:
                     # 如果任务被取消，直接向上传播异常
                     raise

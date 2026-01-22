@@ -8,6 +8,7 @@ import re
 
 from src.services.llm.factory import query_llm
 from src.services.llm.models import LLMQueryParams
+from src.services.llm.prompts import get_prompt
 from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
@@ -116,25 +117,14 @@ def generate_title_from_text(
         # 截取文本前 2000 字符（约 500-1000 tokens）
         text_sample = text[:2000].strip()
 
-        # 构建 Prompt
-        prompt = f"""请根据以下文本内容生成一个简洁、准确的标题。
-
-要求：
-1. 标题长度不超过 {max_length} 个字符
-2. 准确概括文本主题
-3. 使用中文
-4. 只返回标题本身，不要有任何解释、标点符号或引号
-
-文本内容：
-{text_sample}
-
-标题："""
+        prompt_spec = get_prompt("title")
+        prompt = prompt_spec.render_user(text=text_sample, max_length=max_length)
 
         # 创建查询参数
         logger.info(f"使用 {llm_service} 生成标题...")
         params = LLMQueryParams(
             content=prompt,  # 使用 content 而不是 prompt
-            system_instruction="You are a helpful assistant that generates concise titles.",
+            system_instruction=prompt_spec.render_system(),
             api_server=llm_service,  # 使用 api_server 而不是 llm_server
             temperature=0.3,  # 使用较低的 temperature 以获得更确定的结果
             max_tokens=100,  # 标题一般很短

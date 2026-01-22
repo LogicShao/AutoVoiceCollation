@@ -38,13 +38,25 @@ class PathConfig(BaseConfig):
         description="日志目录",
     )
 
+    # 提示词覆盖目录
+    prompt_dir: Path | None = Field(
+        default_factory=lambda: BaseConfig.get_project_root() / "assets" / "prompts",
+        description="提示词覆盖目录（可选）",
+    )
+
     # 模型目录（None 表示使用系统默认缓存）
     model_dir: Path | None = Field(
         default=None, description="模型缓存目录（留空则使用系统默认缓存目录）"
     )
 
     @field_validator(
-        "output_dir", "download_dir", "temp_dir", "log_dir", "model_dir", mode="before"
+        "output_dir",
+        "download_dir",
+        "temp_dir",
+        "log_dir",
+        "prompt_dir",
+        "model_dir",
+        mode="before",
     )
     @classmethod
     def resolve_path(cls, v) -> Path | None:
@@ -76,6 +88,7 @@ class PathConfig(BaseConfig):
             "download_dir",
             "temp_dir",
             "log_dir",
+            "prompt_dir",
             "model_dir",
         ]:
             path = getattr(self, field_name)

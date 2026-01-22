@@ -2,34 +2,42 @@
 
 This file provides guidance to Claude Code (claude.ai/code) when working with code in this repository.
 
-## 快速参考
+## 🚀 快速参考
 
-**最常用命令**:
+### 最常用命令
 ```bash
 # 开发
 python api.py                           # 启动 Web + API（端口 8000）
 pytest                                  # 运行测试
 npm run dev                             # 前端开发（监听 CSS）
 
-# Docker
+# Docker（推荐）
 ./scripts/docker-start.sh start         # 自动检测 GPU 并启动（Linux/Mac）
 docker-start.bat start                  # Windows 版本
 docker compose logs -f                  # 查看日志
+
+# CLI 工具
+python main.py                          # 交互式 CLI
+python main.py single --bili URL        # 处理 B站视频
+python main.py single --audio FILE      # 处理本地音频
 ```
 
-**关键文件**:
-- `.env` - 环境变量配置（必须配置至少一个 LLM API Key）
-- `api.py` - FastAPI 服务入口
-- `src/api/inference_queue.py` - 异步推理队列
+### 关键文件
+- `.env` - **必须配置**至少一个 LLM API Key
+- `api.py` - FastAPI Web/API 服务入口
+- `main.py` - CLI 命令行入口
 - `src/utils/config/` - Pydantic v2 配置系统
 - `src/core/processors/` - 核心处理器（音频/视频/字幕）
 - `src/services/` - 外部服务集成（ASR/LLM/下载/字幕）
+- `src/api/inference_queue.py` - 异步推理队列（解决 FastAPI 阻塞）
 
-**架构特点**:
+### 架构特点
+- **模块化设计**: 遵循 SOLID 原则的模块化架构
 - **处理流程**: 输入 → 下载/上传 → ASR 转录 → 文本分段 → LLM 润色 → 导出
-- **任务取消**: 所有长时间操作都支持任务取消（通过 `task_manager.check_cancellation(task_id)`）
+- **任务取消**: 所有长时间操作都支持任务取消
 - **异步推理**: 使用 `InferenceQueue` 避免 FastAPI 阻塞
 - **多 LLM 支持**: DeepSeek、Gemini、Qwen、Cerebras、本地模型
+- **设备自动检测**: 支持 CPU/GPU 自动切换
 
 ---
 
@@ -40,6 +48,34 @@ AutoVoiceCollation 是一个 Python 音视频转文本系统，集成 ASR（FunA
 **核心技术栈**: FunASR + PyTorch + FastAPI + frontend + 多 LLM 提供商
 
 **处理流程**: 输入（B站/本地文件）→ 下载/上传 → ASR 识别 → LLM 润色 → 导出（PDF/图片/字幕）
+
+### 架构图
+```mermaid
+graph TB
+    Input[输入源<br/>B站视频/本地文件] --> Download[下载/上传服务]
+    Download --> ASR[ASR 转录服务<br/>Paraformer/SenseVoice]
+    ASR --> Split[文本分段<br/>split_text.py]
+    Split --> LLM[LLM 润色服务<br/>多提供商支持]
+    LLM --> Export[格式化导出<br/>PDF/图片/字幕]
+
+    Config[配置系统<br/>Pydantic v2] -.-> Download
+    Config -.-> ASR
+    Config -.-> LLM
+    Config -.-> Export
+
+    TaskMgr[任务管理器<br/>支持取消] -.-> Download
+    TaskMgr -.-> ASR
+    TaskMgr -.-> LLM
+
+    InferenceQ[异步推理队列<br/>避免阻塞] -.-> ASR
+    InferenceQ -.-> LLM
+
+    API[API 层<br/>FastAPI] --> Download
+    API --> TaskMgr
+    API --> InferenceQ
+
+    Frontend[前端界面<br/>Alpine.js] --> API
+```
 
 ## 关键命令
 
@@ -94,13 +130,34 @@ docker compose ps                 # 查看容器状态
 
 ### 测试
 ```bash
+# 基本测试
 pytest                                    # 运行所有测试
+pytest -v                                 # 详细输出
+pytest -s                                 # 显示打印输出（pytest.ini 已默认启用）
+
+# 特定测试
+pytest tests/test_api.py                  # 运行 API 测试
 pytest tests/test_api.py::test_name -v   # 运行单个测试
-pytest --cov=src tests/                   # 测试覆盖率
-pytest -m "not slow and not integration"  # 跳过慢速/集成测试
-pytest --lf                               # 仅运行上次失败的测试
 pytest -k "test_pattern"                  # 运行匹配模式的测试
-# 注意：pytest.ini 已启用 -s 和 --capture=no，默认显示打印输出
+
+# 测试过滤
+pytest -m "not slow and not integration"  # 跳过慢速/集成测试
+pytest -m "unit"                          # 仅运行单元测试
+pytest -m "integration"                   # 仅运行集成测试
+
+# 测试调试
+pytest --lf                               # 仅运行上次失败的测试
+pytest --tb=short                         # 简短回溯信息
+
+# 覆盖率
+pytest --cov=src tests/                   # 测试覆盖率
+pytest --cov=src --cov-report=html tests/ # 生成 HTML 覆盖率报告
+
+# 注意：pytest.ini 已配置默认选项：
+# -s (显示打印输出)
+# --capture=no (不捕获输出)
+# --tb=short (简短回溯)
+# 标记：unit, integration, slow, asyncio
 ```
 
 ### 常用开发任务
@@ -149,6 +206,35 @@ BiliURL   services/   services/ split_   services/   core/export/
 
 项目已从扁平结构重构为模块化架构，遵循 SOLID 原则：
 
+#### 模块依赖关系
+```mermaid
+graph TD
+    API[api.py<br/>FastAPI 入口] --> APIModule[src/api/<br/>API 层]
+    APIModule --> Core[src/core/<br/>核心业务]
+    APIModule --> Services[src/services/<br/>外部服务]
+
+    Core --> Processors[src/core/processors/<br/>处理器]
+    Core --> Export[src/core/export/<br/>导出]
+    Core --> History[src/core/history/<br/>历史]
+
+    Services --> ASR[src/services/asr/<br/>ASR 服务]
+    Services --> LLM[src/services/llm/<br/>LLM 服务]
+    Services --> Download[src/services/download/<br/>下载]
+    Services --> Subtitle[src/services/subtitle/<br/>字幕]
+
+    TextArr[src/text_arrangement/<br/>文本处理] --> LLM
+    TextArr --> Export
+
+    Utils[src/utils/<br/>工具类] --> Config[src/utils/config/<br/>配置]
+    Utils --> Device[src/utils/device/<br/>设备]
+    Utils --> Logging[src/utils/logging/<br/>日志]
+    Utils --> Helpers[src/utils/helpers/<br/>辅助]
+
+    Config -.-> 所有模块
+    Logging -.-> 所有模块
+```
+
+#### 目录结构
 ```
 src/
 ├── api/                    # API 层
@@ -369,6 +455,105 @@ out/video_name/
     - 在 API 端点中返回合适的 HTTP 状态码
 - **注释语言**: 与现有代码库保持一致（主要为中文）
 - **文档字符串**: 函数/类应包含 docstring，说明参数、返回值和可能的异常
+
+### 代码示例
+
+#### 1. 使用配置系统
+```python
+from src.utils.config import get_config
+
+# 获取全局配置
+config = get_config()
+
+# 访问配置项
+llm_server = config.llm.server  # 如: "deepseek-chat"
+asr_model = config.asr.model    # 如: "paraformer"
+device = config.device          # 如: "auto"
+
+# 检查功能开关
+if not config.llm.disable_polish:
+    # 执行 LLM 润色
+    pass
+```
+
+#### 2. 支持任务取消的函数
+```python
+from typing import Optional
+from src.utils.helpers.task_manager import get_task_manager, TaskCancelledException
+
+task_manager = get_task_manager()
+
+def process_with_cancellation(data: str, task_id: Optional[str] = None) -> str:
+    """支持任务取消的处理函数"""
+    try:
+        # 检查点 1: 操作前
+        if task_id:
+            task_manager.check_cancellation(task_id)
+
+        # 长时间操作
+        result = heavy_processing(data)
+
+        # 检查点 2: 操作后
+        if task_id:
+            task_manager.check_cancellation(task_id)
+
+        return result
+    except TaskCancelledException:
+        logger.info(f"任务 {task_id} 被取消")
+        raise
+    finally:
+        # 清理资源
+        if task_id:
+            task_manager.remove_task(task_id)
+```
+
+#### 3. 使用 LLM 服务
+```python
+from src.services.llm.factory import create_llm_service
+
+# 创建 LLM 服务实例（根据配置自动选择）
+llm_service = create_llm_service()
+
+# 调用 LLM
+response = await llm_service.generate(
+    prompt="请润色以下文本: ...",
+    temperature=0.1,
+    max_tokens=1000
+)
+```
+
+#### 4. API 端点示例
+```python
+from fastapi import APIRouter, BackgroundTasks
+from src.api.schemas.task import TaskResponse
+from src.core.processors.audio import AudioProcessor
+
+router = APIRouter()
+
+@router.post("/process/audio", response_model=TaskResponse)
+async def process_audio(
+    file_url: str,
+    background_tasks: BackgroundTasks
+):
+    """处理音频文件"""
+    task_id = str(uuid.uuid4())
+
+    # 创建处理器实例
+    processor = AudioProcessor()
+
+    # 在后台执行任务
+    background_tasks.add_task(
+        processor.process,
+        file_url=file_url,
+        task_id=task_id
+    )
+
+    return TaskResponse(
+        task_id=task_id,
+        status="processing",
+        message="任务已开始处理"
+    )
+```
 
 ### 添加新 LLM 服务
 
@@ -643,3 +828,35 @@ def long_running_function(input_data: str, task_id: Optional[str] = None) -> str
 - **架构设计**: [异常处理](docs/architecture/exception-handling.md) | [处理历史](docs/architecture/process-history.md)
 - **故障排查**: [网络问题](docs/deployment/docker/troubleshooting-network.md) | [字体问题](docs/deployment/docker/troubleshooting-font.md) | [容器崩溃](docs/deployment/docker/troubleshooting-crash.md)
 - **项目规划**: [路线图](docs/proposals/ROADMAP.md) | [开发改进建议](docs/proposals/dev-suggestions.md)
+
+---
+
+## 关于此 CLAUDE.md 文件
+
+此文件为 Claude Code 提供在 AutoVoiceCollation 项目中工作的指导。它包含了：
+
+### 🎯 核心目标
+1. **快速上手**: 提供最常用的命令和关键文件位置
+2. **架构理解**: 通过图表和说明帮助理解项目架构
+3. **开发指南**: 提供代码示例和最佳实践
+4. **故障排查**: 常见问题的解决方案
+
+### 📋 使用建议
+- **新开发者**: 从"快速参考"和"关键命令"开始
+- **架构理解**: 查看"架构图"和"模块依赖关系"
+- **代码开发**: 参考"代码示例"和"开发规范"
+- **问题解决**: 查看"常见问题处理"
+
+### 🔄 更新维护
+此文件应与项目代码同步更新。当添加新功能或修改架构时，请相应更新：
+1. 命令和配置变化
+2. 架构图更新
+3. 新的代码示例
+4. 常见问题解决方案
+
+### 🎨 可视化特色
+- **Mermaid 图表**: 提供直观的架构和依赖关系图
+- **代码示例**: 展示关键功能的实现方式
+- **结构化信息**: 层次清晰，便于查找
+
+> **提示**: 此文件是现有详细文档的补充，完整文档请查看 `docs/` 目录。

@@ -14,6 +14,7 @@ import torchaudio
 from src.SenseVoiceSmall.model import SenseVoiceSmall
 from src.services.asr import get_asr_service
 from src.services.llm import LLMQueryParams, query_llm
+from src.services.llm.prompts import get_prompt
 from src.text_arrangement.split_text import clean_asr_text, smart_split
 from src.utils.device.device_manager import detect_device as get_device
 from src.utils.logging.logger import get_logger
@@ -744,14 +745,17 @@ class LLMBasedSegmenter(SubtitleSegmenter):
             full_timestamp: 完整的时间戳数组
             time_cursor: 当前在时间戳数组中的位置
         """
-        system_instruction = (
-            f"你是一个字幕切分助手。请将以下文本切分为适合显示的多行字幕。"
-            f"每行最长 {self.config.max_chars_per_segment} 个字符。"
-            f"在每个切分点用 '|' 分隔，不要换行，不要添加、删除或替换任何文字。"
+        prompt_spec = getattr(self, "_segment_prompt_spec", None)
+        if prompt_spec is None:
+            prompt_spec = get_prompt("subtitle_segment")
+            self._segment_prompt_spec = prompt_spec
+        system_instruction = prompt_spec.render_system(
+            max_chars_per_segment=self.config.max_chars_per_segment
         )
+        user_content = prompt_spec.render_user(text=chunk)
 
         llm_params = LLMQueryParams(
-            content=chunk,
+            content=user_content,
             system_instruction=system_instruction,
             temperature=self.config.llm_temperature,
             max_tokens=self.config.llm_max_tokens,
