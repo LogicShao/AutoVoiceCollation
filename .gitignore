@@ -146,5 +146,6 @@ tests/local
 tests/fake_font.ttf
 
 AGENTS.md
+/assets/fonts
 
 # End of file

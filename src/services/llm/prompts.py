@@ -8,6 +8,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
+from enum import Enum
+from functools import lru_cache
 from pathlib import Path
 
 from src.utils.config import get_config
@@ -28,20 +30,26 @@ class PromptSpec:
         return _safe_format(self.user_template, **kwargs)
 
 
-POLISH_SYSTEM_PROMPT = """你是一个高级语言处理助手，专注于文本清理、分段与拼写修正。请按照以下要求处理以下文本：
-1. **去除冗余内容**：删除所有的口吃、语气词、重复的词汇或无关的表达（例如：“呃”，“嗯”，“啊”）。
-2. **合理分段**：根据上下文将文本分段，使其更加清晰易懂。
-3. **拼写和语法修正**：自动修正拼写错误、语法错误和标点符号问题。
-4. **保留原意和风格**：在修改过程中，请尽量保留文本的原意和风格，不做任何不必要的改写。
-5. **简化和优化**：适当去除冗余、重复的内容，但确保不改变原文的核心信息。
-根据这些要求，处理下面的文本：
-"""
+class PromptType(str, Enum):
+    POLISH = "polish"
+    SUMMARY = "summary"
+    SUBTITLE_SEGMENT = "subtitle_segment"
+    TITLE = "title"
 
-POLISH_USER_TEMPLATE = (
-    "以下是语音识别的原始文本：\n{text}\n\n"
-    "请你仅仅输出整理后的文本，不要增加多余的文字，"
-    "也不要使用任何markdown形式的文字，只使用plain text的形式。"
-)
+
+POLISH_SYSTEM_PROMPT = """你是一个高级语言处理助手，专注于文本清理与拼写修正。
+核心原则：
+1. **准确性优先**：修正明显的ASR识别错误（如同音字错误），但不要改写用户原本的用词习惯。
+2. **去口语化**：仅删除“呃、那个、然后”等无意义填充词及重复口吃。
+3. **不要总结**：绝不要对文本进行摘要，必须保留所有细节信息。
+4. **格式保留**：不要使用 Markdown，仅输出纯文本。"""
+
+POLISH_USER_TEMPLATE = """请处理被 <input_text> 标签包裹的语音识别文本。
+<input_text>
+{text}
+</input_text>
+
+输出要求：直接输出整理后的文本，不要包含 XML 标签，不要包含任何解释性语句。"""
 
 SUMMARY_SYSTEM_PROMPT = (
     "你是一名资深学术研究助手，擅长将素材转化为具有哲学深度和辩证张力的小论文。"
@@ -52,21 +60,22 @@ SUMMARY_SYSTEM_PROMPT = (
     "文风要浓缩、直切本质，善用哲学隐喻与批判性提问，避免任何编号、列表或显式过渡句。"
 )
 
-SUMMARY_USER_TEMPLATE = """请基于以下 ASR 转写文本（仅作换行和少量错误修正），先拟定一个凝练且富有哲学意味的标题，然后撰写一篇小论文。论文包含引言、主体与结论三大段，全文以流畅的段落呈现，不使用项目符号或编号。
-{title}
+SUMMARY_USER_TEMPLATE = """来源视频标题：{title}
+来源转写文本：
 {text}
 
-在引言中以高度凝练的段落点明研究切入点与核心命题；
-在主体部分，每段依次完成“细致解读→辩证批判→结构性／主体性拓展”；
-在结论中回扣标题，揭示研究所得的深层洞见，并在最后一笔中自然勾勒未来研究或实践的潜在脉络。
+请基于以上内容，按照系统指令撰写一篇具有哲学深度的小论文。"""
 
-请务必保持学术严谨与哲学厚度，避免任何面向用户的元提示或建议语句。"""
+SUBTITLE_SEGMENT_SYSTEM_PROMPT = """你是一个专业的字幕切分助手。任务是将长文本按语义和长度切分为字幕行。
+规则：
+1. 必须在逻辑停顿处切分。
+2. 每段尽量控制在 {max_chars_per_segment} 字符以内。
+3. 使用 '|' 符号作为分隔符，保持单行输出。
+4. 严禁修改、删除或增加原文的任何文字。
 
-SUBTITLE_SEGMENT_SYSTEM_PROMPT = (
-    "你是一个字幕切分助手。请将以下文本切分为适合显示的多行字幕。"
-    "每行最长 {max_chars_per_segment} 个字符。"
-    "在每个切分点用 '|' 分隔，不要换行，不要添加、删除或替换任何文字。"
-)
+示例：
+输入：今天天气真好我们要去公园玩但是可能会下雨
+输出：今天天气真好|我们要去公园玩|但是可能会下雨"""
 
 SUBTITLE_SEGMENT_USER_TEMPLATE = "{text}"
 
@@ -85,31 +94,45 @@ TITLE_USER_TEMPLATE = """请根据以下文本内容生成一个简洁、准确�
 
 标题："""
 
-_DEFAULT_PROMPTS: dict[str, PromptSpec] = {
-    "polish": PromptSpec(system=POLISH_SYSTEM_PROMPT, user_template=POLISH_USER_TEMPLATE),
-    "summary": PromptSpec(system=SUMMARY_SYSTEM_PROMPT, user_template=SUMMARY_USER_TEMPLATE),
-    "subtitle_segment": PromptSpec(
+_DEFAULT_PROMPTS: dict[PromptType, PromptSpec] = {
+    PromptType.POLISH: PromptSpec(system=POLISH_SYSTEM_PROMPT, user_template=POLISH_USER_TEMPLATE),
+    PromptType.SUMMARY: PromptSpec(
+        system=SUMMARY_SYSTEM_PROMPT, user_template=SUMMARY_USER_TEMPLATE
+    ),
+    PromptType.SUBTITLE_SEGMENT: PromptSpec(
         system=SUBTITLE_SEGMENT_SYSTEM_PROMPT,
         user_template=SUBTITLE_SEGMENT_USER_TEMPLATE,
     ),
-    "title": PromptSpec(system=TITLE_SYSTEM_PROMPT, user_template=TITLE_USER_TEMPLATE),
+    PromptType.TITLE: PromptSpec(system=TITLE_SYSTEM_PROMPT, user_template=TITLE_USER_TEMPLATE),
 }
 
 
-def get_prompt(prompt_id: str) -> PromptSpec:
-    if prompt_id not in _DEFAULT_PROMPTS:
-        raise ValueError(f"Unknown prompt id: {prompt_id}")
-
+@lru_cache
+def get_prompt(prompt_id: PromptType | str) -> PromptSpec:
+    prompt_type = _normalize_prompt_id(prompt_id)
     prompt_dir = get_config().paths.prompt_dir
-    override = _load_prompt_override(prompt_id, prompt_dir)
-    return override or _DEFAULT_PROMPTS[prompt_id]
+    override = _load_prompt_override(prompt_type, prompt_dir)
+    return override or _DEFAULT_PROMPTS[prompt_type]
 
 
-def _load_prompt_override(prompt_id: str, prompt_dir: Path | None) -> PromptSpec | None:
+def clear_prompt_cache() -> None:
+    get_prompt.cache_clear()
+
+
+def _normalize_prompt_id(prompt_id: PromptType | str) -> PromptType:
+    if isinstance(prompt_id, PromptType):
+        return prompt_id
+    try:
+        return PromptType(prompt_id)
+    except ValueError:
+        raise ValueError(f"Unknown prompt id: {prompt_id}") from None
+
+
+def _load_prompt_override(prompt_id: PromptType, prompt_dir: Path | None) -> PromptSpec | None:
     if prompt_dir is None:
         return None
 
-    file_path = prompt_dir / f"{prompt_id}.json"
+    file_path = prompt_dir / f"{prompt_id.value}.json"
     if not file_path.is_file():
         return None
 
@@ -138,8 +161,7 @@ def _load_prompt_override(prompt_id: str, prompt_dir: Path | None) -> PromptSpec
 def _safe_format(template: str, **kwargs) -> str:
     if not kwargs:
         return template
-    try:
-        return template.format(**kwargs)
-    except (KeyError, ValueError) as e:
-        logger.warning(f"提示词格式化失败，将使用未格式化模板: {e}")
-        return template
+    rendered = template
+    for key, value in kwargs.items():
+        rendered = rendered.replace("{" + str(key) + "}", str(value))
+    return rendered

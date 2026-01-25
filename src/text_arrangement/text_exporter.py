@@ -2,6 +2,7 @@ import json
 import os
 import platform
 from datetime import datetime
+from pathlib import Path
 from typing import Any
 
 from pdf2image import convert_from_path
@@ -16,15 +17,40 @@ from reportlab.pdfbase import pdfmetrics
 from reportlab.pdfbase.ttfonts import TTFont
 from reportlab.platypus import Paragraph, SimpleDocTemplate
 
+from src.utils.config import get_config
+from src.utils.config.base import BaseConfig
 from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
+
+_LATIN_FONT_NAME = "LatinFont"
 
 _pre_text = (
     "本项目使用{}+LLM{}进行音频文本提取和润色，"
     "ASR模型提取的文本可能存在错误和不准确之处，"
     "以及润色之后的文本可能会与原意有所偏差，请仔细辨别。"
 )
+
+
+def _resolve_font_path(font_path: str | Path | None) -> str | None:
+    if not font_path:
+        return None
+    path = Path(font_path).expanduser()
+    if not path.is_absolute():
+        path = BaseConfig.get_project_root() / path
+    if path.is_file():
+        return str(path)
+    logger.warning(f"配置的字体路径不存在: {path}")
+    return None
+
+
+def _get_config_font_path(attr_name: str) -> str | None:
+    try:
+        config = get_config()
+    except Exception as e:
+        logger.warning(f"读取配置失败，无法获取字体路径: {e}")
+        return None
+    return _resolve_font_path(getattr(config, attr_name, None))
 
 
 def get_system_font_paths() -> list[str]:
@@ -62,13 +88,19 @@ def find_chinese_font() -> str | None:
     跨平台查找可用的中文字体
     :return: 找到的字体文件路径，如果未找到则返回 None
     """
-    # 1. 优先使用环境变量指定的字体
-    env_font = os.environ.get("CHINESE_FONT_PATH")
-    if env_font and os.path.isfile(env_font):
+    # 1. 优先使用配置指定的字体
+    config_font = _get_config_font_path("pdf_font_path")
+    if config_font:
+        logger.info(f"使用配置指定的PDF字体: {config_font}")
+        return config_font
+
+    # 2. 兼容环境变量指定的字体
+    env_font = _resolve_font_path(os.environ.get("CHINESE_FONT_PATH"))
+    if env_font:
         logger.info(f"使用环境变量指定的字体: {env_font}")
         return env_font
 
-    # 2. 定义不同操作系统的字体候选列表
+    # 3. 定义不同操作系统的字体候选列表
     system = platform.system()
 
     if system == "Windows":
@@ -139,6 +171,71 @@ def find_chinese_font() -> str | None:
     return None
 
 
+def find_latin_font() -> str | None:
+    """
+    跨平台查找可用的拉丁字符字体
+    :return: 找到的字体文件路径，如果未找到则返回 None
+    """
+    # 1. 优先使用配置指定的字体
+    config_font = _get_config_font_path("pdf_latin_font_path")
+    if config_font:
+        logger.info(f"使用配置指定的PDF拉丁字体: {config_font}")
+        return config_font
+
+    # 2. 定义不同操作系统的字体候选列表
+    system = platform.system()
+
+    if system == "Windows":
+        font_candidates = [
+            "segoeui.ttf",
+            "arial.ttf",
+            "calibri.ttf",
+            "times.ttf",
+            "tahoma.ttf",
+        ]
+    elif system == "Darwin":  # macOS
+        font_candidates = [
+            "Helvetica.ttc",
+            "Arial.ttf",
+            "Times New Roman.ttf",
+            "SFNS.ttf",
+        ]
+    else:  # Linux
+        font_candidates = [
+            "DejaVuSans.ttf",
+            "LiberationSans-Regular.ttf",
+            "FreeSans.ttf",
+            "NotoSans-Regular.ttf",
+        ]
+
+    # 4. 搜索字体
+    font_paths = get_system_font_paths()
+
+    for font_dir in font_paths:
+        for font_name in font_candidates:
+            # 直接匹配
+            font_path = os.path.join(font_dir, font_name)
+            if os.path.isfile(font_path):
+                logger.info(f"找到拉丁字体: {font_path}")
+                return font_path
+
+            # 递归搜索（限制深度为2，避免性能问题）
+            for root, dirs, files in os.walk(font_dir):
+                # 限制搜索深度
+                depth = root[len(font_dir) :].count(os.sep)
+                if depth >= 2:
+                    dirs.clear()
+                    continue
+
+                if font_name in files:
+                    font_path = os.path.join(root, font_name)
+                    logger.info(f"找到拉丁字体: {font_path}")
+                    return font_path
+
+    logger.info("未找到拉丁字体，将使用中文字体渲染拉丁字符")
+    return None
+
+
 def get_font_path() -> str:
     """
     获取字体路径，如果找不到则抛出异常
@@ -147,7 +244,10 @@ def get_font_path() -> str:
     font_path = find_chinese_font()
     if font_path is None:
         error_msg = (
-            "未找到可用的中文字体。请安装中文字体包或通过环境变量 CHINESE_FONT_PATH 指定字体路径。\n"
+            "未找到可用的中文字体。请安装中文字体包或通过配置指定字体路径。\n"
+            "可用配置：\n"
+            "  - .env: PDF_FONT_PATH=/path/to/your/font.ttf\n"
+            "  - 环境变量: CHINESE_FONT_PATH=/path/to/your/font.ttf\n"
             "Linux 用户可以安装以下字体包之一:\n"
             "  - Arch Linux: sudo pacman -S noto-fonts-cjk 或 wqy-microhei\n"
             "  - Debian/Ubuntu: sudo apt install fonts-noto-cjk 或 fonts-wqy-microhei\n"
@@ -159,16 +259,25 @@ def get_font_path() -> str:
     return font_path
 
 
+def get_latin_font_path() -> str | None:
+    """
+    获取拉丁字符字体路径（可选）
+    :return: 字体文件路径，如果未找到则返回 None
+    """
+    return find_latin_font()
+
+
 # 初始化字体（延迟加载，不阻止应用启动）
 _font_initialized = False
 _font_error = None
+_latin_font_loaded = False
 
 
 def _ensure_font_loaded():
     """
     确保字体已加载，如果失败则抛出异常
     """
-    global _font_initialized, _font_error
+    global _font_initialized, _font_error, _latin_font_loaded
 
     if _font_initialized:
         return  # 已加载成功
@@ -181,6 +290,20 @@ def _ensure_font_loaded():
         font_ttf_path = get_font_path()
         pdfmetrics.registerFont(TTFont("ChineseFont", font_ttf_path))
         addMapping("ChineseFont", 0, 0, "ChineseFont")  # 正常字体
+
+        latin_font_path = get_latin_font_path()
+        if latin_font_path:
+            try:
+                pdfmetrics.registerFont(TTFont(_LATIN_FONT_NAME, latin_font_path))
+                addMapping(_LATIN_FONT_NAME, 0, 0, _LATIN_FONT_NAME)
+                _latin_font_loaded = True
+                logger.info(f"成功加载拉丁字体: {latin_font_path}")
+            except Exception as e:
+                logger.warning(f"拉丁字体加载失败: {e}")
+                _latin_font_loaded = False
+        else:
+            _latin_font_loaded = False
+
         logger.info(f"成功加载字体: {font_ttf_path}")
         _font_initialized = True
     except Exception as e:
@@ -223,6 +346,45 @@ def _merge_lines_to_paragraphs(txt: str) -> list[str]:
     if current:
         paragraphs.append(current)
     return paragraphs
+
+
+def _escape_pdf_text(text: str) -> str:
+    return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
+
+
+def _is_latin_char(ch: str) -> bool:
+    if ch.isascii():
+        return True
+    code = ord(ch)
+    return 0x00A0 <= code <= 0x024F or 0x1E00 <= code <= 0x1EFF
+
+
+def _format_pdf_text(text: str) -> str:
+    if not text:
+        return ""
+    if not _latin_font_loaded:
+        return _escape_pdf_text(text)
+    segments = []
+    current = []
+    current_is_latin = _is_latin_char(text[0])
+    for ch in text:
+        is_latin = _is_latin_char(ch)
+        if is_latin != current_is_latin:
+            segments.append((current_is_latin, "".join(current)))
+            current = [ch]
+            current_is_latin = is_latin
+        else:
+            current.append(ch)
+    segments.append((current_is_latin, "".join(current)))
+
+    output = []
+    for is_latin, segment in segments:
+        escaped = _escape_pdf_text(segment)
+        if is_latin:
+            output.append(f'<font name="{_LATIN_FONT_NAME}">{escaped}</font>')
+        else:
+            output.append(escaped)
+    return "".join(output)
 
 
 def text_to_pdf(
@@ -308,13 +470,15 @@ def text_to_pdf(
     story = []
 
     if title:
-        story.append(Paragraph(title.strip(), title_style))
+        story.append(Paragraph(_format_pdf_text(title.strip()), title_style))
 
     pre_text = _pre_text.format(ASR_model, LLM_info)
-    story.append(Paragraph(pre_text, pre_style))
+    story.append(Paragraph(_format_pdf_text(pre_text), pre_style))
 
     # 正文处理
-    paragraphs = [Paragraph(p, normal_style) for p in _merge_lines_to_paragraphs(txt)]
+    paragraphs = [
+        Paragraph(_format_pdf_text(p), normal_style) for p in _merge_lines_to_paragraphs(txt)
+    ]
     story.extend(paragraphs)
 
     # 构建 PDF

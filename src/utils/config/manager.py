@@ -4,6 +4,8 @@
 统一管理所有配置并提供全局访问接口
 """
 
+from pathlib import Path
+
 from pydantic import Field, field_validator
 
 from .asr import ASRConfig
@@ -30,6 +32,14 @@ class AppConfig(BaseConfig):
     output_style: str = Field(
         default="pdf_only",
         description="输出样式：pdf_with_img, img_only, text_only, pdf_only, markdown, json",
+    )
+
+    pdf_font_path: Path | None = Field(
+        default=None, description="PDF 主字体路径（留空则自动检测系统字体）"
+    )
+
+    pdf_latin_font_path: Path | None = Field(
+        default=None, description="PDF 拉丁字符字体路径（留空则自动检测系统字体）"
     )
 
     zip_output_enabled: bool = Field(default=False, description="是否输出 zip 压缩包")
