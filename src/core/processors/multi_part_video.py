@@ -233,7 +233,11 @@ class MultiPartVideoProcessor(BaseProcessor):
         from src.services.asr import transcribe_audio
 
         timer.start()
-        audio_text = transcribe_audio(audio_file.path, task_id=task_id)
+        audio_text = transcribe_audio(
+            audio_file.path,
+            model_type=self.config.asr.asr_model,
+            task_id=task_id,
+        )
         asr_time = timer.stop()
         self.logger.info(f"ASR识别完成，耗时 {asr_time:.1f} 秒，文本长度 {len(audio_text)}")
 

@@ -3,6 +3,8 @@
 测试文本按句子分割、智能分割和 ASR 文本清理功能
 """
 
+import re
+
 import pytest
 
 from src.text_arrangement.split_text import (
@@ -58,13 +60,27 @@ class TestSplitTextBySentences:
         assert len(result) == 1
         assert result[0] == "这是唯一的一句话。"
 
+    def test_split_preserves_trailing_text_without_terminal_punctuation(self):
+        """测试末尾没有标点时不丢失尾部内容"""
+        text = "第一句。第二句没有句号"
+        result = split_text_by_sentences(text, split_len=100)
+        merged = "".join(result)
+
+        assert "第一句。" in merged
+        assert "第二句没有句号" in merged
+
     def test_split_no_punctuation(self):
         """测试没有标点符号的文本"""
-        text = "这是一段没有标点符号的文本"
-        result = split_text_by_sentences(text, split_len=100)
+        text = "这是一段没有标点符号的文本" * 3
+        result = split_text_by_sentences(text, split_len=10)
 
-        # 没有标点符号时，应该返回原文本（可能有轻微修改）
-        assert len(result) <= 1
+        assert len(result) > 0
+        assert all(chunk.strip() for chunk in result)
+        assert all(len(chunk) <= 10 for chunk in result)
+
+        # 去掉空白后内容应保持一致（split_text_by_sentences 会 strip chunk）
+        norm = lambda s: re.sub(r"\s+", "", s)  # noqa: E731
+        assert norm("".join(result)) == norm(text)
 
     def test_split_mixed_punctuation(self):
         """测试中英文混合标点"""

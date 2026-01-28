@@ -964,4 +964,4 @@ if __name__ == "__main__":
     print("-" * 60)
 
     # 启动服务器
-    uvicorn.run(app, host=host, port=available_port)
+    uvicorn.run(app, host=host, port=available_port, access_log=False)

@@ -11,6 +11,7 @@ __all__ = [
     "BaseASRService",
     "SenseVoiceService",
     "ParaformerService",
+    "WhisperCppService",
     "get_asr_service",
     "transcribe_audio",
 ]
@@ -25,6 +26,10 @@ def __getattr__(name):
         from .sense_voice import SenseVoiceService
 
         return SenseVoiceService
+    if name == "WhisperCppService":
+        from .whisper_cpp import WhisperCppService
+
+        return WhisperCppService
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

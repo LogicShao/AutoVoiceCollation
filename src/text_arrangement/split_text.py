@@ -9,28 +9,59 @@ def split_text_by_sentences(txt: str, split_len: int) -> list[str]:
     :param split_len: 每段文本的最大字符数
     :return: 分割后的文本列表
     """
-    # 使用正则表达式分割文本为句子（句号、问号、感叹号后切分）
-    split_ch = ".。!！？?"
-    pattern = rf"([{split_ch}])"
-    sentences = re.split(pattern, txt)[:-1]  # 保留分隔符
-    sentences = [sentences[i] + sentences[i + 1] for i in range(0, len(sentences), 2)]
+    if not txt:
+        return []
 
-    split_texts = []
+    # 使用正则表达式分割文本为句子（句号、问号、感叹号 / 换行后切分）
+    # NOTE: 文本未以标点结尾或完全没有标点时，必须保留尾部内容，否则会出现 0 chunks 导致润色为空。
+    pattern = r"([.。!！？?\n])"
+
+    parts = re.split(pattern, txt)
+    delimiters = {".", "。", "!", "！", "?", "？", "\n"}
+
+    sentences: list[str] = []
+    buf = ""
+    for part in parts:
+        if not part:
+            continue
+        if part in delimiters:
+            buf += part
+            if buf:
+                sentences.append(buf)
+            buf = ""
+        else:
+            buf += part
+
+    if buf.strip():
+        sentences.append(buf)
+
+    split_texts: list[str] = []
     current_chunk = ""
 
     for sentence in sentences:
-        # 如果加上当前句子的文本后超过了最大字符数，就分割成新的一段
-        if len(current_chunk) + len(sentence) + 1 > split_len:
-            split_texts.append(current_chunk.strip())
+        if not sentence.strip():
+            continue
+
+        # 如果单个“句子”本身就超过分段长度（常见于 ASR 无标点输出），回退到按长度切分，避免空 chunk 或超长 chunk。
+        if len(sentence) > split_len:
+            if current_chunk.strip():
+                split_texts.append(current_chunk.strip())
+                current_chunk = ""
+            for sub in smart_split(sentence, split_len=split_len):
+                sub = sub.strip()
+                if sub:
+                    split_texts.append(sub)
+            continue
+
+        extra_sep = 1 if current_chunk else 0
+        if len(current_chunk) + len(sentence) + extra_sep > split_len:
+            if current_chunk.strip():
+                split_texts.append(current_chunk.strip())
             current_chunk = sentence
         else:
-            if current_chunk:
-                current_chunk += sentence
-            else:
-                current_chunk = sentence
+            current_chunk = f"{current_chunk}{sentence}" if current_chunk else sentence
 
-    # 处理剩余的部分
-    if current_chunk:
+    if current_chunk.strip():
         split_texts.append(current_chunk.strip())
 
     return split_texts

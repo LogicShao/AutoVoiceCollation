@@ -18,6 +18,7 @@ config = get_config()
 # 全局单例缓存
 _sense_voice_instance: BaseASRService | None = None
 _paraformer_instance: BaseASRService | None = None
+_whisper_cpp_instance: BaseASRService | None = None
 
 
 def get_asr_service(model_type: str = "paraformer") -> BaseASRService:
@@ -33,11 +34,25 @@ def get_asr_service(model_type: str = "paraformer") -> BaseASRService:
     Raises:
         ValueError: 不支持的模型类型
     """
-    global _sense_voice_instance, _paraformer_instance
+    global _sense_voice_instance, _paraformer_instance, _whisper_cpp_instance
 
-    # 检测设备
+    model_type = (model_type or "paraformer").lower().strip()
+
+    if model_type == "whisper_cpp":
+        if _whisper_cpp_instance is None:
+            from .whisper_cpp import WhisperCppService
+
+            logger.info("Creating whisper.cpp service instance")
+            _whisper_cpp_instance = WhisperCppService()
+        return _whisper_cpp_instance
+
+    # 检测设备（仅用于 FunASR）
     device = detect_device(config.asr.device)
-    onnx_providers = get_onnx_providers(device, config.asr.get_onnx_providers_list())
+
+    onnx_providers = None
+    if config.asr.use_onnx:
+        custom_providers = config.asr.onnx_providers.strip() or None
+        onnx_providers = get_onnx_providers(device, custom_providers)
 
     if model_type == "sense_voice":
         if _sense_voice_instance is None:
@@ -56,7 +71,7 @@ def get_asr_service(model_type: str = "paraformer") -> BaseASRService:
         return _paraformer_instance
 
     raise ValueError(
-        f"Unsupported model type: {model_type}. Supported types: 'sense_voice', 'paraformer'"
+        f"Unsupported model type: {model_type}. Supported types: 'sense_voice', 'paraformer', 'whisper_cpp'"
     )
 
 
