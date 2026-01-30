@@ -2,54 +2,15 @@
 
 ## 概述
 
-AutoVoiceCollation
-的新前端基于
-FastAPI +
-原生
-HTML/CSS/JS
-构建，使用
-Tailwind
-CSS
-美化样式，Alpine.js
-提供轻量级交互。
+AutoVoiceCollation 的新前端基于 FastAPI + 原生 HTML/CSS/JS 构建，使用 Tailwind CSS 美化样式，Alpine.js 提供轻量级交互。
 
 ## 技术栈
 
--
-*
-*UI
-框架
-**:
-原生
-HTML5
--
-*
-*CSS
-框架
-**:
-Tailwind
-CSS
-3.x
--
-*
-*JS
-交互
-**:
-Alpine.js
-3.x
--
-*
-*构建工具
-**:
-Tailwind
-CLI +
-PostCSS
--
-*
-*后端
-**:
-FastAPI (
-Python)
+- **UI 框架**: 原生 HTML5
+- **CSS 框架**: Tailwind CSS 3.x
+- **JS 交互**: Alpine.js 3.x
+- **构建工具**: Tailwind CLI + PostCSS
+- **后端**: FastAPI (Python)
 
 ## 目录结构
 
@@ -71,51 +32,27 @@ frontend/
 
 ### 环境配置
 
-1.
-*
-*安装
-Node.js
-依赖
-**:
+1. **安装 Node.js 依赖**:
 ```bash
 npm install
 ```
 
-2.
-*
-*启动
-Tailwind
-CSS
-监听模式
-**
-（开发时自动编译
-CSS）:
+2. **启动 Tailwind CSS 监听模式**（开发时自动编译 CSS）:
 ```bash
 npm run dev
 # 或
 npm run build:css:watch
 ```
 
-3.
-*
-*启动后端服务
-**
-（另开终端）:
+3. **启动后端服务**（另开终端）:
 ```bash
 python api.py
 ```
 
-4.
-*
-*访问应用
-**:
-  -
-  前端界面: http://127.0.0.1:8000
-  -
-  API
-  文档: http://127.0.0.1:8000/docs
-  -
-  健康检查: http://127.0.0.1:8000/health
+4. **访问应用**:
+  - 前端界面: http://127.0.0.1:8000
+  - API 文档: http://127.0.0.1:8000/docs
+  - 健康检查: http://127.0.0.1:8000/health
 
 ### 生产构建
 
@@ -131,94 +68,48 @@ python api.py
 
 ### 1. B站视频处理
 
--
-输入
-B站视频链接
--
-自动下载并转录为文本
--
-LLM
-润色和导出
+- 输入 B站视频链接
+- 自动下载并转录为文本
+- LLM 润色和导出
 
 ### 2. 本地文件上传
 
--
-支持音频/视频文件上传
--
-支持格式：MP3,
-MP4,
-WAV,
-M4A
-等
--
-ASR
-识别和文本处理
+- 支持音频/视频文件上传
+- 支持格式：MP3, MP4, WAV, M4A 等
+- ASR 识别和文本处理
 
 ### 3. 批量处理
 
--
-批量处理多个
-B站视频
--
-一次性提交多个链接
--
-统一导出结果
+- 批量处理多个 B站视频
+- 一次性提交多个链接
+- 统一导出结果
 
 ### 4. 字幕生成
 
--
-为视频自动生成字幕
--
-支持
-SRT
-格式导出
--
-支持字幕烧录到视频
+- 为视频自动生成字幕
+- 支持 SRT 格式导出
+- 支持字幕烧录到视频
 
 ## API 端点
 
-所有
-API
-端点都在
-`/api/v1/`
-路径下：
+所有 API 端点都在 `/api/v1/` 路径下：
 
--
-`POST /api/v1/process/bilibili` -
-处理
-B站视频
--
-`POST /api/v1/process/audio` -
-处理音频文件
--
-`POST /api/v1/process/batch` -
-批量处理
--
-`POST /api/v1/process/subtitle` -
-生成字幕
--
-`GET /api/v1/task/{task_id}` -
-查询任务状态
--
-`POST /api/v1/task/{task_id}/cancel` -
-取消任务
--
-`GET /api/v1/download/{task_id}` -
-下载结果
--
-`POST /api/v1/summarize` -
-文本总结
+- `POST /api/v1/process/bilibili` - 处理 B站视频
+- `POST /api/v1/process/audio` - 处理音频文件
+- `POST /api/v1/process/batch` - 批量处理
+- `POST /api/v1/process/subtitle` - 生成字幕
+- `GET /api/v1/task/{task_id}` - 查询任务状态
+- `POST /api/v1/task/{task_id}/cancel` - 取消任务
+- `GET /api/v1/download/{task_id}` - 下载结果
+- `POST /api/v1/summarize` - 文本总结
 
-详细
-API
-文档请访问: http://localhost:8000/docs
+详细 API 文档请访问: http://localhost:8000/docs
 
 ## 自定义样式
 
 ### 修改 Tailwind 配置
 
-编辑
-`tailwind.config.js`:
+编辑 `tailwind.config.js`:
 
 ```javascript
 module.exports = {
@@ -238,9 +129,7 @@ module.exports = {
 
 ### 添加自定义 CSS
 
-在
-`frontend/src/css/input.css`
-中添加自定义样式：
+在 `frontend/src/css/input.css` 中添加自定义样式：
 
 ```css
 @layer components {
@@ -252,9 +141,7 @@ module.exports = {
 
 ## 状态管理
 
-使用
-Alpine.js
-的响应式数据系统：
+使用 Alpine.js 的响应式数据系统：
 
 ```javascript
 Alpine.data('app', () => ({
@@ -273,65 +160,34 @@ Alpine.data('app', () => ({
 
 ### Q: 样式没有更新？
 
-A:
-确保运行了
-`npm run dev`
-或
-`npm run build`
-重新编译
-CSS。
+A: 确保运行了 `npm run dev` 或 `npm run build` 重新编译 CSS。
 
 ### Q: 如何添加新功能？
 
 A:
-
-1.
-在
-`api.py`
-添加新的端点
-2.
-在
-`frontend/src/js/main.js`
-添加前端逻辑
-3.
-在
-`frontend/src/index.html`
-添加
-UI
-组件
+1. 在 `api.py` 添加新的端点
+2. 在 `frontend/src/js/main.js` 添加前端逻辑
+3. 在 `frontend/src/index.html` 添加 UI 组件
 
 ### Q: 如何更改端口？
 
-A:
-修改
-`.env`
-文件中的
-`WEB_SERVER_PORT`
-配置。
+A: 修改 `.env` 文件中的 `WEB_SERVER_PORT` 配置。
 
 ## 部署
 
 ### 生产环境部署
 
-1.
-构建前端资源:
+1. 构建前端资源:
 ```bash
 npm run build
 ```
 
-2.
-使用
-Gunicorn
-运行
-FastAPI:
+2. 使用 Gunicorn 运行 FastAPI:
 ```bash
 gunicorn api:app -w 4 -k uvicorn.workers.UvicornWorker --bind 0.0.0.0:8000
 ```
 
-3.
-配置
-Nginx
-反向代理（可选）:
+3. 配置 Nginx 反向代理（可选）:
 ```nginx
 location / {
     proxy_pass http://127.0.0.1:8000;
@@ -344,66 +200,25 @@ location / {
 
 ### 推荐的 VS Code 扩展
 
--
-Tailwind
-CSS
-IntelliSense
--
-Alpine.js
-IntelliSense
--
-Prettier -
-Code
-formatter
--
-ESLint
+- Tailwind CSS IntelliSense
+- Alpine.js IntelliSense
+- Prettier - Code formatter
+- ESLint
 
 ### 调试技巧
 
-1.
-*
-*查看
-API
-请求
-**:
-使用浏览器开发者工具的
-Network
-选项卡
-2.
-*
-*调试
-JavaScript
-**:
-在
-`main.js`
-中使用
-`console.log()`
-或浏览器断点
-3.
-*
-*查看任务状态
-**:
-访问
-`/api/v1/task/{task_id}`
-端点
+1. **查看 API 请求**: 使用浏览器开发者工具的 Network 选项卡
+2. **调试 JavaScript**: 在 `main.js` 中使用 `console.log()` 或浏览器断点
+3. **查看任务状态**: 访问 `/api/v1/task/{task_id}` 端点
 
 ## 贡献指南
 
 欢迎贡献代码！请遵循以下规范：
 
-1.
-代码风格：遵循
-Prettier
-和
-ESLint
-配置
-2.
-提交信息：使用语义化提交（Conventional
-Commits）
-3.
-测试：确保修改不影响现有功能
+1. 代码风格：遵循 Prettier 和 ESLint 配置
+2. 提交信息：使用语义化提交（Conventional Commits）
+3. 测试：确保修改不影响现有功能
 
 ## 许可证
 
-MIT
-License
+MIT License

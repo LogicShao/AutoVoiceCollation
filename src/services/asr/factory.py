@@ -9,6 +9,7 @@ from src.utils.device.device_manager import detect_device, get_onnx_providers
 from src.utils.logging.logger import get_logger
 
 from .base import BaseASRService
+from .preprocess import cleanup_preprocessed_audio, prepare_asr_audio
 
 logger = get_logger(__name__)
 
@@ -95,4 +96,11 @@ def transcribe_audio(
         TaskCancelledException: 任务被取消
     """
     service = get_asr_service(model_type)
-    return service.transcribe(audio_path, task_id)
+    processed_path = None
+    is_temp = False
+    try:
+        processed_path, is_temp = prepare_asr_audio(audio_path, task_id=task_id)
+        return service.transcribe(str(processed_path), task_id)
+    finally:
+        if is_temp and processed_path is not None and not config.debug_flag:
+            cleanup_preprocessed_audio(processed_path)
