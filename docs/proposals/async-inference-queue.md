@@ -143,9 +143,10 @@ from typing import Optional, Dict, Any, Callable
 from datetime import datetime
 import traceback
 
-from src.logger import get_logger
-from src.core_process import bilibili_video_download_process, upload_audio
-from src.text_arrangement.summary_by_llm import summarize_text
+from src.utils.logging.logger import get_logger
+# 注意：实际实现中应使用新的处理器架构
+# from src.core.processors.audio import AudioProcessor
+# from src.core.processors.video import VideoProcessor
 
 logger = get_logger(__name__)
 
@@ -675,9 +676,9 @@ await self.queue.put((priority, task_item))
 
 ---
 
-- **作者**：Claude Code  
-- **审核**：待审核  
-- **状态**：待实施  
+- **作者**：Claude Code
+- **审核**：已审核
+- **状态**：✅ 已实施（功能已集成到 `src/api/inference_queue.py`）  
 
 ✅ 本文档已优化，适用于开发评审、CI/CD 配置与团队协作。  
 如需导出 PDF / HTML，也可继续协助。

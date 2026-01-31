@@ -21,33 +21,44 @@ AutoVoiceCollation 是一个基于 Python 的自动语音识别（ASR）与智�
 
 ## 项目架构
 
-### 1. 模块结构
+### 1. 模块结构（模块化架构 v2.0）
 
 ```bash
 AutoVoiceCollation/
-├── config.py                      # 配置管理模块（单例模式）
 ├── main.py                        # CLI 入口
 ├── api.py                         # Web/API 服务
 │
-├── src/                           # 核心代码目录
-│   ├── __init__.py
-│   ├── Timer.py                   # 计时器工具类
-│   ├── logger.py                  # 日志系统（支持彩色输出和文件日志）
-│   ├── device_manager.py          # 设备管理（CPU/GPU/ONNX）
-│   ├── output_file_manager.py     # 输出文件管理
+├── src/                           # 核心代码目录（模块化架构）
+│   ├── api/                       # API 层
+│   │   ├── inference_queue.py     # 异步推理队列（解决 FastAPI 阻塞）
+│   │   ├── middleware/            # 中间件（错误处理等）
+│   │   └── schemas/               # Pydantic 数据模型
 │   │
-│   ├── bilibili_downloader.py     # B站视频下载和音频提取
-│   ├── extract_audio_text.py      # ASR 音频转文本（FunASR）
-│   ├── core_process.py            # 核心处理流程编排
-│   ├── subtitle_generator.py      # 字幕生成和硬编码
+│   ├── core/                      # 核心业务逻辑
+│   │   ├── exceptions/            # 异常定义（ASR/LLM/下载/文件/任务）
+│   │   ├── export/                # 导出功能（PDF/图片/字幕）
+│   │   ├── history/               # 处理历史管理
+│   │   ├── models/                # 数据模型
+│   │   └── processors/            # 处理器（音频/视频/字幕）
 │   │
-│   ├── text_arrangement/          # 文本处理子模块
-│   │   ├── __init__.py
-│   │   ├── query_llm.py           # LLM 查询统一接口
-│   │   ├── polish_by_llm.py       # LLM 文本润色（支持异步批处理）
-│   │   ├── summary_by_llm.py      # LLM 文本摘要
-│   │   ├── split_text.py          # 文本分段工具
-│   │   └── text_exporter.py       # 文本导出（PDF/图片）
+│   ├── services/                  # 外部服务集成
+│   │   ├── asr/                   # ASR 服务（Paraformer/SenseVoice）
+│   │   ├── download/              # 下载服务（B站视频下载）
+│   │   ├── llm/                   # LLM 服务（多提供商支持）
+│   │   └── subtitle/              # 字幕服务
+│   │
+│   ├── text_arrangement/          # 文本处理
+│   │   ├── polish_by_llm.py       # 文本润色
+│   │   ├── query_llm.py           # LLM 接口
+│   │   ├── split_text.py          # 文本分段
+│   │   ├── summary_by_llm.py      # 摘要生成
+│   │   └── text_exporter.py       # 导出工具
+│   │
+│   ├── utils/                     # 工具类
+│   │   ├── config/                # 配置管理（基于 Pydantic v2）
+│   │   ├── device/                # 设备管理（CPU/GPU/ONNX）
+│   │   ├── helpers/               # 辅助工具（任务管理器等）
+│   │   └── logging/               # 日志系统
 │   │
 │   └── SenseVoiceSmall/           # SenseVoice 模型实现
 │       ├── __init__.py
@@ -57,6 +68,7 @@ AutoVoiceCollation/
 │
 ├── tests/                         # 测试目录
 │   ├── conftest.py                # pytest 配置
+│   ├── test_async_queue.py        # 异步推理队列测试
 │   └── ...
 │
 ├── .env.example                   # 环境变量配置示例
@@ -104,23 +116,44 @@ graph TD
     V --> Y[ZIP 压缩 (可选)]
 ```
 
-### 3. 配置系统设计
+### 3. 配置系统设计（基于 Pydantic v2）
 
-#### `config.py` 架构
+#### `src/utils/config/` 架构
 
-- **环境变量加载**：使用 `python-dotenv` 从 `.env` 文件加载
-- **类型转换与验证**：自定义 `_get_env()` 函数，支持：
-  - 类型转换（str, int, float, bool, Path）
-  - 默认值处理
-  - 验证函数（validate lambda）
+- **类型安全配置**：使用 Pydantic v2 进行配置验证和类型转换
+- **环境变量自动加载**：支持嵌套配置和自动环境变量映射
+- **配置热重载**：支持运行时配置更新
 - **配置分组**：
-  - API Keys（DeepSeek, Gemini, DashScope, Cerebras）
-  - 目录配置（OUTPUT_DIR, DOWNLOAD_DIR, TEMP_DIR, MODEL_DIR, LOG_DIR）
-  - 日志配置（LOG_LEVEL, LOG_FILE, LOG_CONSOLE_OUTPUT, THIRD_PARTY_LOG_LEVEL）
-  - ASR 配置（ASR_MODEL）
-  - 设备配置（DEVICE, USE_ONNX, ONNX_PROVIDERS）
-  - LLM 配置（LLM_SERVER, LLM_TEMPERATURE, LLM_MAX_TOKENS）
-  - 功能开关（DISABLE_LLM_POLISH, DISABLE_LLM_SUMMARY, LOCAL_LLM_ENABLED）
+  - `AppConfig`：主配置类，聚合所有子配置
+  - `LLMConfig`：LLM 相关配置（API Keys、模型选择、参数）
+  - `ASRConfig`：ASR 相关配置（模型选择、批处理大小、设备）
+  - `PathConfig`：路径配置（输出目录、缓存目录、模型目录）
+  - `LoggingConfig`：日志配置（级别、格式、输出文件）
+- **关键配置项**：
+  - `ASR_MODEL`：`paraformer`（高精度）或 `sense_voice`（快速/多语言）
+  - `LLM_SERVER`：当前使用的 LLM 服务（支持：`deepseek-chat`, `gemini-2.0-flash`, `qwen3-plus`, `Cerebras:*`, `local:*`）
+  - `ASYNC_FLAG`：启用异步 LLM 润色（默认 `true`）
+  - `DEVICE`：`auto`（自动检测 GPU）、`cpu`、`cuda:0` 等
+  - `USE_ONNX`：启用 ONNX Runtime 推理加速
+  - `DISABLE_LLM_POLISH` / `DISABLE_LLM_SUMMARY`：功能开关
+
+#### 使用方式
+```python
+from src.utils.config import get_config
+
+# 获取全局配置
+config = get_config()
+
+# 访问配置项
+llm_server = config.llm.server  # 如: "deepseek-chat"
+asr_model = config.asr.model    # 如: "paraformer"
+device = config.device          # 如: "auto"
+
+# 检查功能开关
+if not config.llm.disable_polish:
+    # 执行 LLM 润色
+    pass
+```
 
 #### 支持的 LLM 服务
 
@@ -142,7 +175,7 @@ LLM_SERVER_SUPPORTED = [
 
 ## 关键模块详解
 
-### 1. `bilibili_downloader.py`
+### 1. `src/services/download/bilibili_downloader.py`
 
 - **功能**：B站视频下载与音频提取
 - **核心类**：
@@ -160,44 +193,48 @@ LLM_SERVER_SUPPORTED = [
     - 返回音频路径
 - **依赖**：yt-dlp, FFmpeg
 
-### 2. `extract_audio_text.py`
+### 2. `src/services/asr/`（ASR 服务抽象层）
 
-- **功能**：使用 FunASR 进行语音识别
-- **核心函数**：
-  - `extract_audio_text(input_audio_path, model_type='paraformer')`
-    - 支持模型：
-      - `paraformer`：高准确度，适合中文
-      - `sense_voice`：多语言支持，速度快
-    - 设备选择：通过 `device_manager` 自动检测 GPU/CPU
-    - ONNX 支持：可在 `.env` 中配置 `USE_ONNX=true`
-    - 返回文本字符串
+- **功能**：统一的 ASR 服务接口，支持多种模型
+- **支持模型**：
+  - `paraformer`：高准确度，适合中文
+  - `sense_voice`：多语言支持，速度快
+- **核心组件**：
+  - `transcriber.py`：ASR 转录器基类和具体实现
+  - `preprocess.py`：音频预处理工具
+- **设备管理**：通过 `src/utils/device/` 自动检测 GPU/CPU
+- **ONNX 支持**：可在 `.env` 中配置 `USE_ONNX=true`
 - **性能优化**：
   - `batch_size_s`：批处理大小（秒），需根据显存调整
   - ONNX 推理：启用后可加速推理
 
-### 3. `text_arrangement/query_llm.py`
+### 3. `src/services/llm/`（LLM 服务抽象层）
 
-- **功能**：统一的 LLM 查询接口
-- **设计模式**：策略模式，支持多种 LLM 服务
-- **核心函数**：
-  - `query_llm(prompt, api_service, temperature, max_tokens, ...)`
-    - 根据 `api_service` 自动路由到对应 LLM
-    - 统一错误处理与重试机制
-    - 支持参数：`temperature`, `max_tokens`, `top_p`, `top_k`
-- **API 集成**：
-  - ✅ **DeepSeek**：OpenAI 兼容接口
-  - ✅ **Gemini**：Google AI SDK
-  - ✅ **Qwen**：阿里云 DashScope
-  - ✅ **Cerebras**：高速推理 API
-  - ✅ **本地模型**：Transformers pipeline
+- **功能**：统一的 LLM 服务接口，支持多提供商
+- **设计模式**：工厂模式 + 策略模式
+- **核心组件**：
+  - `factory.py`：LLM 工厂，根据配置创建对应的 LLM 服务实例
+  - `base.py`：抽象基类，定义统一的 LLM 接口
+  - 具体实现：`deepseek.py`, `gemini.py`, `qwen.py`, `cerebras.py`, `local.py`
+- **支持的服务**：
+  - ✅ **DeepSeek**：`deepseek-chat`, `deepseek-reasoner`
+  - ✅ **Gemini**：`gemini-2.0-flash`
+  - ✅ **Qwen**：`qwen3-plus`, `qwen3-max`
+  - ✅ **Cerebras**：`Cerebras:Qwen-3-32B`, `Cerebras:Qwen-3-235B-Instruct`
+  - ✅ **本地模型**：`local:Qwen/Qwen2.5-1.5B-Instruct`
+- **异步处理**：
+  - `polish_by_llm.py` 使用 `asyncio.gather()` 并发调用多个 LLM API
+  - 速率限制：`RateLimiter` 类（默认 10 req/min）
+  - 重试机制：最多 3 次重试，指数退避 30 秒
 
-### 4. `text_arrangement/polish_by_llm.py`
+### 4. `src/text_arrangement/polish_by_llm.py`
 
 - **功能**：使用 LLM 润色文本
 - **核心特性**：
   - ✅ 异步批处理：使用 `asyncio` 并发处理多个文本段
   - ✅ 文本分段：自动分段以适应 LLM token 限制
   - ✅ 合并策略：将润色后的段落合并为完整文本
+  - ✅ 任务取消支持：集成任务管理器，支持取消操作
 - **核心函数**：
   ```python
   def polish_text(
@@ -207,11 +244,13 @@ LLM_SERVER_SUPPORTED = [
       temperature: float = 0.1,
       max_tokens: int = 4000,
       async_flag: bool = True,
-      debug_flag: bool = False
+      debug_flag: bool = False,
+      task_id: Optional[str] = None  # 新增：支持任务取消
   ) -> str:
       """
       润色文本
       :param async_flag: True = 异步并发处理，False = 顺序处理
+      :param task_id: 任务 ID，用于支持任务取消
       :return: 润色后的完整文本
       """
   ```
@@ -251,15 +290,21 @@ LLM_SERVER_SUPPORTED = [
   ```
 - **字体支持**：支持中文字体（需系统安装或指定路径）
 
-### 6. `subtitle_generator.py`
+### 6. `src/services/subtitle/generator.py`
 
 - **功能**：字幕生成与视频硬编码
+- **核心流程**：
+  1. ASR 时间戳识别（SenseVoice 或 Paraformer 的时间戳模式）
+  2. 文本智能分段（基于停顿阈值 `pause_threshold` 和最大字符数）
+  3. LLM 文本匹配和优化（将润色后的文本映射到时间戳）
+  4. SRT 字幕生成和视频硬编码（通过 FFmpeg）
+- **配置类**：`SubtitleConfig` - 可调节停顿阈值、字符限制、LLM 参数等
 - **核心函数**：
-  - `gen_timestamped_text_file(audio_file)`：生成 SRT 字幕文件
-  - `hard_encode_dot_srt_file(video_file, srt_file)`：使用 FFmpeg 将字幕硬编码到视频
+  - `generate_subtitle_file()` - 生成 SRT 字幕文件
+  - `encode_subtitle_to_video()` - 将字幕烧录到视频
 - **返回**：带字幕的视频文件路径
 
-### 7. `logger.py`
+### 7. `src/utils/logging/logger.py`
 
 - **功能**：统一的日志系统
 - **特性**：
@@ -267,9 +312,15 @@ LLM_SERVER_SUPPORTED = [
   - 彩色输出：使用 `colorlog`
   - 第三方库日志控制：降低 FunASR/modelscope 等库日志级别
   - 自动创建日志目录
+  - 结构化日志输出
 - **核心函数**：
   - `get_logger(name)`：获取命名 logger
   - `configure_third_party_loggers(log_level)`：配置第三方库日志级别
+- **导入方式**：
+  ```python
+  from src.utils.logging.logger import get_logger
+  logger = get_logger(__name__)
+  ```
 
 ---
 
@@ -350,9 +401,11 @@ cp .env.example .env
 
 ### 2. 添加新的 LLM 服务
 
-1. 在 `config.py` 中添加 API Key 配置：
+1. 在 `src/utils/config/llm.py` 中添加配置字段：
 ```python
-NEW_LLM_API_KEY = _get_env("NEW_LLM_API_KEY", default=None, cast=str)
+class LLMConfig(BaseModel):
+    # ... 现有配置
+    new_llm_api_key: Optional[str] = Field(default=None, env="NEW_LLM_API_KEY")
 ```
 
 2. 在 `LLM_SERVER_SUPPORTED` 列表中添加服务名：
@@ -360,30 +413,53 @@ NEW_LLM_API_KEY = _get_env("NEW_LLM_API_KEY", default=None, cast=str)
 LLM_SERVER_SUPPORTED = [..., "new-llm-service"]
 ```
 
-3. 在 `src/text_arrangement/query_llm.py` 中实现查询函数：
+3. 在 `src/services/llm/` 中创建新的 LLM 服务类：
 ```python
-def query_new_llm(prompt, temperature, max_tokens, ...):
-    # 实现 API 调用逻辑
-    return response_text
+# new_llm.py
+from .base import BaseLLMService
 
-# 在 query_llm() 中添加路由
-if api_service == "new-llm-service":
-    return query_new_llm(prompt, temperature, max_tokens, ...)
+class NewLLMService(BaseLLMService):
+    async def generate(self, prompt: str, **kwargs) -> str:
+        # 实现 API 调用逻辑
+        return response_text
 ```
 
-4. 在 `.env.example` 中添加配置说明
+4. 在 `factory.py` 的 `create_llm_service()` 中添加分支：
+```python
+def create_llm_service(config: Optional[LLMConfig] = None) -> BaseLLMService:
+    # ... 现有逻辑
+    if server == "new-llm-service":
+        return NewLLMService(config)
+```
+
+5. 在 `.env.example` 中添加配置说明
 
 ### 3. 添加新的 ASR 模型
 
-1. 在 `src/extract_audio_text.py` 中添加模型加载逻辑：
+1. 在 `src/services/asr/` 中添加新的转录器类：
 ```python
-def extract_audio_text(input_audio_path, model_type='paraformer'):
-    if model_type == 'new_model':
-        model = AutoModel(model="new-model-name")
-    # ...
+# new_transcriber.py
+from .base import BaseTranscriber
+
+class NewModelTranscriber(BaseTranscriber):
+    def __init__(self, config: ASRConfig):
+        super().__init__(config)
+        # 初始化新模型
+
+    def transcribe(self, audio_path: str) -> str:
+        # 实现转录逻辑
+        return transcribed_text
 ```
 
-2. 更新配置文档和 `.env.example`
+2. 在 ASR 工厂中添加新模型支持：
+```python
+# factory.py
+def create_transcriber(config: ASRConfig) -> BaseTranscriber:
+    if config.model == "new_model":
+        return NewModelTranscriber(config)
+```
+
+3. 更新配置文档和 `.env.example`
 
 ### 4. 测试流程
 
@@ -411,7 +487,7 @@ pytest --cov=src tests/
 ### 6. 日志最佳实践
 
 ```python
-from src.logger import get_logger
+from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
@@ -434,9 +510,10 @@ except Exception as e:
 ## 性能优化建议
 
 ### 1. GPU 内存优化
-- 降低 `batch_size_s`（在 `extract_audio_text.py` 中）
+- 降低 `batch_size_s`（在 ASR 配置中）
 - 使用 `SenseVoiceSmall` 而非 `Paraformer`
 - 启用 ONNX 推理（`USE_ONNX=true`）
+- 使用 `src/utils/device/` 自动检测最佳设备
 
 ### 2. LLM 润色加速
 - 启用异步处理：`ASYNC_FLAG=true`
@@ -457,12 +534,14 @@ except Exception as e:
 ```bash
 rm -rf ~/.cache/modelscope
 export MODELSCOPE_CACHE=./models
+# 或在 .env 中配置 MODEL_DIR=./models
 ```
 
 ### 2. CUDA Out of Memory
 - **解决**：
 ```python
-# 在 extract_audio_text.py 中降低 batch_size_s
+# 在 ASR 配置中降低 batch_size_s
+# 或在 .env 中配置 BATCH_SIZE_S=60
 batch_size_s = 60  # 从默认值降低到 60 或更小
 ```
 
@@ -488,9 +567,10 @@ sudo apt-get install ffmpeg
 
 ### 添加新的输出格式（Markdown 示例）
 
-1. 在 `config.py` 中添加输出选项：
+1. 在 `src/utils/config/` 中添加输出选项：
 ```python
-OUTPUT_STYLE = _get_env("OUTPUT_STYLE", default="pdf_only", cast=str)
+# 在相应的配置类中添加字段
+output_style: str = Field(default="pdf_only", env="OUTPUT_STYLE")
 # 支持: pdf_with_img, pdf_only, img_only, text_only, markdown, json
 ```
 
@@ -615,9 +695,9 @@ services:
 
 ---
 
-- **最后更新**：2025-11-04  
-- **文档版本**：2.0  
-- **状态**：✅ 已发布，适用于团队协作与新成员培训
+- **最后更新**：2026-01-30
+- **文档版本**：2.1（模块化架构更新版）
+- **状态**：✅ 已更新，反映当前模块化架构，适用于团队协作与新成员培训
 
 ✅ 本文档已优化，适合用于：
 - 团队内部培训

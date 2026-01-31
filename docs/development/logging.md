@@ -6,13 +6,15 @@
 
 ## 📌 日志配置
 
-日志配置位于 `src/config.py`，包含以下核心参数：
+日志配置通过 Pydantic v2 配置系统管理，位于 `src/utils/config/`，包含以下核心参数：
 
 ```python
-LOG_LEVEL = 'INFO'              # 日志级别：DEBUG, INFO, WARNING, ERROR, CRITICAL
-LOG_FILE = './logs/AutoVoiceCollation.log'  # 日志文件路径
-LOG_CONSOLE_OUTPUT = True       # 是否输出到控制台
-LOG_COLORED_OUTPUT = True       # 控制台输出是否启用彩色
+# 在 .env 文件中配置
+LOG_LEVEL=INFO                    # 日志级别：DEBUG, INFO, WARNING, ERROR, CRITICAL
+LOG_FILE=./logs/AutoVoiceCollation.log  # 日志文件路径
+LOG_CONSOLE_OUTPUT=true           # 是否输出到控制台
+LOG_COLORED_OUTPUT=true           # 控制台输出是否启用彩色
+THIRD_PARTY_LOG_LEVEL=WARNING     # 第三方库日志级别
 ```
 
 ### 🔍 日志级别说明
@@ -32,7 +34,7 @@ LOG_COLORED_OUTPUT = True       # 控制台输出是否启用彩色
 ### 1. 在模块中导入 logger
 
 ```python
-from src.logger import get_logger
+from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
 ```
@@ -91,31 +93,30 @@ logger.critical("数据库连接失败，程序即将退出")
 
 ### 1. 开发时启用 `DEBUG` 级别
 
-修改 `src/config.py`：
-```python
-LOG_LEVEL = 'DEBUG'  # 显示所有调试信息
+修改 `.env` 文件：
+```bash
+LOG_LEVEL=DEBUG  # 显示所有调试信息
 ```
 
 ### 2. 生产环境使用 `INFO` 级别
 
-```python
-LOG_LEVEL = 'INFO'  # 仅记录重要状态
+```bash
+LOG_LEVEL=INFO  # 仅记录重要状态
 ```
 
 ### 3. 禁用控制台输出（仅保留文件）
 
-```python
-LOG_CONSOLE_OUTPUT = False
+```bash
+LOG_CONSOLE_OUTPUT=false
 ```
 
 ### 4. 禁用文件输出（仅控制台）
 
-```python
-LOG_FILE = None
-LOG_DIR = None
+```bash
+LOG_FILE=
+# 或
+LOG_FILE=none
 ```
-
-????? .env??? `LOG_FILE` ? `LOG_DIR` ????????????
 
 ---
 
@@ -129,7 +130,7 @@ print(f"错误：{error}")
 
 ### ✅ 新代码（推荐）
 ```python
-from src.logger import get_logger
+from src.utils.logging.logger import get_logger
 logger = get_logger(__name__)
 
 logger.info(f"开始处理文件：{filename}")
@@ -247,9 +248,9 @@ except Exception as e:
 
 ---
 
-- **最后更新**：2025-12-17  
-- **文档版本**：2.0  
-- **状态**：✅ 已发布，适用于团队协作与新成员培训
+- **最后更新**：2026-01-30
+- **文档版本**：2.1（配置系统更新版）
+- **状态**：✅ 已更新，反映当前 Pydantic v2 配置系统，适用于团队协作与新成员培训
 
 ✅ 本文档已优化，适合用于：
 - 团队内部培训

@@ -1,6 +1,7 @@
 import json
 import os
 import platform
+import re
 from datetime import datetime
 from pathlib import Path
 from typing import Any
@@ -348,6 +349,49 @@ def _merge_lines_to_paragraphs(txt: str) -> list[str]:
     return paragraphs
 
 
+def _is_divider_line(line: str, min_len: int = 3) -> bool:
+    stripped = line.strip()
+    if len(stripped) < min_len:
+        return False
+    return all(ch == "=" for ch in stripped)
+
+
+def _split_text_with_headings(txt: str) -> list[tuple[str, str]]:
+    items: list[tuple[str, str]] = []
+    buffer_lines: list[str] = []
+    lines = txt.splitlines()
+    i = 0
+    while i < len(lines):
+        line = lines[i]
+        if _is_divider_line(line) and i + 2 < len(lines):
+            title_line = lines[i + 1].strip()
+            next_divider = lines[i + 2]
+            if title_line and _is_divider_line(next_divider):
+                if buffer_lines:
+                    items.append(("text", "\n".join(buffer_lines)))
+                    buffer_lines = []
+                items.append(("heading", title_line))
+                i += 3
+                continue
+        buffer_lines.append(line)
+        i += 1
+    if buffer_lines:
+        items.append(("text", "\n".join(buffer_lines)))
+    return items
+
+
+def _simplify_part_heading(title: str) -> str:
+    if not title:
+        return ""
+    text = title.strip()
+    text = re.sub(r"^第\s*\d+\s*P\s*[:：]\s*", "", text)
+    match = re.search(r"\b(p\d{1,3})\b", text, flags=re.IGNORECASE)
+    if not match:
+        return text
+    start = match.start(1)
+    return text[start:].strip()
+
+
 def _escape_pdf_text(text: str) -> str:
     return text.replace("&", "&amp;").replace("<", "&lt;").replace(">", "&gt;")
 
@@ -465,6 +509,16 @@ def text_to_pdf(
         alignment=TA_CENTER,
         spaceAfter=20,
     )
+    part_title_style = ParagraphStyle(
+        name="PartTitle",
+        fontName="ChineseFont",
+        fontSize=font_size + 2,
+        leading=font_size + 4,
+        alignment=TA_LEFT,
+        spaceBefore=12,
+        spaceAfter=10,
+        wordWrap="CJK",
+    )
 
     # 构造内容
     story = []
@@ -476,10 +530,16 @@ def text_to_pdf(
     story.append(Paragraph(_format_pdf_text(pre_text), pre_style))
 
     # 正文处理
-    paragraphs = [
-        Paragraph(_format_pdf_text(p), normal_style) for p in _merge_lines_to_paragraphs(txt)
-    ]
-    story.extend(paragraphs)
+    for block_type, content in _split_text_with_headings(txt):
+        if block_type == "heading":
+            simplified = _simplify_part_heading(content)
+            story.append(Paragraph(_format_pdf_text(simplified), part_title_style))
+            continue
+        paragraphs = [
+            Paragraph(_format_pdf_text(p), normal_style)
+            for p in _merge_lines_to_paragraphs(content)
+        ]
+        story.extend(paragraphs)
 
     # 构建 PDF
     doc = SimpleDocTemplate(

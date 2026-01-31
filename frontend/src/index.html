@@ -314,10 +314,10 @@
 
             <div class="mt-2 text-xs text-gray-500 dark:text-gray-400">
               <span x-show="task.created_at">
-                创建: <span x-text="task.created_at"></span>
+                创建: <span x-text="formatDateTime(task.created_at)"></span>
               </span>
               <span class="ml-4" x-show="task.completed_at">
-                完成: <span x-text="task.completed_at"></span>
+                完成: <span x-text="formatDateTime(task.completed_at)"></span>
               </span>
             </div>
 

@@ -54,9 +54,9 @@ def _safe_unlink(path: Path) -> None:
 
 def prepare_asr_audio(audio_path: str, task_id: str | None = None) -> tuple[Path, bool]:
     """
-    ????????? 16kHz / mono / PCM_16 WAV?
+    将输入音频转换为 16kHz / mono / PCM_16 WAV。
     Returns:
-        (??????, ???????)
+        (输出音频路径, 是否发生转换)
     """
     source = Path(audio_path)
     if not source.exists():
@@ -126,14 +126,16 @@ def prepare_asr_audio(audio_path: str, task_id: str | None = None) -> tuple[Path
                 _safe_unlink(output_wav)
                 stderr_tail = _read_text_safely(stderr_path)
                 raise ASRInferenceError(
-                    message=f"ffmpeg ???????: {stderr_tail}",
+                    message=f"ffmpeg 转码失败: {stderr_tail}",
                     model="preprocess",
                     audio_file=str(source),
                 )
     except FileNotFoundError as e:
         _safe_unlink(output_wav)
         raise AudioFormatError(
-            message=("??? ffmpeg????? ASR ????????? ffmpeg ??? 16kHz ??? PCM WAV (16-bit) ???"),
+            message=(
+                "未找到 ffmpeg。ASR 预处理需要 ffmpeg 将音频转换为 16kHz 单声道 PCM WAV (16-bit)。"
+            ),
             audio_file=str(source),
             format=source.suffix,
         ) from e
@@ -144,12 +146,12 @@ def prepare_asr_audio(audio_path: str, task_id: str | None = None) -> tuple[Path
 
     if not output_wav.exists():
         raise ASRInferenceError(
-            message="ffmpeg ?????? wav ??",
+            message="ffmpeg 未生成预期的 wav 文件",
             model="preprocess",
             audio_file=str(source),
         )
 
-    logger.info(f"ASR ?????: {source} -> {output_wav}")
+    logger.info(f"ASR 预处理: {source} -> {output_wav}")
     return output_wav, True
 
 

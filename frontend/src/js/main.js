@@ -219,6 +219,18 @@ document.addEventListener('alpine:init', () => {
       return `${mins}:${secs.toString().padStart(2, '0')}`;
     },
 
+    formatDateTime(value) {
+      if (!value) return '';
+      if (typeof value !== 'string') return String(value);
+      const trimmed = value.trim();
+      if (!trimmed) return '';
+      const match = trimmed.match(/^(\d{4}-\d{2}-\d{2})[T ](\d{2}:\d{2}:\d{2})/);
+      if (match) {
+        return `${match[1]} ${match[2]}`;
+      }
+      return trimmed;
+    },
+
     // 处理文件选择
     handleFileSelect(event) {
       this.selectedFile = event.target.files[0];
