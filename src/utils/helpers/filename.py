@@ -6,9 +6,6 @@
 
 import re
 
-from src.services.llm.factory import query_llm
-from src.services.llm.models import LLMQueryParams
-from src.services.llm.prompts import get_prompt
 from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
@@ -114,6 +111,10 @@ def generate_title_from_text(
         return None
 
     try:
+        from src.services.llm.factory import query_llm
+        from src.services.llm.models import LLMQueryParams
+        from src.services.llm.prompts import get_prompt
+
         # 截取文本前 2000 字符（约 500-1000 tokens）
         text_sample = text[:2000].strip()
 

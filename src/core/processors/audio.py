@@ -401,7 +401,7 @@ class AudioProcessor(BaseProcessor):
 
         except TaskCancelledException as e:
             self.logger.warning(f"Task cancelled: {e}")
-            return f"任务已取消: {task_id}", 0, 0, None
+            raise
         finally:
             self._cleanup_task(task_id)
 
@@ -429,7 +429,7 @@ class AudioProcessor(BaseProcessor):
             Tuple: (结果数据, 提取时间, 润色时间, ZIP文件路径)
         """
         if audio_path is None:
-            return "请上传一个音频文件。", None, None, None
+            raise ValueError("请上传一个音频文件。")
 
         audio_file = new_local_bili_file(audio_path)
         return self.process(audio_file, llm_api, temperature, max_tokens, text_only, task_id)

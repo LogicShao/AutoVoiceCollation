@@ -12,6 +12,7 @@ from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
 
+from src.core.exceptions import TaskCancelledException
 from src.utils.config import get_config
 from src.utils.helpers.task_manager import get_task_manager
 from src.utils.logging.logger import get_logger
@@ -105,7 +106,7 @@ class InferenceQueue:
         task_type: str,
         task_data: dict[str, Any],
         tasks_store: dict,
-    ):
+    ) -> bool:
         """
         提交任务到队列
 
@@ -116,7 +117,7 @@ class InferenceQueue:
             tasks_store: 任务状态存储（引用传递）
         """
         try:
-            await self.queue.put(
+            self.queue.put_nowait(
                 {
                     "task_id": task_id,
                     "task_type": task_type,
@@ -125,6 +126,7 @@ class InferenceQueue:
                 }
             )
             logger.info(f"任务已提交到队列: {task_id}, 队列长度: {self.queue.qsize()}")
+            return True
         except asyncio.QueueFull:
             logger.error(f"队列已满,任务提交失败: {task_id}")
             tasks_store[task_id].update(
@@ -135,6 +137,7 @@ class InferenceQueue:
                     "completed_at": datetime.now().isoformat(),
                 }
             )
+            return False
 
     def _is_task_cancelled(self, task_id: str, tasks_store: dict) -> bool:
         task_info = tasks_store.get(task_id, {})
@@ -213,6 +216,9 @@ class InferenceQueue:
                     else:
                         logger.info(f"✅ 任务完成: {task_id}")
 
+                except TaskCancelledException as e:
+                    logger.info(f"任务已取消: {task_id}: {e}")
+                    self._mark_task_cancelled(task_id, tasks_store, str(e))
                 except Exception as e:
                     logger.error(f"任务失败: {task_id}, 错误: {e}", exc_info=True)
                     tasks_store[task_id].update(
@@ -332,20 +338,20 @@ class InferenceQueue:
             self.task_manager.create_task(task_id)
 
         # 在线程池中执行同步处理函数
-        output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
-            None,
-            self._get_audio_processor().process_uploaded_audio,
-            data["audio_path"],
-            data["llm_api"],
-            data["temperature"],
-            data["max_tokens"],
-            data["text_only"],
-            task_id,  # 传递 task_id 以支持取消
-        )
-
-        # 清理临时文件
-        if os.path.exists(data["audio_path"]):
-            await loop.run_in_executor(None, os.remove, data["audio_path"])
+        try:
+            output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
+                None,
+                self._get_audio_processor().process_uploaded_audio,
+                data["audio_path"],
+                data["llm_api"],
+                data["temperature"],
+                data["max_tokens"],
+                data["text_only"],
+                task_id,  # 传递 task_id 以支持取消
+            )
+        finally:
+            if os.path.exists(data["audio_path"]):
+                await loop.run_in_executor(None, os.remove, data["audio_path"])
 
         completed_at = datetime.now().isoformat()
 
@@ -467,13 +473,17 @@ class InferenceQueue:
         if not self.task_manager.task_exists(task_id):
             self.task_manager.create_task(task_id)
 
-        # 在线程池中执行同步处理函数
-        subtitle_path, video_path, info = await loop.run_in_executor(
-            None,
-            self._get_subtitle_processor().process,
-            data["video_path"],
-            # 传递其他字幕配置参数...
-        )
+        try:
+            # 在线程池中执行同步处理函数
+            subtitle_path, video_path, info = await loop.run_in_executor(
+                None,
+                self._get_subtitle_processor().process,
+                data["video_path"],
+                # 传递其他字幕配置参数...
+            )
+        finally:
+            if os.path.exists(data["video_path"]):
+                await loop.run_in_executor(None, os.remove, data["video_path"])
 
         if self._is_task_cancelled(task_id, tasks_store):
             self._mark_task_cancelled(task_id, tasks_store)
@@ -517,17 +527,6 @@ class InferenceQueue:
 
         if self._is_task_cancelled(task_id, tasks_store):
             self._mark_task_cancelled(task_id, tasks_store)
-            return
-
-        # 如果返回的是错误消息字符串（任务取消）
-        if isinstance(result_data, str):
-            tasks_store[task_id].update(
-                {
-                    "status": "cancelled",
-                    "message": result_data,
-                    "completed_at": datetime.now().isoformat(),
-                }
-            )
             return
 
         # 正常完成

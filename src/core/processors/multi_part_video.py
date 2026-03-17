@@ -179,7 +179,7 @@ class MultiPartVideoProcessor(BaseProcessor):
 
         except TaskCancelledException as e:
             self.logger.warning(f"多P任务已取消: {e}")
-            return f"任务已取消: {task_id}", 0, 0, None
+            raise
         except Exception as e:
             self.logger.error(f"多P任务失败: {e}", exc_info=True)
             raise

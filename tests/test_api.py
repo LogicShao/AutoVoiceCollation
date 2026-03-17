@@ -3,13 +3,15 @@ API 单元测试
 使用 FastAPI TestClient 和 pytest 进行单元测试
 """
 
+from contextlib import suppress
 from io import BytesIO
-from unittest.mock import patch
+from pathlib import Path
+from unittest.mock import AsyncMock, patch
 
 import pytest
 from fastapi.testclient import TestClient
 
-from api import app, tasks
+from api import app, config, tasks
 
 
 @pytest.fixture
@@ -24,6 +26,36 @@ def clear_tasks():
     tasks.clear()
     yield
     tasks.clear()
+
+
+def _cleanup_submitted_file(mock_queue):
+    submit_call = getattr(mock_queue.submit_task, "await_args", None)
+    if submit_call is None:
+        return
+
+    task_data = submit_call.kwargs.get("task_data", {})
+    file_path = task_data.get("audio_path") or task_data.get("video_path")
+    if not file_path:
+        return
+
+    path = Path(file_path)
+    if path.exists():
+        with suppress(PermissionError):
+            path.unlink()
+
+
+async def _queue_full_submit(*args, **kwargs):
+    task_id = kwargs["task_id"]
+    tasks_store = kwargs["tasks_store"]
+    tasks_store[task_id].update(
+        {
+            "status": "failed",
+            "message": "队列已满,请稍后重试",
+            "error": "Queue is full",
+            "completed_at": "2026-03-16T00:00:00",
+        }
+    )
+    return False
 
 
 class TestRootEndpoints:
@@ -151,6 +183,47 @@ class TestAudioEndpoint:
         assert "task_id" in data
         assert data["status"] == "pending"
 
+    @patch("api._get_inference_queue")
+    def test_process_audio_queue_full_returns_failed(self, mock_get_queue, client):
+        """测试队列满载时立即返回失败状态"""
+        mock_queue = mock_get_queue.return_value
+        mock_queue.submit_task = AsyncMock(side_effect=_queue_full_submit)
+
+        file_content = b"fake audio content"
+        files = {"file": ("test.mp3", BytesIO(file_content), "audio/mpeg")}
+
+        response = client.post("/api/v1/process/audio", files=files)
+
+        _cleanup_submitted_file(mock_queue)
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "failed"
+        assert data["error"] == "Queue is full"
+
+    @patch("api._get_inference_queue")
+    def test_process_audio_sanitizes_uploaded_filename(self, mock_get_queue, client):
+        """测试上传文件名会被限制在 temp 目录内"""
+        mock_queue = mock_get_queue.return_value
+        mock_queue.submit_task = AsyncMock(return_value=True)
+
+        file_content = b"fake audio content"
+        files = {"file": ("../../evil.mp3", BytesIO(file_content), "audio/mpeg")}
+
+        response = client.post("/api/v1/process/audio", files=files)
+
+        try:
+            assert response.status_code == 200
+            data = response.json()
+            assert data["filename"] == "evil.mp3"
+
+            audio_path = Path(mock_queue.submit_task.await_args.kwargs["task_data"]["audio_path"])
+            assert audio_path.parent == config.paths.temp_dir
+            assert audio_path.name.endswith("evil.mp3")
+            assert ".." not in audio_path.name
+        finally:
+            _cleanup_submitted_file(mock_queue)
+
     @patch("api.audio_processor.process_uploaded_audio")
     def test_process_audio_with_summarize(self, mock_upload, client):
         """测试带总结功能的音频处理"""
@@ -256,6 +329,29 @@ class TestSubtitleEndpoint:
         data = response.json()
         assert "task_id" in data
         assert data["status"] == "pending"
+
+    @patch("api._get_inference_queue")
+    def test_process_subtitle_sanitizes_uploaded_filename(self, mock_get_queue, client):
+        """测试字幕上传文件名会被安全化"""
+        mock_queue = mock_get_queue.return_value
+        mock_queue.submit_task = AsyncMock(return_value=True)
+
+        file_content = b"fake video content"
+        files = {"file": ("../../evil.mp4", BytesIO(file_content), "video/mp4")}
+
+        response = client.post("/api/v1/process/subtitle", files=files)
+
+        try:
+            assert response.status_code == 200
+            data = response.json()
+            assert data["filename"] == "evil.mp4"
+
+            video_path = Path(mock_queue.submit_task.await_args.kwargs["task_data"]["video_path"])
+            assert video_path.parent == config.paths.temp_dir
+            assert video_path.name.endswith("evil.mp4")
+            assert ".." not in video_path.name
+        finally:
+            _cleanup_submitted_file(mock_queue)
 
 
 class TestSummarizeEndpoint:

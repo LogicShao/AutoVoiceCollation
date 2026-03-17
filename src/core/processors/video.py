@@ -53,7 +53,7 @@ class VideoProcessor(BaseProcessor):
         try:
             # 输入验证
             if not video_url or not video_url.startswith("http"):
-                return "请输入正确的B站链接。", None, None, None
+                raise ValueError("请输入正确的B站链接。")
 
             self._check_cancellation(task_id)
 
@@ -79,7 +79,7 @@ class VideoProcessor(BaseProcessor):
 
         except TaskCancelledException as e:
             self.logger.warning(f"Task cancelled: {e}")
-            return f"任务已取消: {task_id}", 0, 0, None
+            raise
         finally:
             self._cleanup_task(task_id)
 
@@ -175,6 +175,6 @@ class VideoProcessor(BaseProcessor):
 
         except TaskCancelledException as e:
             self.logger.warning(f"Batch task cancelled: {e}")
-            return f"批量任务已取消: {task_id}", 0, 0, None
+            raise
         finally:
             self._cleanup_task(task_id)

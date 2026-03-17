@@ -184,9 +184,9 @@ class SubtitleProcessor(BaseProcessor):
 
         except TaskCancelledException as e:
             self.logger.warning(f"字幕生成任务已取消: {e}")
-            return None, None, f"任务已取消: {task_id}"
+            raise
         except Exception as e:
             self.logger.error(f"字幕生成失败: {e}", exc_info=True)
-            return None, None, f"❌ 生成失败: {str(e)}"
+            raise
         finally:
             self._cleanup_task(task_id)

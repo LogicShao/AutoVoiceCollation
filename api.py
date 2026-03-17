@@ -24,6 +24,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from src.utils.config import get_config
+from src.utils.helpers.filename import sanitize_filename
 from src.utils.helpers.task_manager import get_task_manager
 from src.utils.logging.logger import get_logger
 
@@ -160,6 +161,26 @@ if Path("assets").exists():
 #     "filename": "处理的文件名（如果有）"
 # }
 tasks = {}
+
+
+def _build_task_response(task_id: str, task_info: dict) -> "TaskResponse":
+    return TaskResponse(
+        task_id=task_id,
+        status=task_info.get("status", "unknown"),
+        message=task_info.get("message", ""),
+        result=task_info.get("result"),
+        error=task_info.get("error"),
+        created_at=task_info.get("created_at"),
+        completed_at=task_info.get("completed_at"),
+        url=task_info.get("url"),
+        filename=task_info.get("filename"),
+    )
+
+
+def _normalize_upload_filename(upload: UploadFile, fallback_name: str = "upload") -> str:
+    raw_name = (upload.filename or "").replace("\x00", "")
+    base_name = Path(raw_name).name or fallback_name
+    return sanitize_filename(base_name)
 
 
 def _load_video_processor():
@@ -349,7 +370,7 @@ async def process_bilibili_video(request: BilibiliVideoRequest):
 
     # ✅ 提交任务到异步队列（立即返回）
     inference_queue = _get_inference_queue()
-    await inference_queue.submit_task(
+    queued = await inference_queue.submit_task(
         task_id=task_id,
         task_type="bilibili",
         task_data={
@@ -362,6 +383,9 @@ async def process_bilibili_video(request: BilibiliVideoRequest):
         },
         tasks_store=tasks,  # 引用传递，队列可直接更新状态
     )
+
+    if not queued:
+        return _build_task_response(task_id, tasks[task_id])
 
     return TaskResponse(
         task_id=task_id,
@@ -514,7 +538,7 @@ async def process_multi_part_video(request: MultiPartVideoRequest):
 
     # 提交任务到异步队列
     inference_queue = _get_inference_queue()
-    await inference_queue.submit_task(
+    queued = await inference_queue.submit_task(
         task_id=task_id,
         task_type="multipart",
         task_data={
@@ -527,6 +551,9 @@ async def process_multi_part_video(request: MultiPartVideoRequest):
         },
         tasks_store=tasks,
     )
+
+    if not queued:
+        return _build_task_response(task_id, tasks[task_id])
 
     return TaskResponse(
         task_id=task_id,
@@ -552,7 +579,8 @@ async def process_audio_file(
     video_extensions = [".mp4", ".avi", ".mkv", ".mov", ".webm", ".flv"]
     allowed_extensions = audio_extensions + video_extensions
 
-    file_ext = os.path.splitext(file.filename)[1].lower()
+    safe_filename = _normalize_upload_filename(file)
+    file_ext = os.path.splitext(safe_filename)[1].lower()
     if file_ext not in allowed_extensions:
         raise HTTPException(
             status_code=400,
@@ -569,11 +597,11 @@ async def process_audio_file(
         "status": "pending",
         "message": "视频文件上传中，将自动提取音频" if is_video else "音频文件上传中",
         "created_at": created_at,
-        "filename": file.filename,
+        "filename": safe_filename,
     }
 
     # 保存上传的文件到 temp 目录
-    temp_file_path = os.path.join(config.paths.temp_dir, f"{task_id}_{file.filename}")
+    temp_file_path = os.path.join(config.paths.temp_dir, f"{task_id}_{safe_filename}")
     try:
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -619,7 +647,7 @@ async def process_audio_file(
 
     # ✅ 提交任务到异步队列（立即返回）
     inference_queue = _get_inference_queue()
-    await inference_queue.submit_task(
+    queued = await inference_queue.submit_task(
         task_id=task_id,
         task_type="audio",
         task_data={
@@ -633,12 +661,15 @@ async def process_audio_file(
         tasks_store=tasks,
     )
 
+    if not queued:
+        return _build_task_response(task_id, tasks[task_id])
+
     return TaskResponse(
         task_id=task_id,
         status="pending",
         message="文件已上传，任务已提交到队列，正在等待处理",
         created_at=created_at,
-        filename=file.filename,
+        filename=safe_filename,
     )
 
 
@@ -664,7 +695,7 @@ async def process_batch_videos(request: BatchProcessRequest):
 
     # ✅ 提交任务到异步队列（立即返回）
     inference_queue = _get_inference_queue()
-    await inference_queue.submit_task(
+    queued = await inference_queue.submit_task(
         task_id=task_id,
         task_type="batch",
         task_data={
@@ -677,6 +708,9 @@ async def process_batch_videos(request: BatchProcessRequest):
         },
         tasks_store=tasks,
     )
+
+    if not queued:
+        return _build_task_response(task_id, tasks[task_id])
 
     return TaskResponse(
         task_id=task_id,
@@ -691,7 +725,8 @@ async def process_batch_videos(request: BatchProcessRequest):
 async def process_video_subtitle(file: UploadFile = File(...)):
     """为视频添加字幕（异步队列版本）"""
     allowed_extensions = [".mp4", ".avi", ".mkv", ".mov"]
-    file_ext = os.path.splitext(file.filename)[1].lower()
+    safe_filename = _normalize_upload_filename(file)
+    file_ext = os.path.splitext(safe_filename)[1].lower()
     if file_ext not in allowed_extensions:
         raise HTTPException(
             status_code=400,
@@ -705,10 +740,10 @@ async def process_video_subtitle(file: UploadFile = File(...)):
         "status": "pending",
         "message": "视频上传中",
         "created_at": created_at,
-        "filename": file.filename,
+        "filename": safe_filename,
     }
 
-    temp_file_path = os.path.join(config.paths.temp_dir, f"{task_id}_{file.filename}")
+    temp_file_path = os.path.join(config.paths.temp_dir, f"{task_id}_{safe_filename}")
     try:
         with open(temp_file_path, "wb") as buffer:
             shutil.copyfileobj(file.file, buffer)
@@ -722,19 +757,22 @@ async def process_video_subtitle(file: UploadFile = File(...)):
 
     # ✅ 提交任务到异步队列（立即返回）
     inference_queue = _get_inference_queue()
-    await inference_queue.submit_task(
+    queued = await inference_queue.submit_task(
         task_id=task_id,
         task_type="subtitle",
         task_data={"video_path": temp_file_path},
         tasks_store=tasks,
     )
 
+    if not queued:
+        return _build_task_response(task_id, tasks[task_id])
+
     return TaskResponse(
         task_id=task_id,
         status="pending",
         message="视频已上传，任务已提交到队列，正在等待处理",
         created_at=created_at,
-        filename=file.filename,
+        filename=safe_filename,
     )
 
 
@@ -764,18 +802,7 @@ async def get_task_status(task_id: str):
     """查询任务状态"""
     if task_id not in tasks:
         raise HTTPException(status_code=404, detail="任务不存在")
-    task_info = tasks[task_id]
-    return TaskResponse(
-        task_id=task_id,
-        status=task_info.get("status", "unknown"),
-        message=task_info.get("message", ""),
-        result=task_info.get("result"),
-        error=task_info.get("error"),
-        created_at=task_info.get("created_at"),
-        completed_at=task_info.get("completed_at"),
-        url=task_info.get("url"),
-        filename=task_info.get("filename"),
-    )
+    return _build_task_response(task_id, tasks[task_id])
 
 
 @app.get("/api/v1/tasks", response_model=TaskListResponse)
@@ -786,20 +813,7 @@ async def list_tasks():
         key=lambda item: item[1].get("created_at") or "",
         reverse=True,
     )
-    task_list = [
-        TaskResponse(
-            task_id=task_id,
-            status=task_info.get("status", "unknown"),
-            message=task_info.get("message", ""),
-            result=task_info.get("result"),
-            error=task_info.get("error"),
-            created_at=task_info.get("created_at"),
-            completed_at=task_info.get("completed_at"),
-            url=task_info.get("url"),
-            filename=task_info.get("filename"),
-        )
-        for task_id, task_info in task_items
-    ]
+    task_list = [_build_task_response(task_id, task_info) for task_id, task_info in task_items]
     return TaskListResponse(tasks=task_list, total=len(task_list))
 
 
