@@ -64,7 +64,7 @@ class TestGenerateTitleFromText:
     def test_generate_title_success(self, mocker):
         """测试成功生成标题"""
         # Mock query_llm 函数
-        mock_query_llm = mocker.patch("src.utils.helpers.filename.query_llm")
+        mock_query_llm = mocker.patch("src.services.llm.factory.query_llm")
         mock_query_llm.return_value = "深度学习基础讲座"
 
         text = "今天我们来讲解深度学习的基础知识，包括神经网络、反向传播等内容..."
@@ -75,7 +75,7 @@ class TestGenerateTitleFromText:
 
     def test_generate_title_with_quotes(self, mocker):
         """测试生成的标题包含引号时自动清理"""
-        mock_query_llm = mocker.patch("src.utils.helpers.filename.query_llm")
+        mock_query_llm = mocker.patch("src.services.llm.factory.query_llm")
         mock_query_llm.return_value = '"机器学习入门"'
 
         text = "机器学习是人工智能的一个分支..."
@@ -94,7 +94,7 @@ class TestGenerateTitleFromText:
 
     def test_generate_title_llm_failure(self, mocker):
         """测试 LLM 调用失败时返回 None"""
-        mock_query_llm = mocker.patch("src.utils.helpers.filename.query_llm")
+        mock_query_llm = mocker.patch("src.services.llm.factory.query_llm")
         mock_query_llm.side_effect = Exception("API Error")
 
         text = "测试文本内容"
@@ -105,7 +105,7 @@ class TestGenerateTitleFromText:
 
     def test_generate_title_empty_response(self, mocker):
         """测试 LLM 返回空响应"""
-        mock_query_llm = mocker.patch("src.utils.helpers.filename.query_llm")
+        mock_query_llm = mocker.patch("src.services.llm.factory.query_llm")
         mock_query_llm.return_value = ""
 
         text = "测试文本内容"
@@ -115,7 +115,7 @@ class TestGenerateTitleFromText:
 
     def test_generate_title_with_illegal_chars(self, mocker):
         """测试生成的标题包含非法字符时自动安全化"""
-        mock_query_llm = mocker.patch("src.utils.helpers.filename.query_llm")
+        mock_query_llm = mocker.patch("src.services.llm.factory.query_llm")
         mock_query_llm.return_value = "文件:测试?"
 
         text = "测试内容"
@@ -127,7 +127,7 @@ class TestGenerateTitleFromText:
     def test_generate_title_length_limit(self, mocker):
         """测试标题长度限制"""
         long_title = "这是一个非常非常长的标题" * 10
-        mock_query_llm = mocker.patch("src.utils.helpers.filename.query_llm")
+        mock_query_llm = mocker.patch("src.services.llm.factory.query_llm")
         mock_query_llm.return_value = long_title
 
         text = "测试内容"

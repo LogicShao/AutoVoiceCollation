@@ -4,10 +4,12 @@ pytest 配置文件
 """
 
 import os
+import shutil
 import sys
-import tempfile
+import types
 from pathlib import Path
-from unittest.mock import MagicMock, Mock
+from unittest.mock import MagicMock, Mock, patch
+from uuid import uuid4
 
 import pytest
 
@@ -16,11 +18,39 @@ project_root = Path(__file__).parent.parent
 sys.path.insert(0, str(project_root))
 
 
+try:
+    import pydantic_settings  # noqa: F401
+except ModuleNotFoundError:
+    from pydantic import BaseModel, ConfigDict
+
+    shim_module = types.ModuleType("pydantic_settings")
+
+    class BaseSettings(BaseModel):
+        """测试环境下的最小 BaseSettings 兼容层。"""
+
+        model_config = ConfigDict(extra="ignore", validate_assignment=True)
+
+        def __init__(self, **data):
+            env_values = {}
+            for field_name in self.__class__.model_fields:
+                if field_name in data:
+                    continue
+                env_value = os.environ.get(field_name.upper())
+                if env_value is not None:
+                    env_values[field_name] = env_value
+
+            super().__init__(**env_values, **data)
+
+    shim_module.BaseSettings = BaseSettings
+    sys.modules["pydantic_settings"] = shim_module
+
+
 # Set environment variables BEFORE any imports that use them
 # This ensures config.py reads the correct values when imported
 if "TEMP_DIR" not in os.environ:
-    test_temp_dir = Path(tempfile.gettempdir()) / "autovoicecollation_test_temp"
-    test_output_dir = Path(tempfile.gettempdir()) / "autovoicecollation_test_output"
+    test_runtime_dir = project_root / "temp" / "pytest_runtime"
+    test_temp_dir = test_runtime_dir / "temp"
+    test_output_dir = test_runtime_dir / "output"
     test_temp_dir.mkdir(parents=True, exist_ok=True)
     test_output_dir.mkdir(parents=True, exist_ok=True)
 
@@ -259,6 +289,38 @@ def mock_requests_post(monkeypatch, request):
         )
 
     monkeypatch.setattr(requests, "post", mock_post)
+
+
+@pytest.fixture
+def mocker():
+    """提供 pytest-mock 的最小兼容接口。"""
+
+    patchers = []
+
+    class SimpleMocker:
+        def patch(self, target, *args, **kwargs):
+            patcher = patch(target, *args, **kwargs)
+            mocked = patcher.start()
+            patchers.append(patcher)
+            return mocked
+
+    try:
+        yield SimpleMocker()
+    finally:
+        for patcher in reversed(patchers):
+            patcher.stop()
+
+
+@pytest.fixture
+def tmp_path():
+    """在仓库内提供可写的临时目录，绕开系统 tmpdir 权限问题。"""
+
+    temp_dir = project_root / "temp" / "pytest_runtime" / "cases" / uuid4().hex
+    temp_dir.mkdir(parents=True, exist_ok=True)
+    try:
+        yield temp_dir
+    finally:
+        shutil.rmtree(temp_dir, ignore_errors=True)
 
 
 def pytest_configure(config):
