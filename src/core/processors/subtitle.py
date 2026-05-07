@@ -144,7 +144,6 @@ class SubtitleProcessor(BaseProcessor):
                 config=config,
                 api_server=api_server,
                 paraformer_chunk_size_s=paraformer_chunk_size_s,
-                temp_dir=temp_dir,
             )
 
             self._check_cancellation(task_id)

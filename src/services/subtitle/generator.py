@@ -406,8 +406,8 @@ class ParaformerProcessor(ASRProcessor):
 
                 try:
                     # 处理当前音频片段
-                    res = self.model.generate(
-                        input=str(temp_path),
+                    res = self.model.generate_with_timestamps(
+                        audio_path=str(temp_path),
                         batch_size_s=self.config.paraformer_batch_size_s,
                     )
 

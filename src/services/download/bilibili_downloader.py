@@ -3,6 +3,7 @@ import glob
 import json
 import os
 import re
+import shutil
 import subprocess
 import time
 from dataclasses import dataclass
@@ -13,6 +14,15 @@ from yt_dlp import YoutubeDL
 from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _find_ffmpeg_location() -> str | None:
+    """查找 ffmpeg 的安装路径，用于 yt-dlp 后处理。"""
+    for name in ("ffmpeg", "ffprobe"):
+        path = shutil.which(name)
+        if path:
+            return os.path.dirname(path)
+    return None
 
 _pre_text = (
     "本项目使用{ASR_model}+LLM({LLM_api},温度:{temperature})进行音频文本提取和润色，"
@@ -150,6 +160,8 @@ def _download_bilibili_video_once(
         "quiet": False,
         "restrictfilenames": True,
     }
+    if ffmpeg_dir := _find_ffmpeg_location():
+        ydl_opts["ffmpeg_location"] = ffmpeg_dir
 
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download([video_url])
@@ -225,6 +237,8 @@ def _download_bilibili_audio_once(
         "quiet": False,
         "restrictfilenames": True,
     }
+    if ffmpeg_dir := _find_ffmpeg_location():
+        ydl_opts["ffmpeg_location"] = ffmpeg_dir
 
     with YoutubeDL(ydl_opts) as ydl:
         ydl.download([video_url])
@@ -265,8 +279,9 @@ def extract_audio_from_video(
     audio_path = os.path.join(output_dir, f"{base_name}.{output_format}")
 
     # 构造 ffmpeg 命令
+    ffmpeg_exe = shutil.which("ffmpeg") or "ffmpeg"
     command = [
-        "ffmpeg",
+        ffmpeg_exe,
         "-i",
         video_path,
         "-vn",  # 不导出视频

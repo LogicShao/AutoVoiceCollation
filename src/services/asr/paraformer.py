@@ -64,23 +64,9 @@ class ParaformerService(BaseASRService):
             raise RuntimeError(f"Failed to load Paraformer model: {e}") from e
 
     def transcribe(self, audio_path: str, task_id: str | None = None) -> str:
-        """
-        使用Paraformer转录音频
-
-        Args:
-            audio_path: 音频文件路径
-            task_id: 任务ID
-
-        Returns:
-            str: 转录文本
-        """
-        # 检查任务是否被取消（模型加载前）
+        """..."""
         self.check_cancellation(task_id)
-
-        # 加载模型
         self.load_model()
-
-        # 再次检查任务是否被取消（模型加载后、推理前）
         self.check_cancellation(task_id)
 
         try:
@@ -89,8 +75,10 @@ class ParaformerService(BaseASRService):
                 input=audio_path,
                 batch_size_s=600,
             )
-
             return res[0]["text"]
-
         except Exception as e:
             raise RuntimeError(f"Failed to transcribe audio with Paraformer: {e}") from e
+
+    def generate_with_timestamps(self, audio_path: str, batch_size_s: int = 600) -> list:
+        self.load_model()
+        return self.model.generate(input=audio_path, batch_size_s=batch_size_s)
