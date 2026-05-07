@@ -13,6 +13,7 @@ from pathlib import Path
 from typing import Any, Optional
 
 from src.core.exceptions import TaskCancelledException
+from src.core.history import get_history_manager
 from src.utils.config import get_config
 from src.utils.helpers.task_manager import get_task_manager
 from src.utils.logging.logger import get_logger
@@ -172,6 +173,66 @@ class InferenceQueue:
         safe_name = Path(output_dir).name or "output"
         return str(config.paths.temp_dir / f"{safe_name}_{task_id}.zip")
 
+    def _record_history(
+        self, task_id: str, task_type: str, data: dict, result: dict, output_dir: str
+    ):
+        try:
+            hm = get_history_manager()
+            config_data = {
+                "llm_api": data.get("llm_api", ""),
+                "temperature": data.get("temperature", 0),
+                "max_tokens": data.get("max_tokens", 0),
+            }
+
+            if task_type == "bilibili":
+                hm.create_record_from_bilibili(
+                    url=data.get("video_url", ""),
+                    title=result.get("title", ""),
+                    output_dir=output_dir,
+                    config=config_data,
+                    outputs=result,
+                )
+            elif task_type == "audio":
+                hm.create_record_from_local_file(
+                    file_path=data.get("audio_path", ""),
+                    file_type="local_audio",
+                    title=result.get("title", ""),
+                    output_dir=output_dir,
+                    config=config_data,
+                    outputs=result,
+                )
+            elif task_type == "multipart":
+                hm.create_record_from_bilibili(
+                    url=data.get("video_url", ""),
+                    title=result.get("title", ""),
+                    output_dir=output_dir,
+                    config=config_data,
+                    outputs=result,
+                )
+            elif task_type == "subtitle":
+                hm.create_record_from_local_file(
+                    file_path=data.get("video_path", ""),
+                    file_type="local_video",
+                    title=os.path.basename(data.get("video_path", "")),
+                    output_dir=output_dir or os.path.dirname(data.get("video_path", "")),
+                    config=config_data,
+                    outputs=result,
+                )
+            elif task_type == "batch":
+                urls = data.get("urls", "")
+                hm.create_record_from_local_file(
+                    file_path=urls,
+                    file_type="local_video",
+                    title=f"Batch: {urls[:80]}",
+                    output_dir=output_dir or "",
+                    config=config_data,
+                    outputs=result,
+                )
+        except Exception:
+            logger.warning(
+                f"Failed to record history for task {task_id}", exc_info=True
+            )
+
     async def _worker_loop(self):
         """工作循环：持续从队列取任务并执行"""
         logger.info("工作循环已启动，等待任务...")
@@ -308,6 +369,7 @@ class InferenceQueue:
                     "completed_at": completed_at,
                 }
             )
+            self._record_history(task_id, "bilibili", data, result_data, output_dir)
         else:
             if self._is_task_cancelled(task_id, tasks_store):
                 self._mark_task_cancelled(task_id, tasks_store)
@@ -328,6 +390,7 @@ class InferenceQueue:
                     "completed_at": completed_at,
                 }
             )
+            self._record_history(task_id, "bilibili", data, output_data, output_dir)
 
     async def _process_audio_task(self, task_id: str, data: dict, tasks_store: dict):
         """处理音频任务"""
@@ -402,6 +465,7 @@ class InferenceQueue:
                     "completed_at": completed_at,
                 }
             )
+            self._record_history(task_id, "audio", data, result_data, output_dir)
         else:
             if self._is_task_cancelled(task_id, tasks_store):
                 self._mark_task_cancelled(task_id, tasks_store)
@@ -422,6 +486,7 @@ class InferenceQueue:
                     "completed_at": completed_at,
                 }
             )
+            self._record_history(task_id, "audio", data, output_data, output_dir)
 
     async def _process_batch_task(self, task_id: str, data: dict, tasks_store: dict):
         """处理批量任务"""
@@ -464,6 +529,7 @@ class InferenceQueue:
                 "completed_at": datetime.now().isoformat(),
             }
         )
+        self._record_history(task_id, "batch", data, {"status_message": status_message}, "")
 
     async def _process_subtitle_task(self, task_id: str, data: dict, tasks_store: dict):
         """处理字幕任务"""
@@ -500,6 +566,11 @@ class InferenceQueue:
                 },
                 "completed_at": datetime.now().isoformat(),
             }
+        )
+        self._record_history(
+            task_id, "subtitle", data,
+            {"subtitle_file": subtitle_path, "output_video": video_path},
+            os.path.dirname(data.get("video_path", ""))
         )
 
     async def _process_multipart_task(self, task_id: str, data: dict, tasks_store: dict):
@@ -546,6 +617,9 @@ class InferenceQueue:
                 },
                 "completed_at": datetime.now().isoformat(),
             }
+        )
+        self._record_history(
+            task_id, "multipart", data, result_data, result_data.get("output_dir", "")
         )
 
 
