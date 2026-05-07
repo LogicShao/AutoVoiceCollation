@@ -23,6 +23,7 @@ from fastapi import (
 from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
+from src.core.history import get_history_manager
 from src.utils.config import get_config
 from src.utils.helpers.filename import sanitize_filename
 from src.utils.helpers.task_manager import get_task_manager
@@ -272,6 +273,13 @@ class MultiPartVideoRequest(BaseModel):
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
 
 
+class SubtitleGenerateRequest(BaseModel):
+    """字幕生成请求（通过文件路径）"""
+
+    video_path: str = Field(..., description="视频文件路径")
+    subtitle_text_path: str | None = Field(default=None, description="字幕文本文件路径（可选）")
+
+
 class TaskResponse(BaseModel):
     """任务响应"""
 
@@ -330,11 +338,14 @@ async def api_info():
             "process_audio": "/api/v1/process/audio",
             "process_batch": "/api/v1/process/batch",
             "process_subtitle": "/api/v1/process/subtitle",
+            "subtitle_generate": "/api/v1/subtitle/generate",
             "summarize": "/api/v1/summarize",
             "task_status": "/api/v1/task/{task_id}",
             "task_list": "/api/v1/tasks",
             "cancel_task": "/api/v1/task/{task_id}/cancel",
             "download_result": "/api/v1/download/{task_id}",
+            "history": "/api/v1/history",
+            "history_stats": "/api/v1/history/stats",
         },
     }
 
@@ -776,6 +787,71 @@ async def process_video_subtitle(file: UploadFile = File(...)):
     )
 
 
+@app.post("/api/v1/subtitle/generate", response_model=TaskResponse)
+async def process_subtitle_from_path(request: SubtitleGenerateRequest):
+    """通过文件路径为视频添加字幕（异步队列版本）"""
+    allowed_extensions = [".mp4", ".avi", ".mkv", ".mov"]
+    video_path = request.video_path.strip()
+
+    if not video_path:
+        raise HTTPException(status_code=400, detail="视频文件路径不能为空")
+
+    if not os.path.isfile(video_path):
+        raise HTTPException(status_code=400, detail=f"视频文件不存在: {video_path}")
+
+    file_ext = os.path.splitext(video_path)[1].lower()
+    if file_ext not in allowed_extensions:
+        raise HTTPException(
+            status_code=400,
+            detail=f"不支持的视频格式。支持的格式: {', '.join(allowed_extensions)}",
+        )
+
+    safe_filename = sanitize_filename(os.path.basename(video_path))
+    task_id = str(uuid.uuid4())
+    created_at = datetime.now().isoformat()
+
+    tasks[task_id] = {
+        "status": "pending",
+        "message": "任务已提交到队列，正在等待处理",
+        "created_at": created_at,
+        "filename": safe_filename,
+    }
+
+    temp_file_path = os.path.join(config.paths.temp_dir, f"{task_id}_{safe_filename}")
+    try:
+        shutil.copy2(video_path, temp_file_path)
+    except Exception as e:
+        tasks[task_id] = {
+            "status": "failed",
+            "message": f"文件复制失败: {str(e)}",
+            "created_at": created_at,
+        }
+        raise HTTPException(status_code=500, detail=f"文件复制失败: {str(e)}") from e
+
+    subtitle_data: dict = {"video_path": temp_file_path}
+    if request.subtitle_text_path:
+        subtitle_data["subtitle_text_path"] = request.subtitle_text_path.strip()
+
+    inference_queue = _get_inference_queue()
+    queued = await inference_queue.submit_task(
+        task_id=task_id,
+        task_type="subtitle",
+        task_data=subtitle_data,
+        tasks_store=tasks,
+    )
+
+    if not queued:
+        return _build_task_response(task_id, tasks[task_id])
+
+    return TaskResponse(
+        task_id=task_id,
+        status="pending",
+        message="任务已提交到队列，正在等待处理",
+        created_at=created_at,
+        filename=safe_filename,
+    )
+
+
 @app.post("/api/v1/summarize")
 async def summarize_text_endpoint(request: SummarizeRequest):
     """对文本进行总结"""
@@ -795,6 +871,35 @@ async def summarize_text_endpoint(request: SummarizeRequest):
         }
     except Exception as e:
         raise HTTPException(status_code=500, detail=f"总结失败: {str(e)}") from e
+
+
+@app.get("/api/v1/history")
+async def get_history():
+    """获取处理历史记录列表"""
+    hm = get_history_manager()
+    records = hm.get_all_records()
+    return {
+        "total": len(records),
+        "records": [
+            {
+                "identifier": r.identifier,
+                "record_type": r.record_type,
+                "url": r.url,
+                "title": r.title,
+                "output_dir": r.output_dir,
+                "last_processed": r.last_processed,
+                "process_count": r.process_count,
+            }
+            for r in records
+        ],
+    }
+
+
+@app.get("/api/v1/history/stats")
+async def get_history_stats():
+    """获取处理历史统计信息"""
+    hm = get_history_manager()
+    return hm.get_statistics()
 
 
 @app.get("/api/v1/task/{task_id}", response_model=TaskResponse)
