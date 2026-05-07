@@ -43,7 +43,7 @@ bash "scripts/docker-start.sh" start
 
 ### 方式二：本地运行
 
-1) Python 环境
+1) Python 环境 + 前端依赖
 
 ```bash
 python -m venv venv
@@ -52,6 +52,10 @@ venv\Scripts\activate
 # Linux / Mac
 source venv/bin/activate
 pip install -r requirements.txt
+
+# 前端（Tailwind CSS）
+npm install
+npm run build
 ```
 
 2) 配置环境变量
@@ -137,6 +141,22 @@ ZIP_OUTPUT_ENABLED=false
 DISABLE_LLM_POLISH=false
 DISABLE_LLM_SUMMARY=false
 ```
+
+### 支持的 LLM 模型
+
+| 模型标识 | Provider | API Key 字段 |
+|---|---|---|
+| `deepseek-chat` | DeepSeek | `DEEPSEEK_API_KEY` |
+| `deepseek-reasoner` | DeepSeek | `DEEPSEEK_API_KEY` |
+| `deepseek-v4-pro` | DeepSeek | `DEEPSEEK_API_KEY` |
+| `deepseek-v4-flash` | DeepSeek | `DEEPSEEK_API_KEY` |
+| `gemini-2.0-flash` | Google Gemini | `GEMINI_API_KEY` |
+| `qwen3-plus` | DashScope (阿里云) | `DASHSCOPE_API_KEY` |
+| `qwen3-max` | DashScope (阿里云) | `DASHSCOPE_API_KEY` |
+| `Cerebras:Qwen-3-32B` | Cerebras | `CEREBRAS_API_KEY` |
+| `Cerebras:Qwen-3-235B-Instruct` | Cerebras | `CEREBRAS_API_KEY` |
+| `Cerebras:Qwen-3-235B-Thinking` | Cerebras | `CEREBRAS_API_KEY` |
+| `local:Qwen/Qwen2.5-1.5B-Instruct` | 本地 | 需设置 `LOCAL_LLM_ENABLED=true` |
 
 ## 文档（MVP）
 

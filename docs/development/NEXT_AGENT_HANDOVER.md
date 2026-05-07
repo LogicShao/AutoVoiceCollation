@@ -1,6 +1,6 @@
 # 下一位 Agent 交接文档
 
-更新时间：2026-05-06
+更新时间：2026-05-07
 
 ## 1. 目的
 
@@ -11,10 +11,9 @@
 ## 2. 当前开发基线
 
 - 当前开发基线是 `main`。
-- 当前工作区在交接时为干净状态，无未提交改动。
-- `main` 最近一次提交是 `cf30b6c`，日期为 `2026-03-17`。
-- `main` 在 `2026-03-17` 还有一次更早提交 `cb8a3da`，主要处理异步任务响应、文件名清洗和错误处理。
-- `dev` 不是正在持续推进的新功能分支。`dev` 相对 `main` 只多 1 个提交：`4d350c1`，日期为 `2026-02-06`，主题是 `main.py` 重命名为 `main_cli.py` 并更新相关文档。
+- `main` 最近一次提交是 `92a482b`（`upd doc`）。
+- `main` 此前依次有 `cf30b6c`（增强 pytest fixtures；历史记录测试）、`cb8a3da`（异步任务响应/文件名清洗）。
+- `dev` 不是正在持续推进的新功能分支。`dev` 相对 `main` 只多 1 个提交：`4d350c1`，主题是 `main.py` 重命名为 `main_cli.py`。
 
 结论：
 
@@ -94,22 +93,16 @@
 
 ## 5. 已知断点和待修问题
 
-### 5.1 字幕前后端接口不一致
+### 5.1 字幕前后端接口不一致 ✅ 已修复
 
-- 前端当前调用 [frontend/src/js/main.js#L318](E:/proj/AutoVoiceCollation/frontend/src/js/main.js#L318) 的 `/api/v1/subtitle/generate`
-- 后端当前提供 [api.py#L724](E:/proj/AutoVoiceCollation/api.py#L724) 的 `/api/v1/process/subtitle`
+- 新增 `POST /api/v1/subtitle/generate` 端点（JSON body `{video_path, subtitle_text_path?}`）。
+- 前端 `main.js:318` 已调用该路径，无需修改。
+- 旧端点 `POST /api/v1/process/subtitle`（文件上传）保持兼容。
 
-而且：
+### 5.2 仍存在少量显式 TODO（非阻塞，建议后续独立处理）
 
-- 前端使用 JSON 请求体。
-- 后端当前接口是 `UploadFile` 文件上传模式。
-
-这是一处明确的主线断点，应优先处理。
-
-### 5.2 仍存在少量显式 TODO
-
-- [src/text_arrangement/polish_by_llm.py#L127](E:/proj/AutoVoiceCollation/src/text_arrangement/polish_by_llm.py#L127) 改进异步调用
-- [src/text_arrangement/text_exporter.py#L458](E:/proj/AutoVoiceCollation/src/text_arrangement/text_exporter.py#L458) 修复 PDF 中英文混排问题
+- `src/text_arrangement/polish_by_llm.py#L127` — 将 LLM 调用链路改为真正异步。当前同步调用，会阻塞 worker 线程。
+- `src/text_arrangement/text_exporter.py#L458` — PDF 中英文混排。涉及 reportlab 字体回退和段落引擎。
 
 ### 5.3 `dev` 中存在大量旧文档和旧模块，不应整体回流
 
@@ -236,11 +229,11 @@
 ## 9. 下一位 Agent 的推荐执行顺序
 
 1. 以 `main` 为唯一基线，禁止直接合并 `dev`。
-2. 修复字幕接口断点，恢复 Web 到 API 的闭环。
-3. 复核历史记录模块是否应接入主流程。如果接入，先定义最小接入点，再补测试。
-4. 梳理 MCP MVP 的 Tool 边界，确认是否完全复用现有 `task_id` 和队列模型。
-5. 实现 `stdio` MCP Server。
-6. 为 MCP 增加最小测试和使用说明。
+2. ✅ 字幕接口已修复：`/api/v1/subtitle/generate`（JSON）已可用。
+3. ✅ 历史记录模块已接入推理队列完成点，并提供 `GET /api/v1/history` 和 `GET /api/v1/history/stats`。
+4. ✅ MCP `stdio` Server 已实现，位于 `src/mcp/server.py`，包含 5 个 Tool。
+5. 验证 MCP Server 可正常启动并与 MCP Host 交互。
+6. 按需处理 5.2 中的异步调用和 PDF 排版 TODO。
 7. 仅在 `stdio` 稳定后，再决定是否上 `Streamable HTTP`。
 
 ## 10. 建议的验证清单
@@ -272,6 +265,41 @@
 - 不做前端技术栈整体替换
 - 不做与 MCP 无关的大规模目录重构
 
-## 12. 给下一位 Agent 的一句话总结
+## 12. 2026-05-07 会话变更摘要
 
-请把这个仓库当作“已经收敛到 `main` 的单机 `MVP`”，先修主线断点，再以最小侵入方式给它加一个复用现有队列和任务模型的 MCP `stdio` 入口；`dev` 只能当参考资料，不能当待合并主线。
+本会话在 `main` 上完成了以下改动（待 commit）：
+
+### 已修复
+
+- **字幕接口断点**：新增 `POST /api/v1/subtitle/generate`（JSON），前端无需改动。`api.py` + 路由注册。
+- **历史记录接入**：在 `inference_queue.py` 7 处任务完成点插入 `_record_history()`，覆盖 B站/音频/批量/字幕/多P。
+- **历史记录 API**：`GET /api/v1/history` 和 `GET /api/v1/history/stats`。
+
+### 已新增
+
+- **MCP stdio Server**：`src/mcp/server.py` + `src/mcp/__init__.py`，5 个 Tool：
+  - `process_bilibili(url)` / `process_audio(file_path)` / `process_batch(urls)`
+  - `get_task_status(task_id)` / `cancel_task(task_id)`
+- **MCP 依赖**：`requirements.txt` 添加 `mcp>=1.0.0`。
+- **MCP 测试**：`tests/test_mcp_server.py`（11 个用例，覆盖参数校验和错误路径）。
+
+### 变更文件清单
+
+| 文件 | 操作 |
+|---|---|
+| `api.py` | 修改 — 新增端点 + 路由 + 历史 API |
+| `src/api/inference_queue.py` | 修改 — 历史记录接入 |
+| `requirements.txt` | 修改 — 添加 mcp 依赖 |
+| `src/mcp/__init__.py` | 新增 |
+| `src/mcp/server.py` | 新增 |
+| `tests/test_mcp_server.py` | 新增 |
+| `docs/development/NEXT_AGENT_HANDOVER.md` | 更新 |
+
+### 未处理（非阻塞）
+
+- `polish_by_llm.py#L127` 异步调用改进 — 需排查调用链路再动手
+- `text_exporter.py#L458` PDF 中英文混排 — 需研究 reportlab 字体回退
+
+## 13. 给下一位 Agent 的一句话总结
+
+字幕断点已修，历史已接入，MCP `stdio` 骨架已就绪。下一步：启动 MCP Server 验证 tool 可用性，然后按需处理异步调用和 PDF 排版两个遗留 TODO。
