@@ -47,3 +47,10 @@
 - Before any repo-writing action (patches, write commands, branches/commits), provide a complete proposal: goal, affected files, steps/commands, validation, and rollback.
 - Wait for explicit approval by the maintainer replying with the token `OJBK` before making changes.
 - For risky or multi-file changes, propose using a dedicated branch (e.g., `agent/YYYY-MM-DD-short-desc`); proceed only if approved.
+
+## Single Source Of Truth
+
+- `AGENTS.md` is the authoritative repository instruction file for coding agents.
+- `CLAUDE.md` is only a lightweight pointer document for Claude-specific entry guidance.
+- If `CLAUDE.md` and `AGENTS.md` ever differ, always follow `AGENTS.md`.
+- When updating agent rules, update `AGENTS.md` first and keep `CLAUDE.md` as a reference to it rather than duplicating full rules.
