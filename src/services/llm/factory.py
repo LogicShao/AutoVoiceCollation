@@ -1,15 +1,17 @@
 """
 LLM服务工厂
 
-统一管理所有LLM提供商的查询接口
+统一管理所有LLM提供商的查询接口。
+模型定义来自 models.LLM_MODELS（单一数据源）。
 """
 
 from collections.abc import Callable
+from functools import partial
 
 from src.utils.config import get_config
 from src.utils.logging.logger import get_logger
 
-from .models import LLMQueryParams, is_local_llm
+from .models import LLM_MODELS, LLMQueryParams, is_local_llm
 
 logger = get_logger(__name__)
 
@@ -25,7 +27,6 @@ _cerebras_client = None
 
 
 def _get_deepseek_client():
-    """获取DeepSeek客户端（延迟初始化）"""
     global _deepseek_client
     if _deepseek_client is None:
         from openai import OpenAI
@@ -37,7 +38,6 @@ def _get_deepseek_client():
 
 
 def _get_gemini_client():
-    """获取Gemini客户端（延迟初始化）"""
     global _gemini_client
     if _gemini_client is None:
         from google import genai
@@ -47,7 +47,6 @@ def _get_gemini_client():
 
 
 def _get_dashscope_client():
-    """获取Dashscope客户端（延迟初始化）"""
     global _dashscope_client
     if _dashscope_client is None:
         from openai import OpenAI
@@ -60,7 +59,6 @@ def _get_dashscope_client():
 
 
 def _get_cerebras_client():
-    """获取Cerebras客户端（延迟初始化）"""
     global _cerebras_client
     if _cerebras_client is None:
         from cerebras.cloud.sdk import Cerebras
@@ -69,14 +67,19 @@ def _get_cerebras_client():
     return _cerebras_client
 
 
-# ============= LLM查询函数 =============
+# ============= 通用查询函数 =============
+
+_PROVIDER_CLIENTS: dict[str, Callable] = {
+    "deepseek": _get_deepseek_client,
+    "dashscope": _get_dashscope_client,
+    "cerebras": _get_cerebras_client,
+}
 
 
-def query_deepseek_chat(params: LLMQueryParams) -> str:
-    """查询DeepSeek Chat模型"""
-    client = _get_deepseek_client()
+def _query_openai_compatible(params: LLMQueryParams, model_id: str, client_getter: Callable) -> str:
+    client = client_getter()
     response = client.chat.completions.create(
-        model="deepseek-chat",
+        model=model_id,
         messages=[
             {"role": "system", "content": params.system_instruction},
             {"role": "user", "content": params.content},
@@ -88,120 +91,26 @@ def query_deepseek_chat(params: LLMQueryParams) -> str:
     return response.choices[0].message.content.strip()
 
 
-def query_deepseek_reasoner(params: LLMQueryParams) -> str:
-    """查询DeepSeek Reasoner模型"""
-    client = _get_deepseek_client()
-    response = client.chat.completions.create(
-        model="deepseek-reasoner",
-        messages=[
-            {"role": "system", "content": params.system_instruction},
-            {"role": "user", "content": params.content},
-        ],
-        temperature=params.temperature,
-        max_tokens=params.max_tokens,
-        stream=False,
-    )
-    return response.choices[0].message.content.strip()
-
-
-def query_gemini_2_0_flash(params: LLMQueryParams) -> str:
-    """查询Gemini 2.0 Flash模型"""
+def _query_gemini(params: LLMQueryParams, model_id: str) -> str:
     from google.genai import types
 
     client = _get_gemini_client()
-
-    config_params_dict = {
+    config_params = {
         "temperature": params.temperature,
         "max_output_tokens": params.max_tokens,
         "system_instruction": params.system_instruction,
     }
-
     if params.top_k:
-        config_params_dict["top_k"] = params.top_k
+        config_params["top_k"] = params.top_k
     if params.top_p:
-        config_params_dict["top_p"] = params.top_p
+        config_params["top_p"] = params.top_p
 
     response = client.models.generate_content(
-        model="gemini-2.0-flash",
+        model=model_id,
         contents=params.content,
-        config=types.GenerateContentConfig(**config_params_dict),
+        config=types.GenerateContentConfig(**config_params),
     )
     return response.text.strip()
-
-
-def query_qwen3_plus(params: LLMQueryParams) -> str:
-    """查询Qwen3 Plus模型"""
-    client = _get_dashscope_client()
-    response = client.chat.completions.create(
-        model="qwen-plus",
-        messages=[
-            {"role": "system", "content": params.system_instruction},
-            {"role": "user", "content": params.content},
-        ],
-        temperature=params.temperature,
-        max_tokens=params.max_tokens,
-    )
-    return response.choices[0].message.content.strip()
-
-
-def query_qwen3_max(params: LLMQueryParams) -> str:
-    """查询Qwen3 Max模型"""
-    client = _get_dashscope_client()
-    response = client.chat.completions.create(
-        model="qwen-max",
-        messages=[
-            {"role": "system", "content": params.system_instruction},
-            {"role": "user", "content": params.content},
-        ],
-        temperature=params.temperature,
-        max_tokens=params.max_tokens,
-    )
-    return response.choices[0].message.content.strip()
-
-
-def query_cerebras_qwen3_32b(params: LLMQueryParams) -> str:
-    """查询Cerebras Qwen3 32B模型"""
-    client = _get_cerebras_client()
-    response = client.chat.completions.create(
-        model="qwen-3-32b",
-        messages=[
-            {"role": "system", "content": params.system_instruction},
-            {"role": "user", "content": params.content},
-        ],
-        temperature=params.temperature,
-        max_tokens=params.max_tokens,
-    )
-    return response.choices[0].message.content.strip()
-
-
-def query_cerebras_qwen3_235b_instruct(params: LLMQueryParams) -> str:
-    """查询Cerebras Qwen3 235B Instruct模型"""
-    client = _get_cerebras_client()
-    response = client.chat.completions.create(
-        model="qwen-3-235b-a22b-instruct-2507",
-        messages=[
-            {"role": "system", "content": params.system_instruction},
-            {"role": "user", "content": params.content},
-        ],
-        temperature=params.temperature,
-        max_tokens=params.max_tokens,
-    )
-    return response.choices[0].message.content.strip()
-
-
-def query_cerebras_qwen3_235b_thinking(params: LLMQueryParams) -> str:
-    """查询Cerebras Qwen3 235B Thinking模型"""
-    client = _get_cerebras_client()
-    response = client.chat.completions.create(
-        model="qwen-3-235b-a22b-thinking-2507",
-        messages=[
-            {"role": "system", "content": params.system_instruction},
-            {"role": "user", "content": params.content},
-        ],
-        temperature=params.temperature,
-        max_tokens=params.max_tokens,
-    )
-    return response.choices[0].message.content.strip()
 
 
 # ============= 本地LLM支持（可选）=============
@@ -211,12 +120,9 @@ _local_llm_func = None
 
 
 def _init_local_llm():
-    """初始化本地LLM（延迟加载）"""
     global _local_llm_initialized, _local_llm_func
-
     if _local_llm_initialized:
         return
-
     if not config.llm.local_llm_enabled:
         _local_llm_initialized = True
         return
@@ -226,45 +132,46 @@ def _init_local_llm():
 
         model_name = "Qwen/Qwen2.5-1.5B-Instruct"
         logger.info(f"Loading local model: {model_name} ... This may take a while.")
-
         tokenizer = AutoTokenizer.from_pretrained(model_name)
         model = AutoModelForCausalLM.from_pretrained(model_name, device_map="auto", dtype="auto")
 
-        def query_local_qwen2_5(params: LLMQueryParams) -> str:
+        def _query_local(params: LLMQueryParams) -> str:
             pipe = pipeline("text-generation", model=model, tokenizer=tokenizer)
             messages = [
                 {"role": "system", "content": params.system_instruction},
                 {"role": "user", "content": params.content},
             ]
-            out = pipe(
-                messages,
-                temperature=params.temperature,
-                max_new_tokens=params.max_tokens,
-                do_sample=True,
-            )
+            out = pipe(messages, temperature=params.temperature, max_new_tokens=params.max_tokens, do_sample=True)
             return out[0]["generated_text"][-1]["content"].strip()
 
-        _local_llm_func = query_local_qwen2_5
+        _local_llm_func = _query_local
         logger.info("Local LLM loaded successfully")
-
     except Exception as e:
         logger.warning(f"Failed to load local LLM: {e}")
 
     _local_llm_initialized = True
 
 
-# ============= LLM服务注册表 =============
+# ============= LLM服务注册表（自动生成）=============
 
-_llm_registry: dict[str, Callable[[LLMQueryParams], str]] = {
-    "deepseek-chat": query_deepseek_chat,
-    "deepseek-reasoner": query_deepseek_reasoner,
-    "gemini-2.0-flash": query_gemini_2_0_flash,
-    "qwen3-plus": query_qwen3_plus,
-    "qwen3-max": query_qwen3_max,
-    "Cerebras:Qwen-3-32B": query_cerebras_qwen3_32b,
-    "Cerebras:Qwen-3-235B-Instruct": query_cerebras_qwen3_235b_instruct,
-    "Cerebras:Qwen-3-235B-Thinking": query_cerebras_qwen3_235b_thinking,
-}
+
+def _build_registry() -> dict[str, Callable[[LLMQueryParams], str]]:
+    registry: dict[str, Callable[[LLMQueryParams], str]] = {}
+    for name, cfg in LLM_MODELS.items():
+        provider = cfg["provider"]
+        model_id = cfg["model_id"]
+        if provider == "gemini":
+            registry[name] = partial(_query_gemini, model_id=model_id)
+        elif provider in _PROVIDER_CLIENTS:
+            registry[name] = partial(
+                _query_openai_compatible,
+                model_id=model_id,
+                client_getter=_PROVIDER_CLIENTS[provider],
+            )
+    return registry
+
+
+_llm_registry: dict[str, Callable[[LLMQueryParams], str]] = _build_registry()
 
 
 def query_llm(params: LLMQueryParams) -> str:

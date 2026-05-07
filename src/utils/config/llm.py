@@ -54,19 +54,9 @@ class LLMConfig(BaseConfig):
 
     local_llm_enabled: bool = Field(default=False, description="是否启用本地 LLM")
 
-    # 支持的 LLM 服务列表
+    # 支持的 LLM 服务列表（自动从 LLM_MODELS 生成）
     llm_server_supported: list[str] = Field(
-        default=[
-            "qwen3-plus",
-            "qwen3-max",
-            "deepseek-chat",
-            "deepseek-reasoner",
-            "Cerebras:Qwen-3-32B",
-            "Cerebras:Qwen-3-235B-Instruct",
-            "Cerebras:Qwen-3-235B-Thinking",
-            "gemini-2.0-flash",
-            "local:Qwen/Qwen2.5-1.5B-Instruct",
-        ],
+        default_factory=lambda: list(__import__("src.services.llm.models", fromlist=["LLM_MODELS"]).LLM_MODELS.keys()),
         description="支持的 LLM 服务列表",
     )
 

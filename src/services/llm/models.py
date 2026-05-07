@@ -1,25 +1,48 @@
 """
 LLM数据模型
 
-定义LLM查询参数和枚举
+定义LLM查询参数和模型注册表（单一数据源）。
 """
 
 from dataclasses import dataclass
 from enum import StrEnum
 
 
-class LLMProvider(StrEnum):
-    """LLM提供商枚举"""
+def _model_enum_name(key: str) -> str:
+    return key.replace(":", "_").replace("-", "_").replace(".", "_").replace("/", "_").upper()
 
-    DEEPSEEK_CHAT = "deepseek-chat"
-    DEEPSEEK_REASONER = "deepseek-reasoner"
-    GEMINI_2_0_FLASH = "gemini-2.0-flash"
-    QWEN3_PLUS = "qwen3-plus"
-    QWEN3_MAX = "qwen3-max"
-    CEREBRAS_QWEN3_32B = "Cerebras:Qwen-3-32B"
-    CEREBRAS_QWEN3_235B_INSTRUCT = "Cerebras:Qwen-3-235B-Instruct"
-    CEREBRAS_QWEN3_235B_THINKING = "Cerebras:Qwen-3-235B-Thinking"
-    LOCAL_QWEN2_5 = "local:Qwen/Qwen2.5-1.5B-Instruct"
+
+# ============= 单一数据源：所有支持的 LLM 模型 =============
+
+LLM_MODELS: dict[str, dict[str, str]] = {
+    "deepseek-chat": {"provider": "deepseek", "model_id": "deepseek-chat"},
+    "deepseek-reasoner": {"provider": "deepseek", "model_id": "deepseek-reasoner"},
+    "deepseek-v4-pro": {"provider": "deepseek", "model_id": "deepseek-v4-pro"},
+    "deepseek-v4-flash": {"provider": "deepseek", "model_id": "deepseek-v4-flash"},
+    "gemini-2.0-flash": {"provider": "gemini", "model_id": "gemini-2.0-flash"},
+    "qwen3-plus": {"provider": "dashscope", "model_id": "qwen-plus"},
+    "qwen3-max": {"provider": "dashscope", "model_id": "qwen-max"},
+    "Cerebras:Qwen-3-32B": {"provider": "cerebras", "model_id": "qwen-3-32b"},
+    "Cerebras:Qwen-3-235B-Instruct": {
+        "provider": "cerebras",
+        "model_id": "qwen-3-235b-a22b-instruct-2507",
+    },
+    "Cerebras:Qwen-3-235B-Thinking": {
+        "provider": "cerebras",
+        "model_id": "qwen-3-235b-a22b-thinking-2507",
+    },
+    "local:Qwen/Qwen2.5-1.5B-Instruct": {
+        "provider": "local",
+        "model_id": "Qwen/Qwen2.5-1.5B-Instruct",
+    },
+}
+
+LLMProvider = StrEnum(  # type: ignore[call-overload]
+    "LLMProvider", [(_model_enum_name(k), k) for k in LLM_MODELS]
+)
+
+
+# ============= 查询参数 =============
 
 
 @dataclass
