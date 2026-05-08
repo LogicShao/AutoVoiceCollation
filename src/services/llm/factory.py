@@ -204,3 +204,67 @@ def query_llm(params: LLMQueryParams) -> str:
 
     query_func = _llm_registry[api_server]
     return query_func(params)
+
+
+# ============= 异步查询（用于 polish 并发优化）=============
+
+_PROVIDER_BASE_URLS: dict[str, str] = {
+    "deepseek": "https://api.deepseek.com/v1",
+    "dashscope": "https://dashscope.aliyuncs.com/compatible-mode/v1",
+    "cerebras": "https://api.cerebras.ai/v1",
+}
+
+_PROVIDER_API_KEYS: dict[str, str] = {
+    "deepseek": "deepseek_api_key",
+    "dashscope": "dashscope_api_key",
+    "cerebras": "cerebras_api_key",
+}
+
+
+def _get_api_key(provider: str) -> str:
+    field = _PROVIDER_API_KEYS.get(provider, "")
+    return getattr(config.llm, field, "") or ""
+
+
+async def _query_openai_compatible_async(
+    params: LLMQueryParams, model_id: str, provider: str
+) -> str:
+    import aiohttp
+
+    api_key = _get_api_key(provider)
+    base_url = _PROVIDER_BASE_URLS[provider]
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+    payload = {
+        "model": model_id,
+        "messages": [
+            {"role": "system", "content": params.system_instruction},
+            {"role": "user", "content": params.content},
+        ],
+        "temperature": params.temperature,
+        "max_tokens": params.max_tokens,
+        "stream": False,
+    }
+    async with aiohttp.ClientSession() as session, session.post(
+        f"{base_url}/chat/completions", json=payload, headers=headers
+    ) as resp:
+        data = await resp.json()
+        if "choices" not in data:
+            raise RuntimeError(f"LLM API error: {data}")
+        return data["choices"][0]["message"]["content"].strip()
+
+
+async def query_llm_async(params: LLMQueryParams) -> str:
+    api_server = params.api_server
+    if api_server not in LLM_MODELS:
+        raise ValueError(
+            f"Unsupported LLM API: {api_server}. Supported: {list(LLM_MODELS.keys())}"
+        )
+    cfg = LLM_MODELS[api_server]
+    provider = cfg["provider"]
+    model_id = cfg["model_id"]
+    if provider in _PROVIDER_BASE_URLS:
+        return await _query_openai_compatible_async(params, model_id, provider)
+    raise ValueError(f"Async not supported for provider: {provider}")

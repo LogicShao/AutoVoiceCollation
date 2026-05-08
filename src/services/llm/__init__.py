@@ -19,6 +19,10 @@ def __getattr__(name):
         from .factory import query_llm
 
         return query_llm
+    if name == "query_llm_async":
+        from .factory import query_llm_async
+
+        return query_llm_async
     raise AttributeError(f"module {__name__!r} has no attribute {name!r}")
 
 

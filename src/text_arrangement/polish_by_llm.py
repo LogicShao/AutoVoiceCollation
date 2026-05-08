@@ -1,31 +1,33 @@
 import asyncio
-import concurrent.futures
 import logging
 import os
-import threading
-import time
-from collections import deque
 
 from src.core.exceptions import TaskCancelledException
 from src.services.llm import (
-    LLMProvider,
     LLMQueryParams,
     is_local_llm,
     query_llm,
+    query_llm_async,
 )
+from src.services.llm.models import LLM_MODELS
 from src.services.llm.prompts import PromptSpec, get_prompt
 from src.text_arrangement.split_text import split_text_by_sentences
 from src.utils.config import get_config
 from src.utils.helpers.task_manager import get_task_manager
 from src.utils.logging.logger import get_logger
 
-# 初始化logger
 logger = get_logger(__name__)
 
 MAX_RETRIES = 3
 RETRY_BACKOFF = 30
 MAX_CONCURRENT_REQUESTS = 5
-MAX_REQUESTS_PER_MINUTE = 10
+
+
+def _supports_async(api_server: str) -> bool:
+    cfg = LLM_MODELS.get(api_server)
+    if not cfg:
+        return False
+    return cfg["provider"] in ("deepseek", "dashscope", "cerebras")
 
 
 def polish_each_text(
@@ -35,111 +37,66 @@ def polish_each_text(
     max_tokens: int,
     prompt_spec: PromptSpec | None = None,
 ) -> str:
-    """
-    根据API服务选择对应的润色函数
-    :param txt: 要润色的文本
-    :param api_server: 使用的API服务（deepseek 或 gemini）
-    :param temperature: 温度参数
-    :param max_tokens: 最大令牌数
-    :return: 润色后的文本
-    """
     prompt_spec = prompt_spec or get_prompt("polish")
     prompt = prompt_spec.render_user(text=txt)
-
     return query_llm(
         LLMQueryParams(
             content=prompt,
-            system_instruction=prompt_spec.render_system(),
+            system_instruction=prompt_spec.system,
             temperature=temperature,
             max_tokens=max_tokens,
-            api_server=LLMProvider(api_server),
+            api_server=api_server,
         )
     )
 
 
-class RateLimiter:
-    def __init__(self, max_requests_per_minute):
-        self.max_requests = max_requests_per_minute
-        self.interval = 60.0
-        self.timestamps = deque()
-        self._lock = threading.Lock()
-
-    async def wait_for_slot(self):
-        while True:
-            now = time.monotonic()
-            with self._lock:
-                while self.timestamps and now - self.timestamps[0] > self.interval:
-                    self.timestamps.popleft()
-
-                if len(self.timestamps) < self.max_requests:
-                    self.timestamps.append(now)
-                    return
-
-                oldest = self.timestamps[0]
-
-            sleep_time = self.interval - (now - oldest) + 0.01
-            await asyncio.sleep(sleep_time)
-
-    def wait_for_slot_sync(self):
-        """同步阻塞版本的速率限制，用于在已有事件循环时的回退路径。"""
-        while True:
-            now = time.monotonic()
-            with self._lock:
-                while self.timestamps and now - self.timestamps[0] > self.interval:
-                    self.timestamps.popleft()
-
-                if len(self.timestamps) < self.max_requests:
-                    self.timestamps.append(now)
-                    return
-
-                oldest = self.timestamps[0]
-
-            sleep_time = self.interval - (now - oldest) + 0.01
-            time.sleep(sleep_time)
+async def _polish_each_text_async(
+    txt: str,
+    api_server: str,
+    temperature: float,
+    max_tokens: int,
+    prompt_spec: PromptSpec | None = None,
+) -> str:
+    prompt_spec = prompt_spec or get_prompt("polish")
+    prompt = prompt_spec.render_user(text=txt)
+    return await query_llm_async(
+        LLMQueryParams(
+            content=prompt,
+            system_instruction=prompt_spec.system,
+            temperature=temperature,
+            max_tokens=max_tokens,
+            api_server=api_server,
+        )
+    )
 
 
 def polish_text(
     txt: str,
     api_service: str,
-    temperature: float,
     split_len: int,
-    max_tokens: int,
-    debug_flag: bool,
-    async_flag: bool = True,
+    temperature: float = 0.3,
+    max_tokens: int = 1024,
+    debug_flag: bool = False,
     task_id: str | None = None,
+    async_flag: bool = True,
 ) -> str:
-    """
-    异步润��函数，支持每分钟请求限制 + 最大并发数控制 + 异常重试。
-    :param txt: 要润色的文本
-    :param api_service: 使用的API服务（deepseek 或 gemini）
-    :param temperature: 温度参数
-    :param split_len: 分段长度
-    :param max_tokens: 最大令牌数
-    :param debug_flag: 是否开启调试模式
-    :param async_flag: 是否使用异步方式
-    :param task_id: 任务ID，用于终止控制
-    :return: 润色后的文本
-    """
     assert split_len <= max_tokens * 0.7, "分段长度不能超过最大令牌数的70%，可能导致输出不完整。"
 
-    # 获取 task_manager 实例
     task_manager = get_task_manager() if task_id else None
-    # TODO: 改进异步调用
     logger.info(f"Using {api_service} API for polishing text.")
     logger.info(f"Temperature: {temperature}, Max tokens: {max_tokens}, Split length: {split_len}")
     prompt_spec = get_prompt("polish")
     split_text = split_text_by_sentences(txt, split_len=split_len)
     logger.info(f"Splitting text into {len(split_text)} chunks for processing.")
 
-    if not async_flag or api_service == "gemini" or is_local_llm(api_service):
-        # 如果不使用异步方式，直接调用同步函数
+    use_async = async_flag and _supports_async(api_service) and not is_local_llm(api_service)
+
+    if not use_async:
         logger.info("Running in synchronous mode.")
         polish_chunks = []
         for i, chunk in enumerate(split_text):
-            # 检查任务是否被取消
             if task_id:
                 task_manager.check_cancellation(task_id)
-
             logger.info(f"processing chunk {i + 1}/{len(split_text)}")
             polish_chunks.append(
                 polish_each_text(chunk, api_service, temperature, max_tokens, prompt_spec)
@@ -147,35 +104,22 @@ def polish_text(
             logger.info(f"Chunk {i + 1} polished successfully.")
         return "\n\n".join(polish_chunks).strip()
 
-    logger.info("Running in asynchronous mode.")
-    rate_limiter = RateLimiter(MAX_REQUESTS_PER_MINUTE)
+    logger.info("Running in asynchronous mode (aiohttp).")
 
     async def safe_polish(chunk: str, chunk_id: int):
-        # 检查任务是否被取消
         if task_id:
             task_manager.check_cancellation(task_id)
-
         logger.info(f"Processing chunk {chunk_id + 1}/{len(split_text)}")
         for attempt in range(1, MAX_RETRIES + 1):
             try:
-                # 在每次重试前检查任务是否被取消
                 if task_id:
                     task_manager.check_cancellation(task_id)
-
-                await rate_limiter.wait_for_slot()  # ⏳ 等待速率许可
-                ret = await loop.run_in_executor(
-                    executor,
-                    polish_each_text,
-                    chunk,
-                    api_service,
-                    temperature,
-                    max_tokens,
-                    prompt_spec,
+                ret = await _polish_each_text_async(
+                    chunk, api_service, temperature, max_tokens, prompt_spec
                 )
                 logger.info(f"Chunk {chunk_id + 1} polished successfully.")
                 return ret
             except TaskCancelledException:
-                # 如果任务被取消，直接向上传播异常
                 raise
             except Exception as e:
                 logging.warning(f"Error polishing chunk (attempt {attempt}): {e}")
@@ -187,69 +131,14 @@ def polish_text(
     async def polish_all():
         semaphore = asyncio.Semaphore(MAX_CONCURRENT_REQUESTS)
 
-        async def sem_safe_polish(chunk, chunk_id):
+        async def sem_safe(chunk, chunk_id):
             async with semaphore:
                 return await safe_polish(chunk, chunk_id)
 
-        tasks = [sem_safe_polish(chunk, chunk_id) for chunk_id, chunk in enumerate(split_text)]
-        results = await asyncio.gather(*tasks)
-        return results
+        tasks = [sem_safe(chunk, i) for i, chunk in enumerate(split_text)]
+        return await asyncio.gather(*tasks)
 
-    # 如果当前线程中已经存在正在运行的 asyncio 事件循环，直接在该线程中调用
-    # run_until_complete 会抛出 "Cannot run the event loop while another loop is running"。
-    # 因此我们在检测到已有 loop 时使用同步 + 线程池回退路径：保留并发与重试逻辑，但不再创建/运行新的事件循环。
-    try:
-        running_loop = asyncio.get_running_loop()
-    except RuntimeError:
-        running_loop = None
-
-    if running_loop is None:
-        loop = asyncio.new_event_loop()
-        try:
-            asyncio.set_event_loop(loop)
-            with concurrent.futures.ThreadPoolExecutor() as executor:
-                polished_chunks = loop.run_until_complete(polish_all())
-        finally:
-            try:
-                loop.close()
-            except Exception:
-                pass
-            asyncio.set_event_loop(None)
-    else:
-        # 回退到线程池中的同步实现（保留速率限制与重试）
-        logger.warning(
-            "Detected running asyncio loop in current thread. Falling back to thread-based synchronous processing for polishing."
-        )
-
-        def sync_safe_polish(chunk: str, chunk_id: int):
-            for attempt in range(1, MAX_RETRIES + 1):
-                try:
-                    # 检查任务是否被取消
-                    if task_id:
-                        task_manager.check_cancellation(task_id)
-
-                    # 使用同步速率限制
-                    rate_limiter.wait_for_slot_sync()
-                    return polish_each_text(
-                        chunk, api_service, temperature, max_tokens, prompt_spec
-                    )
-                except TaskCancelledException:
-                    # 如果任务被取消，直接向上传播异常
-                    raise
-                except Exception as e:
-                    logging.warning(f"Error polishing chunk (attempt {attempt}): {e}")
-                    if attempt < MAX_RETRIES:
-                        time.sleep(RETRY_BACKOFF * attempt)
-            logging.error(f"Failed to process chunk after {MAX_RETRIES} attempts.")
-            return chunk
-
-        with concurrent.futures.ThreadPoolExecutor(max_workers=MAX_CONCURRENT_REQUESTS) as executor:
-            futures = [
-                executor.submit(sync_safe_polish, chunk, chunk_id)
-                for chunk_id, chunk in enumerate(split_text)
-            ]
-            # 保持输入顺序
-            polished_chunks = [f.result() for f in futures]
+    polished_chunks = asyncio.run(polish_all())
 
     if debug_flag:
         config = get_config()
