@@ -100,6 +100,21 @@ def transcribe_audio(
     is_temp = False
     try:
         processed_path, is_temp = prepare_asr_audio(audio_path, task_id=task_id)
+
+        # VAD 预处理：如果启用且检测不到语音，跳过转录
+        if config.asr.enable_vad:
+            from src.services.asr.vad import VADService
+
+            try:
+                vad = VADService()
+                segments = vad.segment_audio(str(processed_path))
+                if not segments:
+                    logger.info("VAD 未检测到语音，返回空文本")
+                    return ""
+                logger.info(f"VAD 检测到 {len(segments)} 个语音段")
+            except Exception as e:
+                logger.warning(f"VAD 预处理失败，回退到完整转录: {e}")
+
         return service.transcribe(str(processed_path), task_id)
     finally:
         if is_temp and processed_path is not None and not config.debug_flag:
