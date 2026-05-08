@@ -14,10 +14,10 @@ def split_text_by_sentences(txt: str, split_len: int) -> list[str]:
 
     # 使用正则表达式分割文本为句子（句号、问号、感叹号 / 换行后切分）
     # NOTE: 文本未以标点结尾或完全没有标点时，必须保留尾部内容，否则会出现 0 chunks 导致润色为空。
-    pattern = r"([.。!！？?\n])"
+    pattern = r"([.。!！？?])"
 
     parts = re.split(pattern, txt)
-    delimiters = {".", "。", "!", "！", "?", "？", "\n"}
+    delimiters = {".", "。", "!", "！", "?", "？"}
 
     sentences: list[str] = []
     buf = ""
