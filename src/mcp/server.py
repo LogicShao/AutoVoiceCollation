@@ -155,6 +155,38 @@ async def cancel_task(task_id: str) -> dict:
     return {"task_id": task_id, "status": "cancelled"}
 
 
+@mcp.tool()
+async def generate_mindmap(task_id: str) -> dict:
+    """为已完成的任务生成思维导图，返回 Mermaid + JSON 文件路径"""
+    if task_id not in tasks:
+        return {"error": f"任务不存在: {task_id}"}
+
+    task = tasks[task_id]
+    if task.get("status") != "completed":
+        return {"error": f"任务尚未完成，当前状态: {task.get('status')}"}
+
+    result = task.get("result", {})
+    text = result.get("text") or result.get("transcript") or ""
+    title = result.get("title") or task.get("message", "")
+
+    if not text:
+        return {"error": "任务结果中没有可用的文本内容"}
+
+    from src.services.mindmap import export_mindmap_to_files, generate_mindmap as _gen
+
+    output_dir = result.get("output_dir", f"./out/{task_id}")
+    output = await _gen(text=text, title=title)
+    files = export_mindmap_to_files(output, output_dir)
+
+    return {
+        "task_id": task_id,
+        "title": title,
+        "node_count": output.node_count,
+        "files": files,
+        "mermaid_preview": output.root.model_dump() if output.root.children else None,
+    }
+
+
 async def _startup():
     queue = _get_or_create_queue()
     await queue.start()

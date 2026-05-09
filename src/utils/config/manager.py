@@ -31,7 +31,7 @@ class AppConfig(BaseConfig):
     # 输出配置
     output_style: str = Field(
         default="pdf_only",
-        description="输出样式：pdf_with_img, img_only, text_only, pdf_only, markdown, json",
+        description="输出样式：pdf_with_img, img_only, text_only, pdf_only, markdown, json, mindmap",
     )
 
     pdf_font_path: Path | None = Field(
@@ -72,6 +72,7 @@ class AppConfig(BaseConfig):
             "pdf_only",
             "markdown",
             "json",
+            "mindmap",
         ]
         if v not in valid_styles:
             raise ValueError(f"无效的输出样式: {v}。有效样式: {', '.join(valid_styles)}")

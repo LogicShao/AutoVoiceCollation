@@ -24,6 +24,21 @@ from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
 
+
+def _export_mindmap(txt: str, output_path: str, title: str | None = None) -> str:
+    """导出思维导图（内部函数，供 text_to_img_or_pdf 调用）"""
+    import asyncio
+
+    from src.services.mindmap import generate_mindmap, export_mindmap_to_files
+
+    output = asyncio.run(generate_mindmap(text=txt, title=title))
+    files = export_mindmap_to_files(output, output_path)
+    mermaid_path = files.get("mermaid", "")
+    json_path = files.get("json", "")
+    logger.info(f"思维导图已导出: mermaid={mermaid_path}, json={json_path}")
+    return mermaid_path or json_path or output_path
+
+
 _pre_text = (
     "本项目使用{}+LLM{}进行音频文本提取和润色，"
     "ASR模型提取的文本可能存在错误和不准确之处，"
@@ -611,6 +626,8 @@ def text_to_img_or_pdf(
             metadata=metadata,
             summary_text=summary_text,
         )
+    if output_style == "mindmap":
+        return _export_mindmap(txt, output_path=output_path, title=title)
     raise ValueError(f"Unsupported output style: {output_style}")
 
 
