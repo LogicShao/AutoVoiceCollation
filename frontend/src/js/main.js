@@ -14,6 +14,11 @@ document.addEventListener('alpine:init', () => {
     videoPath: '',
     subtitleText: '',
 
+    // 高级配置（所有标签页共享）
+    outputStyle: 'pdf_only',
+    enablePolish: true,
+    enableSummary: true,
+
     // 多P视频相关状态
     multiPartInfo: null,
     selectedParts: [],
@@ -33,9 +38,19 @@ document.addEventListener('alpine:init', () => {
     // 轮询定时器
     pollInterval: null,
 
+    // 维护统计
+    stats: {
+      queue_count: 0,
+      history_count: 0,
+      temp_files: 0,
+      output_files: 0,
+      download_files: 0,
+    },
+
     init() {
       this.refreshTasks();
       this.startTasksPolling();
+      this.loadStats();
       this.$watch('biliUrl', () => {
         this.resetBiliCheckState(false);
       });
@@ -68,7 +83,12 @@ document.addEventListener('alpine:init', () => {
         const response = await fetch('/api/v1/process/bilibili', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({video_url: this.biliUrl})
+          body: JSON.stringify({
+            video_url: this.biliUrl,
+            output_style: this.outputStyle,
+            disable_llm_polish: !this.enablePolish,
+            disable_llm_summary: !this.enableSummary
+          })
         });
 
         const data = await response.json();
@@ -149,8 +169,10 @@ document.addEventListener('alpine:init', () => {
           headers: {'Content-Type': 'application/json'},
           body: JSON.stringify({
             video_url: this.biliUrl,
-            // 转换为数字类型，匹配后端 API 期望的 list[int]
-            selected_parts: this.selectedParts.map(p => Number(p))
+            selected_parts: this.selectedParts.map(p => Number(p)),
+            output_style: this.outputStyle,
+            disable_llm_polish: !this.enablePolish,
+            disable_llm_summary: !this.enableSummary
           })
         });
 
@@ -245,6 +267,9 @@ document.addEventListener('alpine:init', () => {
 
       const formData = new FormData();
       formData.append('file', this.selectedFile);
+      formData.append('output_style', this.outputStyle);
+      formData.append('disable_llm_polish', (!this.enablePolish).toString());
+      formData.append('disable_llm_summary', (!this.enableSummary).toString());
 
       try {
         const response = await fetch('/api/v1/process/audio', {
@@ -288,7 +313,12 @@ document.addEventListener('alpine:init', () => {
         const response = await fetch('/api/v1/process/batch', {
           method: 'POST',
           headers: {'Content-Type': 'application/json'},
-          body: JSON.stringify({urls})
+          body: JSON.stringify({
+            urls,
+            output_style: this.outputStyle,
+            disable_llm_polish: !this.enablePolish,
+            disable_llm_summary: !this.enableSummary
+          })
         });
 
         const data = await response.json();
@@ -531,6 +561,46 @@ document.addEventListener('alpine:init', () => {
         'cancelled': 'text-gray-600 dark:text-gray-400'
       };
       return colors[status] || 'text-gray-600 dark:text-gray-400';
-    }
+    },
+    // 维护工具
+    adminLoading: false,
+    adminMessage: '',
+
+    async loadStats() {
+      try {
+        const r = await fetch('/api/v1/admin/stats');
+        if (r.ok) this.stats = await r.json();
+      } catch (e) {
+        console.error('加载维护统计失败:', e);
+      }
+    },
+
+    async adminAction(endpoint, name) {
+      if (!confirm(`确定要${name}？此操作不可恢复。`)) return;
+      this.adminLoading = true;
+      this.adminMessage = '';
+      const formData = new FormData();
+      formData.append('confirm', 'true');
+      try {
+        const r = await fetch(endpoint, { method: 'POST', body: formData });
+        const data = await r.json();
+        if (r.ok) {
+          this.adminMessage = data.message || '操作完成';
+          await this.loadStats();
+          await this.refreshTasks();
+        } else {
+          this.adminMessage = '操作失败: ' + (data.detail || '未知错误');
+        }
+      } catch (e) {
+        this.adminMessage = '请求失败: ' + e.message;
+      }
+      this.adminLoading = false;
+    },
+
+    adminClearQueue() { this.adminAction('/api/v1/admin/clear-queue', '清空任务队列'); },
+    adminClearHistory() { this.adminAction('/api/v1/admin/clear-history', '清空历史记录'); },
+    adminCleanTemp() { this.adminAction('/api/v1/admin/clean-temp', '清理临时文件'); },
+    adminCleanOutput() { this.adminAction('/api/v1/admin/clean-output', '清理输出目录'); },
+    adminCleanDownload() { this.adminAction('/api/v1/admin/clean-download', '清理下载缓存'); },
   }));
 });

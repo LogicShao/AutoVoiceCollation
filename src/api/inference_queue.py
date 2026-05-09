@@ -317,7 +317,8 @@ class InferenceQueue:
             data["temperature"],
             data["max_tokens"],
             data["text_only"],
-            task_id,  # 传递 task_id 以支持取消
+            task_id,
+            data.get("output_style"),
         )
 
         completed_at = datetime.now().isoformat()
@@ -410,7 +411,8 @@ class InferenceQueue:
                 data["temperature"],
                 data["max_tokens"],
                 data["text_only"],
-                task_id,  # 传递 task_id 以支持取消
+                task_id,
+                data.get("output_style"),
             )
         finally:
             if os.path.exists(data["audio_path"]):
@@ -511,7 +513,8 @@ class InferenceQueue:
             data["temperature"],
             data["max_tokens"],
             data["text_only"],
-            task_id,  # 传递 task_id 以支持取消
+            task_id,
+            data.get("output_style"),
         )
 
         if self._is_task_cancelled(task_id, tasks_store):
@@ -594,6 +597,7 @@ class InferenceQueue:
             data["max_tokens"],
             data.get("text_only", False),
             task_id,
+            data.get("output_style"),
         )
 
         if self._is_task_cancelled(task_id, tasks_store):

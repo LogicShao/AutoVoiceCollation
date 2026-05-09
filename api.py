@@ -245,6 +245,9 @@ class BilibiliVideoRequest(BaseModel):
     max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
     summarize: bool = Field(default=False, description="是否对结果进行总结")
+    output_style: str | None = Field(default=None, description="输出样式")
+    disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
+    disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
 
 
 class BatchProcessRequest(BaseModel):
@@ -258,6 +261,9 @@ class BatchProcessRequest(BaseModel):
     max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
     summarize: bool = Field(default=False, description="是否对结果进行总结")
+    output_style: str | None = Field(default=None, description="输出样式")
+    disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
+    disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
 
 
 class MultiPartVideoRequest(BaseModel):
@@ -271,6 +277,9 @@ class MultiPartVideoRequest(BaseModel):
     )
     max_tokens: int = Field(default=config.llm.llm_max_tokens, gt=0, description="最大token数")
     text_only: bool = Field(default=False, description="仅返回文本结果（不生成PDF）")
+    output_style: str | None = Field(default=None, description="输出样式")
+    disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
+    disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
 
 
 class SubtitleGenerateRequest(BaseModel):
@@ -391,6 +400,9 @@ async def process_bilibili_video(request: BilibiliVideoRequest):
             "max_tokens": request.max_tokens,
             "text_only": request.text_only,
             "summarize": request.summarize,
+            "output_style": request.output_style,
+            "disable_llm_polish": request.disable_llm_polish,
+            "disable_llm_summary": request.disable_llm_summary,
         },
         tasks_store=tasks,  # 引用传递，队列可直接更新状态
     )
@@ -559,6 +571,9 @@ async def process_multi_part_video(request: MultiPartVideoRequest):
             "temperature": request.temperature,
             "max_tokens": request.max_tokens,
             "text_only": request.text_only,
+            "output_style": request.output_style,
+            "disable_llm_polish": request.disable_llm_polish,
+            "disable_llm_summary": request.disable_llm_summary,
         },
         tasks_store=tasks,
     )
@@ -583,6 +598,9 @@ async def process_audio_file(
     max_tokens: int = Form(default=config.llm.llm_max_tokens),
     text_only: bool = Form(default=False),
     summarize: bool = Form(default=False),
+    output_style: str = Form(default=config.output_style),
+    disable_llm_polish: bool = Form(default=config.llm.disable_llm_polish),
+    disable_llm_summary: bool = Form(default=config.llm.disable_llm_summary),
 ):
     """处理上传的音频/视频文件（视频会自动提取音频）（异步队列版本）"""
     # 支持音频和视频格式
@@ -668,6 +686,9 @@ async def process_audio_file(
             "max_tokens": max_tokens,
             "text_only": text_only,
             "summarize": summarize,
+            "output_style": output_style,
+            "disable_llm_polish": disable_llm_polish,
+            "disable_llm_summary": disable_llm_summary,
         },
         tasks_store=tasks,
     )
@@ -716,6 +737,9 @@ async def process_batch_videos(request: BatchProcessRequest):
             "max_tokens": request.max_tokens,
             "text_only": request.text_only,
             "summarize": request.summarize,
+            "output_style": request.output_style,
+            "disable_llm_polish": request.disable_llm_polish,
+            "disable_llm_summary": request.disable_llm_summary,
         },
         tasks_store=tasks,
     )
@@ -902,6 +926,106 @@ async def get_history_stats():
     return hm.get_statistics()
 
 
+# ============================================================
+# 维护工具 API
+# ============================================================
+
+@app.post("/api/v1/admin/clear-queue")
+async def clear_task_queue(confirm: bool = Form(False)):
+    """清空所有任务队列"""
+    if not confirm:
+        raise HTTPException(status_code=400, detail="请传入 confirm=true 确认操作")
+    count = len(tasks)
+    tasks.clear()
+    from src.utils.helpers.task_manager import get_task_manager
+
+    get_task_manager().clear_all()
+    logger.info(f"已清空任务队列，共 {count} 个任务")
+    return {"status": "ok", "cleared": count, "message": f"已清空 {count} 个任务"}
+
+
+@app.post("/api/v1/admin/clear-history")
+async def clear_history(confirm: bool = Form(False)):
+    """清空所有处理历史"""
+    if not confirm:
+        raise HTTPException(status_code=400, detail="请传入 confirm=true 确认操作")
+    hm = get_history_manager()
+    count = hm.clear_all()
+    logger.info(f"已清空处理历史，共 {count} 条记录")
+    return {"status": "ok", "cleared": count, "message": f"已清空 {count} 条历史记录"}
+
+
+def _count_files(directory: str) -> int:
+    """统计目录下文件数量"""
+    import os as _os
+
+    if not _os.path.isdir(directory):
+        return 0
+    count = 0
+    for root, dirs, files in _os.walk(directory):
+        count += len(files)
+    return count
+
+
+@app.post("/api/v1/admin/clean-temp")
+async def clean_temp_directory(confirm: bool = Form(False)):
+    """清理临时文件目录"""
+    if not confirm:
+        raise HTTPException(status_code=400, detail="请传入 confirm=true 确认操作")
+    from src.core.export.file_manager import clean_directory
+
+    temp_dir = str(config.paths.temp_dir)
+    file_count = _count_files(temp_dir)
+    clean_directory(temp_dir)
+    logger.info(f"已清理临时目录: {temp_dir}，共 {file_count} 个文件")
+    return {"status": "ok", "cleared": file_count, "message": f"已清理 {file_count} 个临时文件"}
+
+
+@app.post("/api/v1/admin/clean-output")
+async def clean_output_directory(confirm: bool = Form(False)):
+    """清理输出文件目录"""
+    if not confirm:
+        raise HTTPException(status_code=400, detail="请传入 confirm=true 确认操作")
+    from src.core.export.file_manager import clean_directory
+
+    output_dir = str(config.paths.output_dir)
+    # 安全检查：确保输出目录在项目根目录下
+    project_root = str(config.paths.output_dir.parent.parent.resolve())
+    if not output_dir.startswith(project_root):
+        raise HTTPException(status_code=403, detail="输出目录路径异常，拒绝操作")
+    file_count = _count_files(output_dir)
+    clean_directory(output_dir)
+    logger.info(f"已清理输出目录: {output_dir}，共 {file_count} 个文件")
+    return {"status": "ok", "cleared": file_count, "message": f"已清理 {file_count} 个输出文件"}
+
+
+@app.post("/api/v1/admin/clean-download")
+async def clean_download_directory(confirm: bool = Form(False)):
+    """清理下载缓存目录"""
+    if not confirm:
+        raise HTTPException(status_code=400, detail="请传入 confirm=true 确认操作")
+    from src.core.export.file_manager import clean_directory
+
+    download_dir = str(config.paths.download_dir)
+    file_count = _count_files(download_dir)
+    clean_directory(download_dir)
+    logger.info(f"已清理下载目录: {download_dir}，共 {file_count} 个文件")
+    return {"status": "ok", "cleared": file_count, "message": f"已清理 {file_count} 个缓存文件"}
+
+
+@app.get("/api/v1/admin/stats")
+async def get_maintenance_stats():
+    """获取维护统计信息（任务数、历史记录数、各目录文件数）"""
+    hm = get_history_manager()
+    return {
+        "queue_count": len(tasks),
+        "history_count": len(hm.get_all_records()),
+        "temp_files": _count_files(str(config.paths.temp_dir)),
+        "output_files": _count_files(str(config.paths.output_dir)),
+        "download_files": _count_files(str(config.paths.download_dir)),
+    }
+
+
 @app.get("/api/v1/task/{task_id}", response_model=TaskResponse)
 async def get_task_status(task_id: str):
     """查询任务状态"""
@@ -996,6 +1120,38 @@ async def download_result(task_id: str):
     )
 
     return FileResponse(zip_file, media_type="application/zip", filename=os.path.basename(zip_file))
+
+
+@app.post("/api/v1/task/{task_id}/mindmap")
+async def generate_mindmap_endpoint(task_id: str):
+    """为已完成的任务生成思维导图"""
+    if task_id not in tasks:
+        raise HTTPException(status_code=404, detail="任务不存在")
+    task_info = tasks[task_id]
+    if task_info.get("status") != "completed":
+        raise HTTPException(status_code=400, detail="任务尚未完成")
+
+    result = task_info.get("result", {})
+    text = result.get("text") or result.get("transcript") or ""
+    title = result.get("title") or task_info.get("message", "")
+
+    if not text:
+        raise HTTPException(status_code=400, detail="任务结果中没有可用的文本内容")
+
+    from src.services.mindmap import export_mindmap_to_files, generate_mindmap
+
+    output_dir = result.get("output_dir", f"./out/{task_id}")
+    mindmap_output = await generate_mindmap(text=text, title=title)
+    files = export_mindmap_to_files(mindmap_output, output_dir)
+
+    return {
+        "task_id": task_id,
+        "title": title,
+        "node_count": mindmap_output.node_count,
+        "mermaid_file": files.get("mermaid", ""),
+        "json_file": files.get("json", ""),
+        "structure": mindmap_output.root.model_dump(),
+    }
 
 
 def is_port_available(host: str, port: int) -> bool:

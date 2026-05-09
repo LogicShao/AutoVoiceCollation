@@ -212,6 +212,14 @@ class ProcessHistoryManager:
             return True
         return False
 
+    def clear_all(self) -> int:
+        """清空所有处理记录，返回清除条数"""
+        count = len(self.records)
+        self.records.clear()
+        self._save()
+        logger.info(f"已清空全部处理记录，共 {count} 条")
+        return count
+
     def get_all_records(self) -> list[ProcessRecord]:
         """获取所有处理记录，按时间倒序排列"""
         records = list(self.records.values())

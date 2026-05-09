@@ -33,6 +33,7 @@ class MultiPartVideoProcessor(BaseProcessor):
         max_tokens: int,
         text_only: bool = False,
         task_id: str | None = None,
+        output_style: str | None = None,
     ) -> tuple[Any, float, float, str | None]:
         """
         处理多P视频
@@ -144,6 +145,7 @@ class MultiPartVideoProcessor(BaseProcessor):
                 multi_part_info.main_title,
                 llm_api,
                 temperature,
+                output_style=output_style,
             )
 
             self._check_cancellation(task_id)

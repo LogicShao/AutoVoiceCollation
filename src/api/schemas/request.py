@@ -38,6 +38,7 @@ class BilibiliProcessRequest(BaseModel):
                 "text_only",
                 "markdown",
                 "json",
+                "mindmap",
             ]
             if v not in valid_styles:
                 raise ValueError(f"无效的输出样式: {v}。有效值: {', '.join(valid_styles)}")

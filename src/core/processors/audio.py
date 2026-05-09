@@ -224,6 +224,7 @@ class AudioProcessor(BaseProcessor):
         llm_api: str,
         temperature: float,
         pdf_filename: str | None = None,
+        output_style: str | None = None,
     ) -> None:
         """
         导出输出文件(PDF/图片)
@@ -235,11 +236,12 @@ class AudioProcessor(BaseProcessor):
             llm_api: LLM API服务
             temperature: 温度参数
             pdf_filename: PDF 文件名（不含扩展名），用于智能命名
+            output_style: 输出样式（None 则用全局配置）
         """
         text_to_img_or_pdf(
             polished_text,
             title=title,
-            output_style=self.config.output_style,
+            output_style=output_style or self.config.output_style,
             output_path=output_dir,
             LLM_info=f"({llm_api},温度:{temperature})",
             ASR_model=self.config.asr.asr_model,
@@ -271,6 +273,7 @@ class AudioProcessor(BaseProcessor):
         max_tokens: int,
         text_only: bool = False,
         task_id: str | None = None,
+        output_style: str | None = None,
     ) -> tuple[Any, float, float, str | None]:
         """
         处理音频文件，提取文本并润色
@@ -378,6 +381,7 @@ class AudioProcessor(BaseProcessor):
                 llm_api,
                 temperature,
                 pdf_filename=pdf_filename,
+                output_style=output_style,
             )
             self._check_cancellation(task_id)
 
@@ -413,6 +417,7 @@ class AudioProcessor(BaseProcessor):
         max_tokens: int,
         text_only: bool = False,
         task_id: str | None = None,
+        output_style: str | None = None,
     ) -> tuple[Any, float, float, str | None]:
         """
         处理上传的音频文件
@@ -432,4 +437,4 @@ class AudioProcessor(BaseProcessor):
             raise ValueError("请上传一个音频文件。")
 
         audio_file = new_local_bili_file(audio_path)
-        return self.process(audio_file, llm_api, temperature, max_tokens, text_only, task_id)
+        return self.process(audio_file, llm_api, temperature, max_tokens, text_only, task_id, output_style)
