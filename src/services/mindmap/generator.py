@@ -120,7 +120,7 @@ def render_mermaid(root: MindMapNode) -> str:
 
     lines = ["mindmap", f"  root(({root.title}))"]
     for child in root.children:
-        lines.extend(_render(child, 0))
+        lines.extend(_render(child, 1))
     return "\n".join(lines)
 
 
