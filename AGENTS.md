@@ -19,6 +19,40 @@
 - Frontend CSS (Tailwind): `npm install` then `npm run dev` (watch) or `npm run build`.
 - Docker (recommended): `scripts/docker-start.sh start` (Linux/Mac) or `scripts/docker-start.bat start` (Windows).
 
+### Python Environment (CRITICAL)
+
+**System Python is strictly forbidden** (e.g., `/usr/bin/python3`, `/usr/bin/python`, `python3`, etc.).
+
+This project uses a Windows conda environment:
+- **Windows path**: `D:\conda_envs\autovoicecollation\python.exe`
+- **WSL path**: `/mnt/d/conda_envs/autovoicecollation/python.exe`
+- **Python version**: 3.11.15
+
+**Mandatory rule: Before any Python operation, you MUST ask the user to confirm which Python environment to use.**
+Do NOT assume or use any Python path (including the conda paths above) unless explicitly told by the user.
+
+All Python commands must use the user-specified Python:
+```bash
+# Correct — after user confirmation
+/path/user/specified/python -m pytest tests/
+
+# Wrong — strictly forbidden
+python3 -m pytest tests/
+pip install xxx
+pip install --break-system-packages xxx
+```
+
+When installing new dependencies in WSL, install to the user-specified Python environment:
+```bash
+/path/user/specified/python -m pip install <package>
+```
+
+**Forbidden operations**:
+- `pip install --break-system-packages` — pollutes the OS Python
+- `pip install` without `--user` — installs to system paths by default
+- Using `python3` / `/usr/bin/python3` to run project code or tests
+- Choosing or using any Python path without user confirmation
+
 ## Coding Style & Naming Conventions
 
 - Follow `.editorconfig` (Python: 4 spaces; JS/CSS/HTML: 2 spaces; LF line endings).
