@@ -59,6 +59,27 @@ When installing new dependencies in WSL, install to the user-specified Python en
 - Python quality gate: Ruff (`ruff check .` and `ruff format .`), configured in `ruff.toml`.
 - Convenience: `scripts/lint.sh [check|fix|format|all]` or `scripts/lint.bat [check|fix|format|all]`.
 
+### Post-Write Validation (MANDATORY)
+
+**After every code change, you MUST verify correctness before marking a task as done:**
+
+1. Run Ruff on changed files:
+   ```bash
+   ruff check path/to/changed/file.py
+   ```
+   Fix all errors (F821 undefined names, F401 unused imports, E999 syntax errors).
+
+2. Run LSP diagnostics on changed files (or the parent directory if multiple files).
+
+3. Run `pytest` to verify no regressions:
+   ```bash
+   /mnt/d/conda_envs/autovoicecollation/python.exe -m pytest tests/ -x -q
+   ```
+
+4. Never suppress type errors with `as any`, `@ts-ignore`, or `@ts-expect-error`.
+
+**Failure to pass any of these checks = task NOT complete.**
+
 ## Testing Guidelines
 
 - Install test deps: `pip install -r requirements-test.txt`.

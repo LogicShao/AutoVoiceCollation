@@ -120,75 +120,54 @@
 
 ## 中期：输出结构化 + 分析层升级
 
-### 思维导图生成（2 天）← 新增
+### 思维导图生成 ✅ 已实现
 
 > **从转写文本自动生成结构化思维导图，让视频内容一目了然。**
 
-**定位**: 依赖阶段 1 的 `analyze_video` 产出（key_points + segments with topics），
-作为新的输出形态叠加到现有 6 种格式之上。
+#### 已完成
 
-#### 步骤 1: 数据模型（0.3 天）
+- [x] `MindMapNode` / `MindMapOutput` Pydantic 递归树模型
+- [x] `MINDMAP` prompt 注册（LLM 提取层级主题 → JSON）
+- [x] Mermaid + JSON 渲染器（`render_mermaid` / `render_json`）
+- [x] `OUTPUT_STYLE=mindmap` + text_exporter 分支
+- [x] `POST /api/v1/task/{task_id}/mindmap` API 端点
+- [x] MCP Tool: `generate_mindmap(task_id)`
 
-- [ ] 定义 `MindMapNode` Pydantic 模型（递归树结构）：
-  ```
-  {
-    "title": "根节点",
-    "children": [
-      {"title": "主题A", "children": [
-        {"title": "要点1", "children": []},
-        {"title": "要点2", "children": []}
-      ]},
-      {"title": "主题B", "children": [...]}
-    ]
-  }
-  ```
-- [ ] 定义 `MindMapOutput` 包装模型（含 metadata: source_url, generated_at, node_count）
+#### 增强：多层级深度控制（0.5 天）
 
-#### 步骤 2: LLM 主题提取 Prompt（0.3 天）
+> **当前限制**：只支持 2 层（主题 → 子要点），无法生成更深层次的导图。
 
-- [ ] 编写 `mindmap_from_transcript` prompt 模板
-  - 输入：完整转写文本 + 已有的 key_points/segments
-  - 约束：3-5 个一级主题、每主题 2-4 个子要点、纯 JSON 输出
-  - 验证：JSON Schema 校验 + 节点数合理性检查（不超过 30 个）
-- [ ] 在 `src/services/llm/prompts.py` 注册 prompt
+**步骤 1: 数据模型（0.1 天）**
 
-#### 步骤 3: 渲染器（0.6 天）
+- [ ] 新增 `MindMapDepth` 枚举：`low`（2层）/ `medium`（3层）/ `high`（4层）/ `auto`（模型自主）
+- [ ] `MindMapOutput` 增加 `depth` 字段
 
-- [ ] **Mermaid 渲染器** — 生成 `mindmap` 语法文本，直接嵌入 Markdown 输出
-  ```
-  mindmap
-    root((视频标题))
-      主题A
-        要点1
-        要点2
-      主题B
-        要点3
-        要点4
-  ```
-- [ ] **Graphviz 渲染器** — 生成 PNG/SVG 图片，可嵌入 PDF 或独立输出
-  - 依赖：`graphviz` Python 库（`pip install graphviz` + 系统安装 graphviz）
-  - 节点颜色按层级区分、自动布局
-- [ ] **JSON 树渲染器** — 直接输出 `MindMapOutput.model_dump_json()`，供 Agent/MCP 消费
+**步骤 2: 动态 Prompt（0.15 天）**
 
-#### 步骤 4: 接入输出管道（0.4 天）
+- [ ] 根据 `depth` 动态构建 prompt：
+  - `low`: "提取 3-5 个一级主题，每个下 2-4 个子要点"（当前行为）
+  - `medium`: "提取 3-5 个一级主题 → 每个 2-3 个子主题 → 每个 2-3 个要点"
+  - `high`: "提取 3-5 个一级分类 → 每个 2-3 个主题 → 每个 2-3 个子主题 → 每个 2-3 个要点"
+  - `auto`: "根据内容复杂程度自行决定层级深度，长文本可深，短文本可浅"
+- [ ] `generate_mindmap(text, title, depth="low")` 参数
 
-- [ ] 新增 `OUTPUT_STYLE=mindmap` 配置选项
-- [ ] 在 `text_exporter.py` 添加 `export_mindmap()` 分支
-- [ ] 默认输出：`{output_dir}/mindmap.md`（Mermaid）+ `mindmap.json`（JSON）
-- [ ] 可选：`mindmap.png`（需 graphviz）
+**步骤 3: 前端 + API（0.15 天）**
 
-#### 步骤 5: API + MCP（0.4 天）
+- [ ] 前端「高级选项」增加深度下拉框：`低(2层) / 中(3层) / 高(4层) / 自动`
+- [ ] API 端点增加 `depth` 参数
+- [ ] MCP Tool 增加 `depth` 参数
 
-- [ ] `POST /api/v1/task/{task_id}/mindmap` — 为已完成任务生成导图
-- [ ] MCP Tool: `generate_mindmap(task_id)` — 返回 mindmap JSON + 文件路径
-- [ ] MCP Resource: `avc://task/{id}/mindmap` — 结构化导图数据
-- [ ] 作为 `analyze_video` 的可选输出（`include_mindmap=true`）
+**步骤 4: 验证（0.1 天）**
 
-#### 不做的
+- [ ] 同一段文本用 4 种深度生成导图，对比层级和节点数
+- [ ] `auto` 模式对长短文本的适应性验证
+
+#### 不做
 
 - ~~手绘风格导图~~ — 超出 MVP 范围，第三方库太重
 - ~~实时协作编辑导图~~ — 非本项目定位
 - ~~OCR 白板/手写导图识别~~ — 不同领域
+- ~~Graphviz PNG 渲染~~ — Mermaid + JSON 已覆盖 Agent/Web 需求
 
 ---
 
