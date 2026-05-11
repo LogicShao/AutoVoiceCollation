@@ -116,6 +116,7 @@ class SubtitleVideoEncoder:
             stderr=subprocess.PIPE,
             text=True,
             encoding="utf-8",
+            timeout=300,
         )
 
         if result.returncode != 0:
@@ -226,39 +227,6 @@ def encode_subtitle_to_video(video_path: str, srt_path: str, output_path: str | 
         输出视频路径
     """
     return SubtitleVideoEncoder.encode(video_path, srt_path, output_path)
-
-
-# ============================================================================
-# 兼容性包装器（向后兼容旧接口）
-# ============================================================================
-
-
-def gen_timestamped_text_file(
-    audio_path: str,
-    file_type: str = "srt",
-    batch_size_s: int = 5,
-    model: str = "paraformer",
-) -> str:
-    """
-    向后兼容的函数（旧接口）
-    """
-    from src.utils.config import get_config
-
-    app_config = get_config()
-    temp_dir = app_config.paths.temp_dir or Path("./temp")
-    config = SubtitleConfig(batch_size_s=batch_size_s, temp_dir=temp_dir)
-    return generate_subtitle_file(
-        audio_path=audio_path, file_type=file_type, model=model, config=config
-    )
-
-
-def hard_encode_dot_srt_file(
-    input_video_path: str, input_srt_path: str, output_video_path: str | None = None
-) -> str:
-    """
-    向后兼容的函数（旧接口）
-    """
-    return encode_subtitle_to_video(input_video_path, input_srt_path, output_video_path)
 
 
 # ============================================================================

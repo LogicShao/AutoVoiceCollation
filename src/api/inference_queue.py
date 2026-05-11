@@ -228,9 +228,9 @@ class InferenceQueue:
                     config=config_data,
                     outputs=result,
                 )
-        except Exception:
+        except Exception as e:
             logger.warning(
-                f"Failed to record history for task {task_id}", exc_info=True
+                f"Failed to record history for task {task_id}: {e}", exc_info=True
             )
 
     async def _worker_loop(self):

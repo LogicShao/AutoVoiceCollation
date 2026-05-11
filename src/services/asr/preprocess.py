@@ -103,12 +103,17 @@ def prepare_asr_audio(audio_path: str, task_id: str | None = None) -> tuple[Path
             )
 
             try:
+                start_time = time.time()
+                timeout_seconds = 600
                 while True:
                     if task_id:
                         task_manager.check_cancellation(task_id)
                     ret = proc.poll()
                     if ret is not None:
                         break
+                    if time.time() - start_time > timeout_seconds:
+                        proc.kill()
+                        raise RuntimeError("ffmpeg audio preprocessing timed out after 600s")
                     time.sleep(0.2)
             except TaskCancelledException:
                 proc.terminate()

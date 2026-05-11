@@ -23,8 +23,11 @@ from src.core.exceptions import (
     TaskCancelledException,
 )
 from src.utils.config import get_config
+from src.utils.logging.logger import get_logger
 
 from .base import BaseASRService
+
+logger = get_logger(__name__)
 
 
 class WhisperCppService(BaseASRService):
@@ -143,6 +146,8 @@ class WhisperCppService(BaseASRService):
                     )
                     stderr_thread.start()
 
+                start_time = time.time()
+                timeout_seconds = 1800
                 while True:
                     try:
                         self.check_cancellation(task_id)
@@ -156,10 +161,18 @@ class WhisperCppService(BaseASRService):
                         if stderr_thread is not None:
                             stderr_thread.join(timeout=2)
                         raise
-
                     ret = proc.poll()
                     if ret is not None:
                         break
+                    if time.time() - start_time > timeout_seconds:
+                        proc.kill()
+                        if stderr_thread is not None:
+                            stderr_thread.join(timeout=2)
+                        raise ASRInferenceError(
+                            message=f"whisper.cpp inference timed out after {timeout_seconds}s",
+                            model="whisper_cpp",
+                            audio_file=str(audio_file),
+                        )
                     time.sleep(0.2)
 
                 if stderr_thread is not None:
@@ -220,7 +233,7 @@ class WhisperCppService(BaseASRService):
                     stderr_file.write(line)
                     stderr_file.flush()
                 except Exception:
-                    pass
+                    self.logger.debug("Failed to write/flush stderr line")
 
                 progress = self._parse_progress_percent(line)
                 if progress is None:
@@ -345,6 +358,7 @@ class WhisperCppService(BaseASRService):
                 text=True,
                 encoding="utf-8",
                 errors="replace",
+                timeout=300,
             )
         except FileNotFoundError as e:
             raise AudioFormatError(
@@ -398,11 +412,11 @@ class WhisperCppService(BaseASRService):
                 if p.exists():
                     p.unlink()
             except Exception:
-                pass
+                logger.debug(f"Failed to clean up temp file: {p}")
 
         # 删除自动转码生成的 wav（仅当它不是原始输入）
         try:
             if input_audio != original_audio and input_audio.exists():
                 input_audio.unlink()
         except Exception:
-            pass
+            logger.debug(f"Failed to clean up auto-converted wav: {input_audio}")

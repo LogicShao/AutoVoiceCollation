@@ -227,27 +227,30 @@ def _get_api_key(provider: str) -> str:
 
 
 async def _query_openai_compatible_async(
-    params: LLMQueryParams, model_id: str, provider: str
+    params: LLMQueryParams,
+    model_id: str,
+    base_url: str,
+    api_key: str,
 ) -> str:
     import aiohttp
 
-    api_key = _get_api_key(provider)
-    base_url = _PROVIDER_BASE_URLS[provider]
-    headers = {
-        "Authorization": f"Bearer {api_key}",
-        "Content-Type": "application/json",
-    }
     payload = {
         "model": model_id,
         "messages": [
-            {"role": "system", "content": params.system_instruction},
+            {"role": "system", "content": params.system_instruction or ""},
             {"role": "user", "content": params.content},
         ],
         "temperature": params.temperature,
         "max_tokens": params.max_tokens,
         "stream": False,
     }
-    async with aiohttp.ClientSession() as session, session.post(
+    headers = {
+        "Authorization": f"Bearer {api_key}",
+        "Content-Type": "application/json",
+    }
+
+    timeout = aiohttp.ClientTimeout(total=120)
+    async with aiohttp.ClientSession(timeout=timeout) as session, session.post(
         f"{base_url}/chat/completions", json=payload, headers=headers
     ) as resp:
         data = await resp.json()
@@ -266,5 +269,7 @@ async def query_llm_async(params: LLMQueryParams) -> str:
     provider = cfg["provider"]
     model_id = cfg["model_id"]
     if provider in _PROVIDER_BASE_URLS:
-        return await _query_openai_compatible_async(params, model_id, provider)
+        base_url = _PROVIDER_BASE_URLS[provider]
+        api_key = _get_api_key(provider)
+        return await _query_openai_compatible_async(params, model_id, base_url, api_key)
     raise ValueError(f"Async not supported for provider: {provider}")

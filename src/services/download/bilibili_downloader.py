@@ -7,7 +7,6 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass
-from typing import Optional
 
 from yt_dlp import YoutubeDL
 
@@ -80,7 +79,7 @@ class BiliVideoFile:
         pre_text = _pre_text.format(
             ASR_model=asr_model, LLM_api=llm_api_server, temperature=temperature
         )
-        pre_text += "\n\n{}".format(self.url)
+        pre_text += f"\n\n{self.url}"
         with open(text_file_path, "w", encoding="utf-8") as f:
             if self.title:
                 f.write(f"{self.title}\n\n")
@@ -96,7 +95,7 @@ def new_local_bili_file(path: str, title: str | None = None) -> BiliVideoFile:
     return BiliVideoFile(url=url, path=abs_path, title=title, file_type=FileType.LOCAL)
 
 
-def _find_downloaded_file(video_id: str, resolved_dir: str, ext: str) -> Optional[str]:
+def _find_downloaded_file(video_id: str, resolved_dir: str, ext: str) -> str | None:
     """
     在 resolved_dir 中查找以 video_id 开头并以 ext 结尾的文件（支持 _pN 等后缀）。
     返回最匹配（最近修改时间）的文件绝对路径或 None。
@@ -292,7 +291,7 @@ def extract_audio_from_video(
     ]
 
     logger.info(f"开始提取音频：{audio_path}")
-    result = subprocess.run(command, stdout=subprocess.PIPE, stderr=subprocess.PIPE, text=True, encoding='utf-8')
+    result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=300)
 
     if result.returncode != 0:
         raise RuntimeError(f"音频提取失败：{result.stderr}")
@@ -310,7 +309,7 @@ class BiliVideoPart:
     video_id: str
     url: str
     duration: int = 0
-    thumbnail: Optional[str] = None
+    thumbnail: str | None = None
 
 
 @dataclass
@@ -326,7 +325,7 @@ class BiliMultiPartVideo:
         return [p for p in self.parts if p.part_number in part_numbers]
 
 
-def detect_multi_part(video_url: str) -> tuple[bool, Optional[dict]]:
+def detect_multi_part(video_url: str) -> tuple[bool, dict | None]:
     """
     检测视频是否为多P
 
@@ -354,7 +353,7 @@ def detect_multi_part(video_url: str) -> tuple[bool, Optional[dict]]:
         return False, None
 
 
-def get_multi_part_info(video_url: str) -> Optional[BiliMultiPartVideo]:
+def get_multi_part_info(video_url: str) -> BiliMultiPartVideo | None:
     """
     获取多P视频信息
 
