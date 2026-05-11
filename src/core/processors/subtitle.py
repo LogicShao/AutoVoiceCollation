@@ -12,9 +12,7 @@ from src.services.download.bilibili_downloader import extract_audio_from_video
 from src.services.subtitle import (
     SubtitleConfig,
     encode_subtitle_to_video,
-    gen_timestamped_text_file,
     generate_subtitle_file,
-    hard_encode_dot_srt_file,
 )
 from src.utils.config import get_config
 
@@ -43,8 +41,8 @@ class SubtitleProcessor(BaseProcessor):
             raise FileNotFoundError(f"Video file not found: {video_file}")
 
         audio_file = extract_audio_from_video(video_file)
-        srt_file = gen_timestamped_text_file(audio_file)
-        output_file = hard_encode_dot_srt_file(video_file, srt_file)
+        srt_file = generate_subtitle_file(audio_file)
+        output_file = encode_subtitle_to_video(video_file, srt_file)
         return srt_file, output_file
 
     def process(

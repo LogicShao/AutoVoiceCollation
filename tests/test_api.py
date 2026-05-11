@@ -291,67 +291,43 @@ class TestBatchEndpoint:
 
 
 class TestSubtitleEndpoint:
-    """测试字幕处理端点"""
+    """测试字幕生成端点 (POST /api/v1/subtitle/generate)"""
 
-    def test_process_subtitle_invalid_format(self, client):
-        """测试上传不支持的视频格式"""
-        file_content = b"fake video content"
-        files = {"file": ("test.txt", BytesIO(file_content), "text/plain")}
+    def test_generate_subtitle_missing_path(self, client):
+        """测试缺少必需参数"""
+        response = client.post("/api/v1/subtitle/generate", json={})
+        assert response.status_code == 422
 
-        response = client.post("/api/v1/process/subtitle", files=files)
-        assert response.status_code == 400
-        assert "不支持的视频格式" in response.json()["error"]
+    @patch("shutil.copy2")
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.path.exists", return_value=True)
+    def test_generate_subtitle_success(self, mock_exists, mock_isfile, mock_copy, client):
+        """测试成功生成字幕"""
+        payload = {"video_path": "/videos/test.mp4"}
+        response = client.post("/api/v1/subtitle/generate", json=payload)
 
-    @patch("api.subtitle_processor.process_simple")
-    def test_process_subtitle_success(self, mock_process, client):
-        """测试成功处理字幕"""
-        # 配置 mock
-        mock_process.return_value = ("/output/subtitle.srt", "/output/video_with_sub.mp4")
-
-        # 创建一个假的视频文件
-        file_content = b"fake video content"
-        files = {"file": ("test.mp4", BytesIO(file_content), "video/mp4")}
-
-        response = client.post("/api/v1/process/subtitle", files=files)
-
-        # 验证响应 - 添加详细错误信息
-        if response.status_code != 200:
-            try:
-                error_detail = response.json()
-                print(f"\n[ERROR] Status {response.status_code}")
-                print(f"Response JSON: {error_detail}")
-            except Exception:
-                print(f"\n[ERROR] Status {response.status_code}")
-                print(f"Response text: {response.text}")
-        assert response.status_code == 200, (
-            f"Expected 200, got {response.status_code}. Response: {response.text}"
-        )
+        assert response.status_code == 200
         data = response.json()
         assert "task_id" in data
         assert data["status"] == "pending"
 
+
     @patch("api._get_inference_queue")
-    def test_process_subtitle_sanitizes_uploaded_filename(self, mock_get_queue, client):
-        """测试字幕上传文件名会被安全化"""
+    @patch("shutil.copy2")
+    @patch("os.path.isfile", return_value=True)
+    @patch("os.path.exists", return_value=True)
+    def test_generate_subtitle_queued(self, mock_exists, mock_isfile, mock_copy, mock_get_queue, client):
+        """测试字幕任务成功入队"""
         mock_queue = mock_get_queue.return_value
         mock_queue.submit_task = AsyncMock(return_value=True)
 
-        file_content = b"fake video content"
-        files = {"file": ("../../evil.mp4", BytesIO(file_content), "video/mp4")}
+        payload = {"video_path": "/videos/test.mp4"}
+        response = client.post("/api/v1/subtitle/generate", json=payload)
 
-        response = client.post("/api/v1/process/subtitle", files=files)
-
-        try:
-            assert response.status_code == 200
-            data = response.json()
-            assert data["filename"] == "evil.mp4"
-
-            video_path = Path(mock_queue.submit_task.await_args.kwargs["task_data"]["video_path"])
-            assert video_path.parent == config.paths.temp_dir
-            assert video_path.name.endswith("evil.mp4")
-            assert ".." not in video_path.name
-        finally:
-            _cleanup_submitted_file(mock_queue)
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "pending"
+        assert "task_id" in data
 
 
 class TestSummarizeEndpoint:

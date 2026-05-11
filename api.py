@@ -756,61 +756,6 @@ async def process_batch_videos(request: BatchProcessRequest):
     )
 
 
-@app.post("/api/v1/process/subtitle", response_model=TaskResponse)
-async def process_video_subtitle(file: UploadFile = File(...)):
-    """为视频添加字幕（异步队列版本）"""
-    allowed_extensions = [".mp4", ".avi", ".mkv", ".mov"]
-    safe_filename = _normalize_upload_filename(file)
-    file_ext = os.path.splitext(safe_filename)[1].lower()
-    if file_ext not in allowed_extensions:
-        raise HTTPException(
-            status_code=400,
-            detail=f"不支持的视频格式。支持的格式: {', '.join(allowed_extensions)}",
-        )
-
-    task_id = str(uuid.uuid4())
-    created_at = datetime.now().isoformat()
-
-    tasks[task_id] = {
-        "status": "pending",
-        "message": "视频上传中",
-        "created_at": created_at,
-        "filename": safe_filename,
-    }
-
-    temp_file_path = os.path.join(config.paths.temp_dir, f"{task_id}_{safe_filename}")
-    try:
-        with open(temp_file_path, "wb") as buffer:
-            shutil.copyfileobj(file.file, buffer)
-    except Exception as e:
-        tasks[task_id] = {
-            "status": "failed",
-            "message": f"文件保存失败: {str(e)}",
-            "created_at": created_at,
-        }
-        raise HTTPException(status_code=500, detail=f"文件保存失败: {str(e)}") from e
-
-    # ✅ 提交任务到异步队列（立即返回）
-    inference_queue = _get_inference_queue()
-    queued = await inference_queue.submit_task(
-        task_id=task_id,
-        task_type="subtitle",
-        task_data={"video_path": temp_file_path},
-        tasks_store=tasks,
-    )
-
-    if not queued:
-        return _build_task_response(task_id, tasks[task_id])
-
-    return TaskResponse(
-        task_id=task_id,
-        status="pending",
-        message="视频已上传，任务已提交到队列，正在等待处理",
-        created_at=created_at,
-        filename=safe_filename,
-    )
-
-
 @app.post("/api/v1/subtitle/generate", response_model=TaskResponse)
 async def process_subtitle_from_path(request: SubtitleGenerateRequest):
     """通过文件路径为视频添加字幕（异步队列版本）"""
