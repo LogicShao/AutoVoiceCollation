@@ -108,6 +108,7 @@ parcel-cache/
 .nuxt/
 dist/           # for frontend builds (if applicable)
 build/          # duplicated entry safe to keep
+package-lock.json
 
 # ============================
 # Static / generated files
