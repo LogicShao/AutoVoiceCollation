@@ -7,6 +7,7 @@
 1. `docs/deployment/docker.md`：Docker 部署与常见问题
 2. `docs/user-guide/api-usage.md`：API 端点与调用示例
 3. `docs/development/developer-guide.md`：本地开发、测试和代码结构
+4. `docs/development/wsl2-conda-mcp.md`：WSL2 + Windows Conda MCP 配置避坑指南
 
 ## 建议阅读路径
 

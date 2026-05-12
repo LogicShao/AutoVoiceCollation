@@ -78,7 +78,19 @@ When installing new dependencies in WSL, install to the user-specified Python en
 
 4. Never suppress type errors with `as any`, `@ts-ignore`, or `@ts-expect-error`.
 
+5. Never use emoji or special Unicode symbols (e.g., `✅ ❌ ⚠️ ✨ 🎯`) in logger output, print statements, error messages, or any text that appears in terminal/API responses. These characters break on CJK-unaware terminals and logging pipelines. Use plain ASCII alternatives like `[OK]`, `[WARN]`, `[ERR]`, `->`, etc.
+
 **Failure to pass any of these checks = task NOT complete.**
+
+### Human Review Workflow (MANDATORY)
+
+After writing code and passing all automated checks, you MUST:
+
+1. **Mark completion**: state "功能完成，等待人工验收" with a summary of changes.
+2. **Wait for approval**: do NOT proceed to next task until the maintainer replies.
+3. **After approval**: when the maintainer confirms, update the task to "功能验收通过".
+
+This ensures the maintainer has reviewed every change before you move on.
 
 ## Testing Guidelines
 

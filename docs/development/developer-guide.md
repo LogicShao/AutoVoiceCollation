@@ -30,6 +30,11 @@ cp .env.example .env
 
 至少配置一个可用 API Key（DeepSeek / Gemini / DashScope / Cerebras）。
 
+### 1.4 WSL2 + Windows Conda 用户注意
+
+如果通过 WSL2 调用 Windows Conda Python 运行 MCP Server，
+请务必阅读：[WSL2 + Windows Conda MCP 配置避坑指南](wsl2-conda-mcp.md)。
+
 ## 2. 本地运行
 
 ```bash

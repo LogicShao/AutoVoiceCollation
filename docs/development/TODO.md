@@ -1,6 +1,6 @@
 # TODO — AutoVoiceCollation v2.0
 
-更新时间：2026-05-09
+更新时间：2026-05-11
 
 ## 近期修复
 
@@ -8,60 +8,31 @@
 
 ---
 
-## 前端维护工具：清空队列 / 历史 / 临时文件 / 输出文件（1 天）
-
-> **背景**：后端已有清理函数（`TaskManager.clear_all()`、`clean_directory()`、`delete_record()`），
-> 但全部缺少 API 端点，前端也没有操作入口。
-
-### 现状盘点
-
-| 操作 | 后端函数 | API 端点 | 前端按钮 |
-|---|---|---|---|
-| 清空任务队列 | `TaskManager.clear_all()` ✅ | ❌ | ❌ |
-| 清空历史记录 | `delete_record()` 仅单条 ❌ | ❌ | ❌ |
-| 清理 temp 目录 | `clean_directory()` ✅ | ❌ | ❌ |
-| 清理 output 目录 | `clean_directory()` ✅ | ❌ | ❌ |
-| 清理 download 目录 | `clean_directory()` ✅ | ❌ | ❌ |
+## 前端维护工具 ✅ 已完成
 
 ### 步骤 1：后端补齐 API（0.3 天）
 
-- [ ] 在 `history/manager.py` 加 `clear_all() -> int` 方法（清空全部历史，返回清除条数）
-- [ ] 新增 `POST /api/v1/admin/clear-queue` — 取消所有任务 + 清空 `tasks = {}`，返回被清除的任务数
-- [ ] 新增 `POST /api/v1/admin/clear-history` — 调用 `history_manager.clear_all()`，返回清除条数
-- [ ] 新增 `POST /api/v1/admin/clean-temp` — 调用 `clean_directory(config.paths.temp_dir)`，返回清除文件数
-- [ ] 新增 `POST /api/v1/admin/clean-output` — 调用 `clean_directory(config.paths.output_dir)`，返回清除文件数
-- [ ] 新增 `POST /api/v1/admin/clean-download` — 调用 `clean_directory(config.paths.download_dir)`，返回清除文件数
-- [ ] 所有端点加确认参数 `confirm: bool = Form(False)`，前端传 `confirm=true` 才真正执行
+- [x] 在 `history/manager.py` 加 `clear_all() -> int` 方法
+- [x] 新增 `POST /api/v1/admin/clear-queue`
+- [x] 新增 `POST /api/v1/admin/clear-history`
+- [x] 新增 `POST /api/v1/admin/clean-temp`
+- [x] 新增 `POST /api/v1/admin/clean-output`
+- [x] 新增 `POST /api/v1/admin/clean-download`
+- [x] 所有端点加确认参数 `confirm: bool = Form(False)`
+- [x] 新增 `GET /api/v1/admin/stats` 统计端点
 
 ### 步骤 2：前端「维护」面板（0.4 天）
 
-- [ ] 在任务列表标签页底部加「维护工具」折叠区（`<details>`）
-- [ ] 四个操作按钮（每个按钮点击后弹出确认对话框）：
-  ```
-  ┌─ 维护工具 ──────────────────────────┐
-  │                                       │
-  │  📋 清空任务队列    [执行]   (3 个任务) │
-  │  📝 清空历史记录    [执行]   (12 条记录) │
-  │  🗑 清理临时文件    [执行]   (45 MB)    │
-  │  📁 清理输出目录    [执行]   (120 MB)   │
-  │  💾 清理下载缓存    [执行]   (80 MB)    │
-  │                                       │
-  └───────────────────────────────────────┘
-  ```
-- [ ] 每个按钮先 `GET` 查询统计（任务数/记录数/文件大小），显示在按钮旁
-- [ ] 点击后弹出 `confirm("确定要清空 XXX？此操作不可恢复。")`
-- [ ] 执行后刷新统计数字
+- [x] 在任务列表标签页底部加「维护工具」折叠区
+- [x] 5 个操作按钮，显示实时统计数字
+- [x] 点击弹出确认对话框
+- [x] 执行后自动刷新统计和任务列表
+- [x] 按钮执行中禁用（loading 状态 + 内联反馈消息）
 
 ### 步骤 3：安全加固（0.2 天）
 
-- [ ] 「清空输出目录」执行前确认 output_dir 路径以项目根目录开头（防止误删系统文件）
-- [ ] 操作日志记录（logger.info 写入谁在什么时候执行了什么操作）
-
-### 不做的
-
-- ~~定时自动清理~~ — 运维需求，cron 更适合
-- ~~选择性删除（勾选删除）~~ — 增加复杂度，MVP 全清即可
-- ~~用户权限控制~~ — 单用户本地工具，无需
+- [x] 「清空输出目录」执行前确认路径在项目根目录下
+- [x] 操作日志记录（logger.info）
 
 ---
 
