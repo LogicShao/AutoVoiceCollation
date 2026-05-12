@@ -57,14 +57,12 @@ class PauseBasedSegmenter(SubtitleSegmenter):
             over_length = len(current_text) >= self.config.max_chars_per_segment
             is_pause = next_pause > self.config.pause_threshold
 
-            if over_length or is_pause:
-                # 使用分词判断语义边界
-                if self._is_semantic_boundary(current_text) or is_pause:
-                    segments.append(
-                        SubtitleSegment(text=current_text, start_time=current_start, end_time=end)
-                    )
-                    current_chars = []
-                    current_text = ""
+            if (over_length and self._is_semantic_boundary(current_text)) or is_pause:
+                segments.append(
+                    SubtitleSegment(text=current_text, start_time=current_start, end_time=end)
+                )
+                current_chars = []
+                current_text = ""
 
         # 处理剩余部分
         if current_chars:
@@ -224,7 +222,6 @@ class LLMBasedSegmenter(SubtitleSegmenter):
             )
 
         full_text = asr_result.text
-        full_text_clean = full_text.replace(" ", "")
 
         # 将长文本切分为块
         text_chunks = smart_split(full_text, split_len=self.config.llm_split_len)

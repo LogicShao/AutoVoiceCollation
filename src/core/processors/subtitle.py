@@ -165,14 +165,14 @@ class SubtitleProcessor(BaseProcessor):
 
             # 构建返回信息
             info_lines = [
-                f"✅ 字幕文件已生成: {subtitle_path}",
+                f"字幕文件已生成: {subtitle_path}",
                 f"   - 格式: {file_type.upper()}",
                 f"   - ASR 模型: {model}",
                 f"   - 分段策略: {segmenter_type}",
             ]
 
             if video_with_subtitle:
-                info_lines.append(f"✅ 带字幕视频已生成: {video_with_subtitle}")
+                info_lines.append(f"带字幕视频已生成: {video_with_subtitle}")
 
             info_msg = "\n".join(info_lines)
             self.logger.info(f"字幕生成完成: {task_id}")

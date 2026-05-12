@@ -29,7 +29,7 @@ def _export_mindmap(txt: str, output_path: str, title: str | None = None) -> str
     """导出思维导图（内部函数，供 text_to_img_or_pdf 调用）"""
     import asyncio
 
-    from src.services.mindmap import generate_mindmap, export_mindmap_to_files
+    from src.services.mindmap import export_mindmap_to_files, generate_mindmap
 
     output = asyncio.run(generate_mindmap(text=txt, title=title))
     files = export_mindmap_to_files(output, output_path)

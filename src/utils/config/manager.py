@@ -119,7 +119,7 @@ class AppConfig(BaseConfig):
             message = "警告: 未配置任何 LLM API Key，某些功能可能无法使用"
             if self.enable_strict_validation:
                 raise ValueError(message)
-            print(f"⚠️  {message}")
+            print(f"[WARN] {message}")
 
 
 # 全局配置实例
