@@ -8,6 +8,7 @@ import asyncio
 import os
 import traceback
 from asyncio import Queue
+from contextlib import suppress
 from datetime import datetime
 from pathlib import Path
 from typing import Any, Optional
@@ -90,7 +91,7 @@ class InferenceQueue:
         """启动工作循环"""
         if self.worker_task is None or self.worker_task.done():
             self.worker_task = asyncio.create_task(self._worker_loop())
-            logger.info("✅ 推理工作线程已启动")
+            logger.info("推理工作线程已启动")
 
     async def stop(self):
         """停止工作循环"""
@@ -99,7 +100,8 @@ class InferenceQueue:
             try:
                 await self.worker_task
             except asyncio.CancelledError:
-                logger.info("推理工作线程已停止")
+                with suppress(ValueError):
+                    logger.info("推理工作线程已停止")
 
     async def submit_task(
         self,
@@ -269,13 +271,15 @@ class InferenceQueue:
                         await self._process_subtitle_task(task_id, task_data, tasks_store)
                     elif task_type == "multipart":
                         await self._process_multipart_task(task_id, task_data, tasks_store)
+                    elif task_type == "analyze_video":
+                        await self._process_analyze_video_task(task_id, task_data, tasks_store)
                     else:
                         raise ValueError(f"未知的任务类型: {task_type}")
 
                     if tasks_store.get(task_id, {}).get("status") == "cancelled":
                         logger.info(f"任务已取消: {task_id}")
                     else:
-                        logger.info(f"✅ 任务完成: {task_id}")
+                        logger.info(f"任务完成: {task_id}")
 
                 except TaskCancelledException as e:
                     logger.info(f"任务已取消: {task_id}: {e}")
@@ -625,6 +629,73 @@ class InferenceQueue:
         self._record_history(
             task_id, "multipart", data, result_data, result_data.get("output_dir", "")
         )
+
+    async def _process_analyze_video_task(self, task_id: str, data: dict, tasks_store: dict):
+        """处理视频分析任务 — 下载 + ASR + 润色 + 结构化分析"""
+        loop = asyncio.get_event_loop()
+
+        if not self.task_manager.task_exists(task_id):
+            self.task_manager.create_task(task_id)
+
+        tasks_store[task_id]["message"] = "正在下载并转写视频..."
+
+        output_data, extract_time, polish_time, zip_file = await loop.run_in_executor(
+            None,
+            self._get_video_processor().process,
+            data["video_url"],
+            data.get("llm_api", ""),
+            data.get("temperature", 0.1),
+            data.get("max_tokens", 6000),
+            False,
+            task_id,
+            data.get("output_style"),
+        )
+
+        if self._is_task_cancelled(task_id, tasks_store):
+            self._mark_task_cancelled(task_id, tasks_store)
+            return
+
+        output_dir = self._extract_output_dir(output_data)
+        polished_text = output_data.get("polished_text", "") if isinstance(output_data, dict) else ""
+        title = output_data.get("title", "") if isinstance(output_data, dict) else ""
+
+        if polished_text:
+            tasks_store[task_id]["message"] = "正在生成结构化分析..."
+            from src.services.analysis import generate_analysis
+
+            analysis = await generate_analysis(
+                polished_text=polished_text,
+                title=title,
+                transcript=output_data.get("audio_text", "") if isinstance(output_data, dict) else "",
+                output_dir=output_dir,
+            )
+
+            tasks_store[task_id].update({
+                "status": "completed",
+                "message": "视频分析完成",
+                "result": {
+                    "title": analysis.title,
+                    "summary": analysis.summary,
+                    "key_points": analysis.key_points,
+                    "segments": [s.model_dump() for s in analysis.segments],
+                    "output_dir": output_dir,
+                    "transcript": analysis.transcript,
+                    "extract_time": extract_time,
+                    "polish_time": polish_time,
+                },
+                "completed_at": datetime.now().isoformat(),
+            })
+        else:
+            tasks_store[task_id].update({
+                "status": "completed",
+                "message": "视频处理完成（无文本内容，跳过分析）",
+                "result": {
+                    "output_dir": output_dir,
+                    "extract_time": extract_time,
+                    "polish_time": polish_time,
+                },
+                "completed_at": datetime.now().isoformat(),
+            })
 
 
 # 全局单例

@@ -907,7 +907,7 @@ def _count_files(directory: str) -> int:
     if not _os.path.isdir(directory):
         return 0
     count = 0
-    for root, dirs, files in _os.walk(directory):
+    for _root, _dirs, files in _os.walk(directory):
         count += len(files)
     return count
 
@@ -1096,6 +1096,43 @@ async def generate_mindmap_endpoint(task_id: str):
         "mermaid_file": files.get("mermaid", ""),
         "json_file": files.get("json", ""),
         "structure": mindmap_output.root.model_dump(),
+    }
+
+
+@app.post("/api/v1/analyze/video")
+async def analyze_video_endpoint(video_url: str = Form(...)):
+    """分析B站视频：一键完成转写+LLM结构化分析"""
+    if not video_url or not video_url.strip():
+        raise HTTPException(status_code=400, detail="视频URL不能为空")
+
+    task_id = str(uuid.uuid4())
+    created_at = datetime.now().isoformat()
+
+    tasks[task_id] = {
+        "status": "pending",
+        "message": "分析任务已提交，等待处理",
+        "created_at": created_at,
+        "url": video_url.strip(),
+    }
+
+    inference_queue = _get_inference_queue()
+    await inference_queue.submit_task(
+        task_id=task_id,
+        task_type="analyze_video",
+        task_data={
+            "video_url": video_url.strip(),
+            "llm_api": config.llm.llm_server,
+            "temperature": config.llm.llm_temperature,
+            "max_tokens": config.llm.llm_max_tokens,
+        },
+        tasks_store=tasks,
+    )
+
+    return {
+        "task_id": task_id,
+        "status": "pending",
+        "message": "分析任务已提交，请通过 GET /api/v1/task/{task_id} 获取结果",
+        "created_at": created_at,
     }
 
 

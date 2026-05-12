@@ -8,7 +8,7 @@ from __future__ import annotations
 
 import json
 from dataclasses import dataclass
-from enum import Enum
+from enum import StrEnum
 from functools import lru_cache
 from pathlib import Path
 
@@ -30,12 +30,13 @@ class PromptSpec:
         return _safe_format(self.user_template, **kwargs)
 
 
-class PromptType(str, Enum):
+class PromptType(StrEnum):
     POLISH = "polish"
     SUMMARY = "summary"
     SUBTITLE_SEGMENT = "subtitle_segment"
     TITLE = "title"
     MINDMAP = "mindmap"
+    ANALYZE_VIDEO = "analyze_video"
 
 
 POLISH_SYSTEM_PROMPT = """你是一个高级语言处理助手，专注于文本清理与拼写修正。
@@ -113,6 +114,29 @@ MINDMAP_USER_TEMPLATE = """来源标题：{title}
 
 请基于以上内容生成思维导图 JSON。必须包含至少 2 个一级主题，每个主题下至少 2 个子要点。"""
 
+ANALYZE_VIDEO_SYSTEM_PROMPT = """你是一个专业的视频内容分析助手。任务是对转写文本进行结构化分析。
+
+规则：
+1. 摘要：用 200 字以内概括视频核心内容
+2. 关键点：提取 3-8 个核心观点，每条 20 字以内
+3. 分段：将内容分为 3-6 个主题段落，每段标注主题标签
+4. 严格输出 JSON 格式，不要包含任何解释或 Markdown 标记
+
+输出格式：
+{
+  "summary": "200字以内的摘要",
+  "key_points": ["观点1", "观点2", "观点3"],
+  "segments": [
+    {"start_time": 0, "end_time": 0, "text": "段落内容概括", "topic": "主题标签"}
+  ]
+}"""
+
+ANALYZE_VIDEO_USER_TEMPLATE = """视频标题：{title}
+转写文本：
+{text}
+
+请对以上内容进行结构化分析，输出 JSON。"""
+
 _DEFAULT_PROMPTS: dict[PromptType, PromptSpec] = {
     PromptType.POLISH: PromptSpec(system=POLISH_SYSTEM_PROMPT, user_template=POLISH_USER_TEMPLATE),
     PromptType.SUMMARY: PromptSpec(
@@ -125,6 +149,9 @@ _DEFAULT_PROMPTS: dict[PromptType, PromptSpec] = {
     PromptType.TITLE: PromptSpec(system=TITLE_SYSTEM_PROMPT, user_template=TITLE_USER_TEMPLATE),
     PromptType.MINDMAP: PromptSpec(
         system=MINDMAP_SYSTEM_PROMPT, user_template=MINDMAP_USER_TEMPLATE
+    ),
+    PromptType.ANALYZE_VIDEO: PromptSpec(
+        system=ANALYZE_VIDEO_SYSTEM_PROMPT, user_template=ANALYZE_VIDEO_USER_TEMPLATE
     ),
 }
 

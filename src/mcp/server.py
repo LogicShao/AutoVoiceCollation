@@ -1,6 +1,9 @@
 import asyncio
+import logging
 import os
+import sys
 import uuid
+from contextlib import suppress
 from datetime import datetime
 
 from mcp.server.fastmcp import FastMCP
@@ -10,6 +13,24 @@ from src.utils.config import get_config
 from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+def _fix_mcp_logging():
+    """Reconfigure logger for MCP stdio transport.
+
+    MCP uses stdout for JSONRPC protocol — logger must NOT write to stdout.
+    Redirect console handler to stderr and make it error-tolerant so shutdown
+    after transport close doesn't crash.
+    """
+    for handler in logger.handlers:
+        if isinstance(handler, logging.StreamHandler) and handler.stream is sys.stdout:
+            handler.stream = sys.stderr
+
+    # Silence handleError tracebacks on closed stream
+    logging.raiseExceptions = False
+
+
+_fix_mcp_logging()
 config = get_config()
 
 mcp = FastMCP("AutoVoiceCollation")
@@ -172,7 +193,8 @@ async def generate_mindmap(task_id: str) -> dict:
     if not text:
         return {"error": "任务结果中没有可用的文本内容"}
 
-    from src.services.mindmap import export_mindmap_to_files, generate_mindmap as _gen
+    from src.services.mindmap import export_mindmap_to_files
+    from src.services.mindmap import generate_mindmap as _gen
 
     output_dir = result.get("output_dir", f"./out/{task_id}")
     output = await _gen(text=text, title=title)
@@ -187,10 +209,29 @@ async def generate_mindmap(task_id: str) -> dict:
     }
 
 
+@mcp.tool()
+async def analyze_video(url: str) -> dict:
+    """分析B站视频：一键完成转写+LLM结构化分析，返回 title/summary/key_points/segments"""
+    if not url.strip():
+        return {"error": "URL 不能为空"}
+
+    task_id = await _submit_task(
+        "analyze_video",
+        {
+            "video_url": url.strip(),
+            "llm_api": config.llm.llm_server,
+            "temperature": config.llm.llm_temperature,
+            "max_tokens": config.llm.llm_max_tokens,
+        },
+    )
+    return {"task_id": task_id, "status": "pending", "message": "分析任务已提交，请通过 get_task_status 获取结果"}
+
+
 async def _startup():
     queue = _get_or_create_queue()
     await queue.start()
-    logger.info("推理队列已启动")
+    with suppress(ValueError):
+        logger.info("推理队列已启动")
 
 
 async def _shutdown():
@@ -198,7 +239,8 @@ async def _shutdown():
     if _queue is not None:
         await _queue.stop()
         _queue = None
-        logger.info("推理队列已停止")
+        with suppress(ValueError):
+            logger.info("推理队列已停止")
 
 
 def main():
