@@ -437,4 +437,6 @@ class AudioProcessor(BaseProcessor):
             raise ValueError("请上传一个音频文件。")
 
         audio_file = new_local_bili_file(audio_path)
-        return self.process(audio_file, llm_api, temperature, max_tokens, text_only, task_id, output_style)
+        return self.process(
+            audio_file, llm_api, temperature, max_tokens, text_only, task_id, output_style
+        )

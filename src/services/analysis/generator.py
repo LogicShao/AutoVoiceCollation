@@ -60,9 +60,7 @@ async def generate_analysis(
         transcript=transcript,
         summary=data.get("summary", ""),
         key_points=data.get("key_points", []),
-        segments=[
-            VideoSegment(**s) for s in data.get("segments", []) if isinstance(s, dict)
-        ],
+        segments=[VideoSegment(**s) for s in data.get("segments", []) if isinstance(s, dict)],
         output_dir=output_dir,
     )
 

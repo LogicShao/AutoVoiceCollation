@@ -57,7 +57,9 @@ class ASRConfig(BaseConfig):
     use_onnx: bool = Field(default=False, description="是否启用 ONNX 推理")
 
     # VAD 配置（语音活动检测，跳过静音段提升 ASR 精度）
-    enable_vad: bool = Field(default=False, description="是否启用 VAD 预处理（需要 funasr fsmn-vad）")
+    enable_vad: bool = Field(
+        default=False, description="是否启用 VAD 预处理（需要 funasr fsmn-vad）"
+    )
 
     onnx_providers: str = Field(default="", description="ONNX 执行提供者（逗号分隔）")
 

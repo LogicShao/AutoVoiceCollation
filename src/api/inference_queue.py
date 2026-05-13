@@ -231,9 +231,7 @@ class InferenceQueue:
                     outputs=result,
                 )
         except Exception as e:
-            logger.warning(
-                f"Failed to record history for task {task_id}: {e}", exc_info=True
-            )
+            logger.warning(f"Failed to record history for task {task_id}: {e}", exc_info=True)
 
     async def _worker_loop(self):
         """工作循环：持续从队列取任务并执行"""
@@ -575,9 +573,11 @@ class InferenceQueue:
             }
         )
         self._record_history(
-            task_id, "subtitle", data,
+            task_id,
+            "subtitle",
+            data,
             {"subtitle_file": subtitle_path, "output_video": video_path},
-            os.path.dirname(data.get("video_path", ""))
+            os.path.dirname(data.get("video_path", "")),
         )
 
     async def _process_multipart_task(self, task_id: str, data: dict, tasks_store: dict):
@@ -656,7 +656,9 @@ class InferenceQueue:
             return
 
         output_dir = self._extract_output_dir(output_data)
-        polished_text = output_data.get("polished_text", "") if isinstance(output_data, dict) else ""
+        polished_text = (
+            output_data.get("polished_text", "") if isinstance(output_data, dict) else ""
+        )
         title = output_data.get("title", "") if isinstance(output_data, dict) else ""
 
         if polished_text:
@@ -666,36 +668,42 @@ class InferenceQueue:
             analysis = await generate_analysis(
                 polished_text=polished_text,
                 title=title,
-                transcript=output_data.get("audio_text", "") if isinstance(output_data, dict) else "",
+                transcript=output_data.get("audio_text", "")
+                if isinstance(output_data, dict)
+                else "",
                 output_dir=output_dir,
             )
 
-            tasks_store[task_id].update({
-                "status": "completed",
-                "message": "视频分析完成",
-                "result": {
-                    "title": analysis.title,
-                    "summary": analysis.summary,
-                    "key_points": analysis.key_points,
-                    "segments": [s.model_dump() for s in analysis.segments],
-                    "output_dir": output_dir,
-                    "transcript": analysis.transcript,
-                    "extract_time": extract_time,
-                    "polish_time": polish_time,
-                },
-                "completed_at": datetime.now().isoformat(),
-            })
+            tasks_store[task_id].update(
+                {
+                    "status": "completed",
+                    "message": "视频分析完成",
+                    "result": {
+                        "title": analysis.title,
+                        "summary": analysis.summary,
+                        "key_points": analysis.key_points,
+                        "segments": [s.model_dump() for s in analysis.segments],
+                        "output_dir": output_dir,
+                        "transcript": analysis.transcript,
+                        "extract_time": extract_time,
+                        "polish_time": polish_time,
+                    },
+                    "completed_at": datetime.now().isoformat(),
+                }
+            )
         else:
-            tasks_store[task_id].update({
-                "status": "completed",
-                "message": "视频处理完成（无文本内容，跳过分析）",
-                "result": {
-                    "output_dir": output_dir,
-                    "extract_time": extract_time,
-                    "polish_time": polish_time,
-                },
-                "completed_at": datetime.now().isoformat(),
-            })
+            tasks_store[task_id].update(
+                {
+                    "status": "completed",
+                    "message": "视频处理完成（无文本内容，跳过分析）",
+                    "result": {
+                        "output_dir": output_dir,
+                        "extract_time": extract_time,
+                        "polish_time": polish_time,
+                    },
+                    "completed_at": datetime.now().isoformat(),
+                }
+            )
 
 
 # 全局单例

@@ -56,7 +56,9 @@ class LLMConfig(BaseConfig):
 
     # 支持的 LLM 服务列表（自动从 LLM_MODELS 生成）
     llm_server_supported: list[str] = Field(
-        default_factory=lambda: list(__import__("src.services.llm.models", fromlist=["LLM_MODELS"]).LLM_MODELS.keys()),
+        default_factory=lambda: list(
+            __import__("src.services.llm.models", fromlist=["LLM_MODELS"]).LLM_MODELS.keys()
+        ),
         description="支持的 LLM 服务列表",
     )
 

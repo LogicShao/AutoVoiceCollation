@@ -875,6 +875,7 @@ async def get_history_stats():
 # 维护工具 API
 # ============================================================
 
+
 @app.post("/api/v1/admin/clear-queue")
 async def clear_task_queue(confirm: bool = Form(False)):
     """清空所有任务队列"""

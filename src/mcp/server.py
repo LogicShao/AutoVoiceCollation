@@ -46,7 +46,18 @@ async def process_audio(file_path: str) -> dict:
     if not os.path.isfile(file_path):
         return {"error": f"文件不存在: {file_path}"}
     ext = os.path.splitext(file_path)[1].lower()
-    if ext not in (".mp3", ".wav", ".m4a", ".flac", ".mp4", ".avi", ".mkv", ".mov", ".webm", ".flv"):
+    if ext not in (
+        ".mp3",
+        ".wav",
+        ".m4a",
+        ".flac",
+        ".mp4",
+        ".avi",
+        ".mkv",
+        ".mov",
+        ".webm",
+        ".flv",
+    ):
         return {"error": f"不支持的文件格式: {ext}"}
     try:
         async with httpx.AsyncClient(timeout=httpx.Timeout(30)) as client:
@@ -106,6 +117,7 @@ async def generate_mindmap(task_id: str) -> dict:
         return {"error": "任务结果中没有可用的文本内容"}
     from src.services.mindmap import export_mindmap_to_files
     from src.services.mindmap import generate_mindmap as _gen
+
     output_dir = result.get("output_dir", f"./out/{task_id}")
     output = await _gen(text=text, title=title)
     files = export_mindmap_to_files(output, output_dir)

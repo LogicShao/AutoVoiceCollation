@@ -30,9 +30,7 @@ class VADService:
         try:
             from funasr import AutoModel
         except Exception as exc:
-            raise RuntimeError(
-                "未能导入 funasr.AutoModel。请确认已安装 funasr 及其依赖。"
-            ) from exc
+            raise RuntimeError("未能导入 funasr.AutoModel。请确认已安装 funasr 及其依赖。") from exc
 
         config = get_config()
         kwargs = {

@@ -141,7 +141,12 @@ def _init_local_llm():
                 {"role": "system", "content": params.system_instruction},
                 {"role": "user", "content": params.content},
             ]
-            out = pipe(messages, temperature=params.temperature, max_new_tokens=params.max_tokens, do_sample=True)
+            out = pipe(
+                messages,
+                temperature=params.temperature,
+                max_new_tokens=params.max_tokens,
+                do_sample=True,
+            )
             return out[0]["generated_text"][-1]["content"].strip()
 
         _local_llm_func = _query_local
@@ -250,9 +255,10 @@ async def _query_openai_compatible_async(
     }
 
     timeout = aiohttp.ClientTimeout(total=120)
-    async with aiohttp.ClientSession(timeout=timeout) as session, session.post(
-        f"{base_url}/chat/completions", json=payload, headers=headers
-    ) as resp:
+    async with (
+        aiohttp.ClientSession(timeout=timeout) as session,
+        session.post(f"{base_url}/chat/completions", json=payload, headers=headers) as resp,
+    ):
         data = await resp.json()
         if "choices" not in data:
             raise RuntimeError(f"LLM API error: {data}")
@@ -262,9 +268,7 @@ async def _query_openai_compatible_async(
 async def query_llm_async(params: LLMQueryParams) -> str:
     api_server = params.api_server
     if api_server not in LLM_MODELS:
-        raise ValueError(
-            f"Unsupported LLM API: {api_server}. Supported: {list(LLM_MODELS.keys())}"
-        )
+        raise ValueError(f"Unsupported LLM API: {api_server}. Supported: {list(LLM_MODELS.keys())}")
     cfg = LLM_MODELS[api_server]
     provider = cfg["provider"]
     model_id = cfg["model_id"]

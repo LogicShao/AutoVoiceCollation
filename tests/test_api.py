@@ -311,12 +311,13 @@ class TestSubtitleEndpoint:
         assert "task_id" in data
         assert data["status"] == "pending"
 
-
     @patch("api._get_inference_queue")
     @patch("shutil.copy2")
     @patch("os.path.isfile", return_value=True)
     @patch("os.path.exists", return_value=True)
-    def test_generate_subtitle_queued(self, mock_exists, mock_isfile, mock_copy, mock_get_queue, client):
+    def test_generate_subtitle_queued(
+        self, mock_exists, mock_isfile, mock_copy, mock_get_queue, client
+    ):
         """测试字幕任务成功入队"""
         mock_queue = mock_get_queue.return_value
         mock_queue.submit_task = AsyncMock(return_value=True)
