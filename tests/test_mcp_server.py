@@ -5,10 +5,9 @@ import pytest
 
 class TestMcpServerImports:
     def test_module_imports(self):
-        from src.mcp.server import main, mcp, tasks
+        from src.mcp.server import main, mcp
 
         assert mcp is not None
-        assert isinstance(tasks, dict)
         assert callable(main)
 
     def test_tools_registered(self):
