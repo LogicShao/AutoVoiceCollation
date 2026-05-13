@@ -1,0 +1,39 @@
+#!/usr/bin/env bash
+
+set -e
+
+echo "[LINT] Running Ruff check..."
+
+RUFF_CMD=""
+
+# 1. Prefer ruff from current shell environment
+if command -v ruff >/dev/null 2>&1; then
+  RUFF_CMD="ruff"
+# 2. WSL -> use Windows conda Python
+elif grep -qi microsoft /proc/version 2>/dev/null && [ -x "/mnt/d/conda_envs/autovoicecollation/python.exe" ]; then
+  RUFF_CMD="/mnt/d/conda_envs/autovoicecollation/python.exe -m ruff"
+# 3. Git Bash / Windows shell
+elif [ -x "/d/conda_envs/autovoicecollation/python.exe" ]; then
+  RUFF_CMD="/d/conda_envs/autovoicecollation/python.exe -m ruff"
+elif [ -x "D:/conda_envs/autovoicecollation/python.exe" ]; then
+  RUFF_CMD="D:/conda_envs/autovoicecollation/python.exe -m ruff"
+else
+  echo "[FAIL] Cannot find Ruff."
+  echo "Install Ruff or ensure the project Python environment is available."
+  exit 1
+fi
+
+STAGED_PY_FILES=$(git diff --cached --name-only --diff-filter=ACM | grep '\.py$' || true)
+
+if [ -z "$STAGED_PY_FILES" ]; then
+  echo "[OK] No Python files to check"
+  exit 0
+fi
+
+# shellcheck disable=SC2086
+$RUFF_CMD check $STAGED_PY_FILES
+echo "[OK] Ruff lint passed"
+
+# shellcheck disable=SC2086
+$RUFF_CMD format --check $STAGED_PY_FILES
+echo "[OK] Ruff format passed"
