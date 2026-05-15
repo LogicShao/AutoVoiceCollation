@@ -18,6 +18,7 @@ document.addEventListener('alpine:init', () => {
     outputStyle: 'pdf_only',
     enablePolish: true,
     enableSummary: true,
+    promptHint: '',
 
     // 多P视频相关状态
     multiPartInfo: null,
@@ -87,7 +88,8 @@ document.addEventListener('alpine:init', () => {
             video_url: this.biliUrl,
             output_style: this.outputStyle,
             disable_llm_polish: !this.enablePolish,
-            disable_llm_summary: !this.enableSummary
+            disable_llm_summary: !this.enableSummary,
+            prompt_hint: this.promptHint || undefined
           })
         });
 
@@ -172,7 +174,8 @@ document.addEventListener('alpine:init', () => {
             selected_parts: this.selectedParts.map(p => Number(p)),
             output_style: this.outputStyle,
             disable_llm_polish: !this.enablePolish,
-            disable_llm_summary: !this.enableSummary
+            disable_llm_summary: !this.enableSummary,
+            prompt_hint: this.promptHint || undefined
           })
         });
 
@@ -270,6 +273,7 @@ document.addEventListener('alpine:init', () => {
       formData.append('output_style', this.outputStyle);
       formData.append('disable_llm_polish', (!this.enablePolish).toString());
       formData.append('disable_llm_summary', (!this.enableSummary).toString());
+      if (this.promptHint) formData.append('prompt_hint', this.promptHint);
 
       try {
         const response = await fetch('/api/v1/process/audio', {
@@ -317,7 +321,8 @@ document.addEventListener('alpine:init', () => {
             urls,
             output_style: this.outputStyle,
             disable_llm_polish: !this.enablePolish,
-            disable_llm_summary: !this.enableSummary
+            disable_llm_summary: !this.enableSummary,
+            prompt_hint: this.promptHint || undefined
           })
         });
 

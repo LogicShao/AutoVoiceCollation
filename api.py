@@ -248,6 +248,7 @@ class BilibiliVideoRequest(BaseModel):
     output_style: str | None = Field(default=None, description="输出样式")
     disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
     disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
+    prompt_hint: str | None = Field(default=None, description="Agent 分析方向提示词")
 
 
 class BatchProcessRequest(BaseModel):
@@ -264,6 +265,7 @@ class BatchProcessRequest(BaseModel):
     output_style: str | None = Field(default=None, description="输出样式")
     disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
     disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
+    prompt_hint: str | None = Field(default=None, description="Agent 分析方向提示词")
 
 
 class MultiPartVideoRequest(BaseModel):
@@ -280,6 +282,7 @@ class MultiPartVideoRequest(BaseModel):
     output_style: str | None = Field(default=None, description="输出样式")
     disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
     disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
+    prompt_hint: str | None = Field(default=None, description="Agent 分析方向提示词")
 
 
 class SubtitleGenerateRequest(BaseModel):
@@ -403,6 +406,7 @@ async def process_bilibili_video(request: BilibiliVideoRequest):
             "output_style": request.output_style,
             "disable_llm_polish": request.disable_llm_polish,
             "disable_llm_summary": request.disable_llm_summary,
+            "prompt_hint": request.prompt_hint or "",
         },
         tasks_store=tasks,  # 引用传递，队列可直接更新状态
     )
@@ -574,6 +578,7 @@ async def process_multi_part_video(request: MultiPartVideoRequest):
             "output_style": request.output_style,
             "disable_llm_polish": request.disable_llm_polish,
             "disable_llm_summary": request.disable_llm_summary,
+            "prompt_hint": request.prompt_hint or "",
         },
         tasks_store=tasks,
     )
@@ -601,6 +606,7 @@ async def process_audio_file(
     output_style: str = Form(default=config.output_style),
     disable_llm_polish: bool = Form(default=config.llm.disable_llm_polish),
     disable_llm_summary: bool = Form(default=config.llm.disable_llm_summary),
+    prompt_hint: str = Form(default=""),
 ):
     """处理上传的音频/视频文件（视频会自动提取音频）（异步队列版本）"""
     # 支持音频和视频格式
@@ -689,6 +695,7 @@ async def process_audio_file(
             "output_style": output_style,
             "disable_llm_polish": disable_llm_polish,
             "disable_llm_summary": disable_llm_summary,
+            "prompt_hint": prompt_hint,
         },
         tasks_store=tasks,
     )
@@ -740,6 +747,7 @@ async def process_batch_videos(request: BatchProcessRequest):
             "output_style": request.output_style,
             "disable_llm_polish": request.disable_llm_polish,
             "disable_llm_summary": request.disable_llm_summary,
+            "prompt_hint": request.prompt_hint or "",
         },
         tasks_store=tasks,
     )
@@ -1101,7 +1109,7 @@ async def generate_mindmap_endpoint(task_id: str):
 
 
 @app.post("/api/v1/analyze/video")
-async def analyze_video_endpoint(video_url: str = Form(...)):
+async def analyze_video_endpoint(video_url: str = Form(...), prompt_hint: str = Form(default="")):
     """分析B站视频：一键完成转写+LLM结构化分析"""
     if not video_url or not video_url.strip():
         raise HTTPException(status_code=400, detail="视频URL不能为空")
@@ -1125,6 +1133,7 @@ async def analyze_video_endpoint(video_url: str = Form(...)):
             "llm_api": config.llm.llm_server,
             "temperature": config.llm.llm_temperature,
             "max_tokens": config.llm.llm_max_tokens,
+            "prompt_hint": prompt_hint,
         },
         tasks_store=tasks,
     )

@@ -672,6 +672,7 @@ class InferenceQueue:
                 if isinstance(output_data, dict)
                 else "",
                 output_dir=output_dir,
+                prompt_hint=data.get("prompt_hint", ""),
             )
 
             tasks_store[task_id].update(

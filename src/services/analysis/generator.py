@@ -35,10 +35,13 @@ async def generate_analysis(
     title: str,
     transcript: str = "",
     output_dir: str = "",
+    prompt_hint: str = "",
 ) -> VideoAnalysis:
     config = get_config()
     prompt_spec = get_prompt(PromptType.ANALYZE_VIDEO)
     system_instruction = prompt_spec.render_system()
+    if prompt_hint.strip():
+        system_instruction += f"\n\n---\n[Agent 指令]\n{prompt_hint.strip()[:500]}"
     user_content = prompt_spec.render_user(text=polished_text, title=title)
 
     params = LLMQueryParams(

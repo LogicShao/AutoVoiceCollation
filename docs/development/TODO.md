@@ -57,22 +57,13 @@
 - [x] 测试 `get_task_status` 轮询，确认链路：提交 → 等待 → 获取结果
   - 5 个 Tool 全部注册：process_bilibili / process_audio / process_batch / get_task_status / cancel_task
 
-### 阶段 1：结构化分析 Tool（3 天）
+### 阶段 1：结构化分析 Tool ✅ 已完成（2026-05-12）
 
-- [ ] 新增 `analyze_video(url)` MCP Tool — 一步完成"转写 + LLM 分析"
-- [ ] 定义 Pydantic 输出模型 `VideoAnalysis`：
-  ```
-  {
-    "title": "...",
-    "transcript": "完整转写文本",
-    "summary": "200字摘要",
-    "key_points": ["要点1", "要点2", ...],
-    "segments": [{"start": 0, "end": 30, "text": "...", "topic": "..."}],
-    "output_dir": "/path/to/output"
-  }
-  ```
-- [ ] 内部复用 inference_queue 提交任务 + 轮询完成
-- [ ] 完成后用 `SUMMARY_LLM_SERVER` 做摘要 + 关键点提取
+- [x] 新增 `analyze_video(url)` MCP Tool — 一步完成"转写 + LLM 分析"
+- [x] 定义 Pydantic 输出模型 `VideoAnalysis`（title/transcript/summary/key_points/segments）
+- [x] 内部复用 inference_queue 提交任务 + 轮询完成
+- [x] 完成后用 `SUMMARY_LLM_SERVER` 做摘要 + 关键点提取
+- [x] 已上线验证：Hermes 调用成功返回 6 条 key_points + 3 个 segments
 - [ ] 添加 JSON Schema 输出验证
 
 ### 阶段 2：Hermes Skill 封装（1 天）
@@ -86,6 +77,25 @@
 - [ ] 新增 `check_channel(channel_url)` MCP Tool — 返回频道新视频列表
 - [ ] 去重逻辑：通过 history manager 跳过已处理视频
 - [ ] Hermes Cron 配置模板：定时 check + analyze 流水线
+
+---
+
+### B站搜索接口（0.2 天）
+
+> **解锁搜索→分析流水线**：用户给主题，Agent 搜索视频 → 选择 → analyze_video → 聚合报告。
+
+- [ ] 新增 MCP Tool: `search_bilibili(keyword, max_results=10)` → `[{bv_id, title, duration, play_count, description}]`
+- [ ] 调用 B站公开搜索 API（无需登录）
+- [ ] 实现位置：`src/mcp/server.py`，约 30 行
+- [ ] 前端可选：搜索框 + 结果列表（P2，Agent 优先）
+
+**工作原理**：
+```
+Hermes: "研究一下 AI Agent 的最新进展"
+→ search_bilibili("AI Agent") → 返回 10 个视频
+→ 用户/Agent 选 3 个
+→ 逐个 analyze_video → 聚合摘要 → 研究报告
+```
 
 ---
 
@@ -192,6 +202,11 @@
 - [x] 思维导图生成 — LLM 提取层级主题 + Mermaid/JSON 输出
 - [x] 前端配置开关 — output_style / LLM润色 / LLM摘要 暴露到 Web UI
 - [x] PDF 段落排版修复 — polish prompt 增加自然分段规则，消除整墙文字
+- [x] Phase 1 analyze_video — 结构化分析 MCP Tool + VideoAnalysis 模型
+- [x] MCP 架构重构 — 从嵌入式队列改为 HTTP 代理层（解决任务丢失问题）
+- [x] MCP 完善 — get_task_status 直接返回文本 + 5 个 Resource（avc://task/{id}/...）
+- [x] prompt_hint — Agent 通过 prompt_hint 参数控制 LLM 分析方向
+- [x] Code Review 修复 — 超时、ruff 警告、死代码清理、pre-commit hook 跨平台
 
 ---
 

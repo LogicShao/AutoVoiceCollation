@@ -44,22 +44,15 @@ async def generate_mindmap(
     source_url: str | None = None,
     max_topics: int = 5,
     max_sub_points: int = 4,
+    prompt_hint: str = "",
 ) -> MindMapOutput:
-    """
-    从转写文本生成思维导图
-
-    Args:
-        text: 转写文本内容
-        title: 视频/音频标题（可选，用于根节点）
-        source_url: 来源 URL（可选，存入 metadata）
-        max_topics: 最大一级主题数
-        max_sub_points: 每个主题最大子要点数
-    """
     config = get_config()
     prompt_spec = get_prompt(PromptType.MINDMAP)
     system_instruction = prompt_spec.render_system(
         max_topics=max_topics, max_sub_points=max_sub_points
     )
+    if prompt_hint.strip():
+        system_instruction += f"\n\n---\n[Agent 指令]\n{prompt_hint.strip()[:500]}"
     user_content = prompt_spec.render_user(text=text, title=title or "未命名")
 
     params = LLMQueryParams(

@@ -138,6 +138,7 @@ nul
 # Project-specific / custom
 # ============================
 .claude/
+.sisyphus/
 *.ini
 
 # ============================
