@@ -80,13 +80,13 @@
 
 ---
 
-### B站搜索接口（0.2 天）
+### B站搜索接口 ✅ 已完成（2026-05-15）
 
 > **解锁搜索→分析流水线**：用户给主题，Agent 搜索视频 → 选择 → analyze_video → 聚合报告。
 
-- [ ] 新增 MCP Tool: `search_bilibili(keyword, max_results=10)` → `[{bv_id, title, duration, play_count, description}]`
-- [ ] 调用 B站公开搜索 API（无需登录）
-- [ ] 实现位置：`src/mcp/server.py`，约 30 行
+- [x] 新增 MCP Tool: `search_bilibili(keyword, max_results=10)` → `[{bvid, title, duration, play_count, description, author, url}]`
+- [x] 调用 B站公开搜索 API（WBI 签名 + buvid3 cookie，无需登录）
+- [x] 实现位置：`src/mcp/bilibili_api.py`（135 行，WBI 签名 + HTTpx 会话管理） + `src/mcp/server.py`（7 行，Tool 注册）
 - [ ] 前端可选：搜索框 + 结果列表（P2，Agent 优先）
 
 **工作原理**：
@@ -207,6 +207,7 @@ Hermes: "研究一下 AI Agent 的最新进展"
 - [x] MCP 完善 — get_task_status 直接返回文本 + 5 个 Resource（avc://task/{id}/...）
 - [x] prompt_hint — Agent 通过 prompt_hint 参数控制 LLM 分析方向
 - [x] Code Review 修复 — 超时、ruff 警告、死代码清理、pre-commit hook 跨平台
+- [x] search_bilibili — B站视频搜索 MCP Tool（WBI 签名 + buvid3，无需登录）
 
 ---
 

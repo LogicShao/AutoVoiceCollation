@@ -7,6 +7,7 @@ import os
 import httpx
 from mcp.server.fastmcp import FastMCP
 
+from src.mcp.bilibili_api import search_videos
 from src.utils.config import get_config
 from src.utils.logging.logger import get_logger
 
@@ -181,6 +182,12 @@ async def analyze_video(url: str, prompt_hint: str = "") -> dict:
     if prompt_hint:
         data["prompt_hint"] = prompt_hint
     return await _api("POST", "/api/v1/analyze/video", data=data)
+
+
+@mcp.tool()
+async def search_bilibili(keyword: str, max_results: int = 10) -> dict:
+    """搜索B站视频，返回匹配视频的 bvid/title/duration/play_count/description/author/url 列表"""
+    return await search_videos(keyword=keyword, max_results=max_results)
 
 
 @mcp.tool()
