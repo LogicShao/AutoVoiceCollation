@@ -1,10 +1,122 @@
 # TODO — AutoVoiceCollation v2.0
 
-更新时间：2026-05-11
+更新时间：2026-06-02
 
 ## 近期修复
 
 - [x] **前端 checkbox 与标签文字间距过近** — 8 处 `gap-2` → `gap-3`（0.5rem → 0.75rem）
+
+---
+
+## 生产质量提升（2026-06-02 评估后）
+
+> **当前结论**：`out/` 缓存显示润色文本基本可用，但默认摘要 prompt 会输出哲学小论文，短文本会被严重扩写；同时存在重复输出目录和未完成产物。当前质量适合内部试用/演示，不适合作为稳定生产默认输出。
+
+### P0: 生产级摘要与质量门控（0.8 天）
+
+> **问题 1**：`SUMMARY_SYSTEM_PROMPT` 明确要求“具有哲学深度和辩证张力的小论文”，导致摘要偏评论化、解释化，不适合作为 Agent/用户消费的知识摘要。
+> **问题 2**：极短转写也会进入摘要流程，例如 `BV1xx411c7mD` 原始转写仅 10 字，却生成 1600+ 字摘要，属于明显幻觉扩写。
+
+**步骤 1：摘要 prompt 生产化（0.25 天）**
+
+- [ ] 将默认 `SUMMARY_SYSTEM_PROMPT` 改为生产级摘要：核心内容、关键事实、关键点、可选行动项
+- [ ] 禁止无依据扩写：摘要只能基于原文，不允许哲学化、评论化、隐喻化发挥
+- [ ] 输出格式稳定：Markdown 标题 + `## 摘要` + `## 关键点` + `## 细节/行动项`
+- [ ] 保留自定义 prompt override 能力，允许用户在 `prompt_dir/summary.json` 中覆盖风格
+
+**步骤 2：短文本与低质量转写门控（0.2 天）**
+
+- [ ] 新增摘要前置校验：`len(polished_text.strip()) < 200` 时跳过 LLM 摘要
+- [ ] 跳过时返回明确文案：`内容过短，无法生成可靠摘要`
+- [ ] 对 `audio_transcription.txt` 低于阈值的任务，在结果中标记 `quality_warning`
+- [ ] 避免短文本仍生成 PDF 长篇摘要
+
+**步骤 3：结构化分析优先路径（0.2 天）**
+
+- [ ] 默认生产消费优先使用 `generate_analysis` / `VideoAnalysis` 的结构化输出
+- [ ] `summary_text.md` 只作为人类阅读版本，不作为 Agent 主消费字段
+- [ ] `get_task_status` / MCP Resource 保留 `summary`、`key_points`、`segments` 的结构化字段
+
+**步骤 4：验收（0.15 天）**
+
+- [ ] 使用 `BV1xx411c7mD` 验证短文本不再生成长摘要
+- [ ] 使用 `BV1RHGH6DEPy` 验证 AI 新闻摘要不再变成哲学小论文
+- [ ] 使用 `BV1cSLJ6vErH` 验证长内容摘要能保留职业规划、简历修改、实习建议等核心信息
+- [ ] 全量跑 `ruff check` + `pytest tests/ -q`
+
+---
+
+### P1: 输出状态与缓存治理（0.7 天）
+
+> **问题**：`out/` 中存在重复目录和半成品目录，例如 `BV16cNEeXEer` 只有 `audio_transcription.txt`，没有润色、摘要和 PDF；重复处理会产生 `_1`、`_2` 目录，但历史记录只指向最新一次。
+
+**步骤 1：输出状态文件（0.25 天）**
+
+- [ ] 每个输出目录生成 `result.json`
+- [ ] 记录 `status`: `completed` / `partial` / `failed`
+- [ ] 记录 `source_url`、`title`、`bvid`、`created_at`、`completed_at`
+- [ ] 记录 `audio_chars`、`polish_chars`、`summary_chars`、`has_pdf`、`has_zip`
+- [ ] 记录模型配置：ASR、LLM、temperature、max_tokens、output_style
+
+**步骤 2：半成品识别（0.15 天）**
+
+- [ ] 任务失败或中断时写入 `result.json.status = failed`
+- [ ] 缺少 `polish_text.txt` 或 PDF 时标记 `partial`
+- [ ] 历史记录中暴露 `quality_warning` 和 `output_status`
+
+**步骤 3：缓存清理策略（0.2 天）**
+
+- [ ] 每个 BVID 默认保留最近 3 次输出，旧目录进入可清理列表
+- [ ] 新增 dry-run 清理接口/脚本：只列出候选，不直接删除
+- [ ] 后台维护面板显示重复目录、半成品目录、总缓存大小
+
+**步骤 4：验收（0.1 天）**
+
+- [ ] 对现有 `out/` 扫描，能识别 `BV16cNEeXEer` 为半成品
+- [ ] 能识别 `BV1cSLJ6vErH`、`BV1Ct421E7js`、`BV1xx411c7mD` 的重复输出目录
+- [ ] dry-run 不删除任何文件，只输出候选清单
+
+---
+
+### P2: 生产质量评估集（0.6 天）
+
+> **问题**：目前只有功能测试，缺少固定样本的输出质量回归；prompt 或模型变更后无法量化质量是否变好。
+
+**步骤 1：样本集定义（0.15 天）**
+
+- [ ] 建立 `tests/fixtures/quality_samples/`，保存小型文本样本，不依赖真实音频
+- [ ] 样本覆盖：极短文本、AI 新闻短视频、职业规划长视频、游戏口语视频
+- [ ] 为每个样本定义期望：摘要长度范围、关键点数量、禁止词/禁止风格
+
+**步骤 2：摘要质量断言（0.2 天）**
+
+- [ ] 测试短文本必须跳过摘要
+- [ ] 测试摘要长度不得超过原文的合理比例
+- [ ] 测试摘要不得出现“哲学”“主体锻造”“存在论”等默认风格污染词
+- [ ] 测试关键点必须来自原文关键词
+
+**步骤 3：缓存完整性断言（0.15 天）**
+
+- [ ] 对输出目录扫描函数写单元测试
+- [ ] 覆盖完整、半成品、重复目录三类情况
+- [ ] 验证 dry-run 结果稳定可读
+
+**步骤 4：验收（0.1 天）**
+
+- [ ] `pytest tests/test_quality_*.py -q` 可独立运行
+- [ ] prompt 改坏时测试能失败，而不是只靠人工阅读
+
+---
+
+### P3: 死文档/死代码/死测试清理（0.4 天）
+
+> **排查发现**：存在历史交接文档、空占位包、旧配置系统跳过测试和未文档化脚本。删除前需要人工确认。
+
+- [ ] 处理 `docs/development/NEXT_AGENT_HANDOVER.md`：归档、合并到 TODO，或删除
+- [ ] 处理 `src/api/schemas/__init__.py`：若确认无外部 import，删除空占位包
+- [ ] 处理 `tests/test_config.py`：删除旧配置占位测试，或改写为当前 Pydantic 配置测试
+- [ ] 处理 `scripts/clear_output.py`：文档化用途，或用 admin clean 接口替代后删除
+- [ ] 检查 `src/SenseVoiceSmall/model.py::export()` 中 `from export_meta import ...` 的相对导入风险
 
 ---
 

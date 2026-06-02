@@ -392,6 +392,7 @@ curl -X POST http://localhost:8000/api/v1/process/audio \
 - Docker 部署：`docs/deployment/docker.md`
 - API 使用：`docs/user-guide/api-usage.md`
 - 开发指南：`docs/development/developer-guide.md`
+- 当前计划：`docs/development/TODO.md`
 
 ## 项目结构（简版）
 

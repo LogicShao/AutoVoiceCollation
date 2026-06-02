@@ -4,7 +4,6 @@
 负责B站多P（多分集）视频的下载、处理和合并
 """
 
-import contextlib
 import hashlib
 import random
 from pathlib import Path
@@ -26,6 +25,7 @@ class MultiPartVideoProcessor(BaseProcessor):
         super().__init__()
         self.audio_processor = AudioProcessor()
         self.config = get_config()
+        self._cc_text_cache: dict[tuple[str, str], str | None] = {}
 
     def process(
         self,
@@ -57,6 +57,8 @@ class MultiPartVideoProcessor(BaseProcessor):
         task_id = self._ensure_task(task_id)
 
         try:
+            self._cc_text_cache.clear()
+
             # 1. 获取多P信息并验证
             self.logger.info(f"获取多P视频信息：{video_url}")
             multi_part_info = get_multi_part_info(video_url)
@@ -238,15 +240,46 @@ class MultiPartVideoProcessor(BaseProcessor):
         if strategy == "cc_only":
             cc_parts = []
             for part in parts_info:
-                with contextlib.suppress(Exception):
-                    from src.mcp.cc_subtitle import check_cc_sync, extract_bvid_from_url
-
-                    bvid = extract_bvid_from_url(part.url)
-                    if bvid and check_cc_sync(bvid, part.video_id):
-                        cc_parts.append(part)
+                if self._get_part_cc_text(part):
+                    cc_parts.append(part)
             return cc_parts
 
         return parts_info
+
+    def _resolve_part_cid(self, part_info) -> tuple[str | None, str | None]:
+        """解析分 P 的 BV 号和 cid。"""
+        from src.mcp.cc_subtitle import extract_bvid_from_url, get_cid_for_page_sync
+
+        bvid = extract_bvid_from_url(part_info.url)
+        if not bvid:
+            return None, None
+
+        candidate = str(getattr(part_info, "video_id", "") or "")
+        if candidate.isdigit():
+            return bvid, candidate
+
+        cid = get_cid_for_page_sync(bvid, getattr(part_info, "part_number", 1))
+        return bvid, cid
+
+    def _get_part_cc_text(self, part_info) -> str | None:
+        """尝试获取分 P 可用 CC 字幕文本。"""
+        try:
+            from src.mcp.cc_subtitle import check_cc_sync
+
+            bvid, cid = self._resolve_part_cid(part_info)
+            if not bvid or not cid:
+                return None
+
+            cache_key = (bvid, cid)
+            if cache_key not in self._cc_text_cache:
+                self._cc_text_cache[cache_key] = check_cc_sync(bvid, cid)
+
+            return self._cc_text_cache[cache_key]
+        except Exception as e:
+            self.logger.warning(
+                f"[CC] fast-path probe failed for part {getattr(part_info, 'part_number', '?')}: {e}"
+            )
+            return None
 
     def _process_single_part(
         self,
@@ -282,18 +315,13 @@ class MultiPartVideoProcessor(BaseProcessor):
         download_time = 0.0
         asr_time = 0.0
 
-        with contextlib.suppress(Exception):
-            from src.mcp.cc_subtitle import check_cc_sync, extract_bvid_from_url
-
-            bvid = extract_bvid_from_url(part_info.url)
-            if bvid:
-                cc_text = check_cc_sync(bvid, part_info.video_id)
-                if cc_text:
-                    self.logger.info(
-                        f"[CC] fast-path for part {part_info.part_number}: "
-                        f"using CC text ({len(cc_text)} chars)"
-                    )
-                    audio_text = cc_text
+        cc_text = self._get_part_cc_text(part_info)
+        if cc_text:
+            self.logger.info(
+                f"[CC] fast-path for part {part_info.part_number}: "
+                f"using CC text ({len(cc_text)} chars)"
+            )
+            audio_text = cc_text
 
         if audio_text is None:
             # 下载音频

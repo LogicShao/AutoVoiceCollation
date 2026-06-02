@@ -4,7 +4,6 @@
 负责B站视频下载和批量处理
 """
 
-import contextlib
 from typing import Any
 
 from src.core.exceptions import TaskCancelledException
@@ -25,6 +24,35 @@ class VideoProcessor(BaseProcessor):
         super().__init__()
         self.audio_processor = AudioProcessor()
         self.config = get_config()
+
+    def _get_cc_text(self, video_url: str) -> tuple[str | None, str | None]:
+        """尝试获取当前 URL 对应分 P 的可用 CC 字幕文本。"""
+        try:
+            from src.mcp.cc_subtitle import (
+                check_cc_sync,
+                extract_bvid_from_url,
+                extract_page_from_url,
+                get_cid_for_page_sync,
+            )
+
+            bvid = extract_bvid_from_url(video_url)
+            if not bvid:
+                return None, None
+
+            page = extract_page_from_url(video_url)
+            cid = get_cid_for_page_sync(bvid, page)
+            if not cid:
+                return None, bvid
+
+            cc_text = check_cc_sync(bvid, cid)
+            if cc_text:
+                self.logger.info(
+                    f"[CC] fast-path for {bvid}/p{page}: using CC text ({len(cc_text)} chars)"
+                )
+            return cc_text, bvid
+        except Exception as e:
+            self.logger.warning(f"[CC] fast-path probe failed: {e}")
+            return None, None
 
     def process(
         self,
@@ -60,20 +88,7 @@ class VideoProcessor(BaseProcessor):
             self._check_cancellation(task_id)
 
             # CC 字幕快速通道：检查是否可用 CC 字幕跳过 ASR
-            cc_text = None
-            cc_bvid = None
-            with contextlib.suppress(Exception):
-                from src.mcp.cc_subtitle import check_cc_sync, extract_bvid_from_url, get_cid_sync
-
-                cc_bvid = extract_bvid_from_url(video_url)
-                if cc_bvid:
-                    cid = get_cid_sync(cc_bvid)
-                    if cid:
-                        cc_text = check_cc_sync(cc_bvid, cid)
-                        if cc_text:
-                            self.logger.info(
-                                f"[CC] fast-path for {cc_bvid}: using CC text ({len(cc_text)} chars)"
-                            )
+            cc_text, cc_bvid = self._get_cc_text(video_url)
 
             if cc_text:
                 dummy_file = BiliVideoFile(

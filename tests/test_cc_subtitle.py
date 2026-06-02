@@ -2,7 +2,13 @@ from unittest.mock import AsyncMock, patch
 
 import pytest
 
-from src.mcp.cc_subtitle import extract_bvid_from_url, extract_cc_text, has_usable_cc
+from src.mcp.cc_subtitle import (
+    extract_bvid_from_url,
+    extract_cc_text,
+    extract_page_from_url,
+    get_cid_for_page,
+    has_usable_cc,
+)
 
 
 def test_extract_cc_text_returns_clean_text():
@@ -44,6 +50,23 @@ async def test_has_usable_cc_returns_text_for_zh_subtitle(
     result = await has_usable_cc("BV1xx411c7mD", "12345")
 
     assert result == f"{expected_text[:110]} {expected_text[110:]}"
+
+
+@pytest.mark.asyncio
+@patch("src.mcp.cc_subtitle.download_cc_subtitle", new_callable=AsyncMock)
+@patch("src.mcp.cc_subtitle.fetch_cc_subtitle_list", new_callable=AsyncMock)
+async def test_has_usable_cc_accepts_ai_zh_subtitle(
+    mock_fetch_cc_subtitle_list, mock_download_cc_subtitle
+):
+    expected_text = "中" * 220
+    mock_fetch_cc_subtitle_list.return_value = [
+        {"lang_key": "ai-zh", "subtitle_url": "//example.com/subtitle.json"}
+    ]
+    mock_download_cc_subtitle.return_value = {"body": [{"content": expected_text}]}
+
+    result = await has_usable_cc("BV1xx411c7mD", "12345")
+
+    assert result == expected_text
 
 
 @pytest.mark.asyncio
@@ -92,3 +115,46 @@ def test_extract_bvid_from_url():
 
 def test_extract_bvid_from_url_invalid():
     assert extract_bvid_from_url("https://www.example.com/video/123") is None
+
+
+@pytest.mark.parametrize(
+    ("url", "expected"),
+    [
+        ("https://www.bilibili.com/video/BV1xx411c7mD", 1),
+        ("https://www.bilibili.com/video/BV1xx411c7mD?p=3", 3),
+        ("https://www.bilibili.com/video/BV1xx411c7mD?p=0", 1),
+        ("https://www.bilibili.com/video/BV1xx411c7mD?p=bad", 1),
+    ],
+)
+def test_extract_page_from_url(url, expected):
+    assert extract_page_from_url(url) == expected
+
+
+@pytest.mark.asyncio
+@patch("src.mcp.cc_subtitle._get_json", new_callable=AsyncMock)
+async def test_get_cid_for_page_returns_matching_page(mock_get_json):
+    mock_get_json.return_value = {"data": [{"page": 1, "cid": 111}, {"page": 2, "cid": 222}]}
+
+    result = await get_cid_for_page("BV1xx411c7mD", 2)
+
+    assert result == "222"
+
+
+@pytest.mark.asyncio
+@patch("src.mcp.cc_subtitle._get_json", new_callable=AsyncMock)
+async def test_get_cid_for_page_falls_back_to_first_page_cid(mock_get_json):
+    mock_get_json.return_value = {"data": [{"cid": 111}]}
+
+    result = await get_cid_for_page("BV1xx411c7mD", 1)
+
+    assert result == "111"
+
+
+@pytest.mark.asyncio
+@patch("src.mcp.cc_subtitle._get_json", new_callable=AsyncMock)
+async def test_get_cid_for_page_returns_none_when_page_missing(mock_get_json):
+    mock_get_json.return_value = {"data": [{"page": 1, "cid": 111}]}
+
+    result = await get_cid_for_page("BV1xx411c7mD", 2)
+
+    assert result is None

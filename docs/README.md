@@ -8,12 +8,13 @@
 2. `docs/user-guide/api-usage.md`：API 端点与调用示例
 3. `docs/development/developer-guide.md`：本地开发、测试和代码结构
 4. `docs/development/wsl2-conda-mcp.md`：WSL2 + Windows Conda MCP 配置避坑指南
+5. `docs/development/TODO.md`：当前开发优先级与计划
 
 ## 建议阅读路径
 
 - 普通使用者：先读根目录 `README.md`
 - API 调用方：直接读 `docs/user-guide/api-usage.md`
-- 维护者：读 `docs/development/developer-guide.md`
+- 维护者：读 `docs/development/developer-guide.md` 和 `docs/development/TODO.md`
 
 ## 维护规则
 

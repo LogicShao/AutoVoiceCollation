@@ -96,6 +96,29 @@ class TestSampleParts:
             )
             assert len(sampled) == 0
 
+    def test_part_cc_text_resolves_non_numeric_video_id_by_page(self, processor):
+        part = make_part(2, "BV1xx411c7mD_p2")
+
+        with (
+            patch("src.mcp.cc_subtitle.get_cid_for_page_sync", return_value="222") as mock_cid,
+            patch("src.mcp.cc_subtitle.check_cc_sync", return_value="cc text here") as mock_check,
+        ):
+            cc_text = processor._get_part_cc_text(part)
+
+        assert cc_text == "cc text here"
+        mock_cid.assert_called_once_with("BV1xx411c7mD", 2)
+        mock_check.assert_called_once_with("BV1xx411c7mD", "222")
+
+    def test_part_cc_text_uses_cache(self, processor):
+        part = make_part(1, "101")
+
+        with patch("src.mcp.cc_subtitle.check_cc_sync", return_value="cc text here") as mock_check:
+            first = processor._get_part_cc_text(part)
+            second = processor._get_part_cc_text(part)
+
+        assert first == second == "cc text here"
+        mock_check.assert_called_once_with("BV1xx411c7mD", "101")
+
     def test_empty_parts_returns_empty(self, processor):
         sampled = processor._sample_parts([], 3, "https://www.bilibili.com/video/BV1xx")
         assert len(sampled) == 0

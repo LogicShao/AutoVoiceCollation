@@ -52,6 +52,15 @@ class AudioProcessor(BaseProcessor):
         if not os.path.exists(audio_file.path):
             raise FileNotFoundError(f"Audio file not found: {audio_file.path}")
 
+        self._validate_processing_options(llm_api, temperature, max_tokens)
+
+    def _validate_processing_options(
+        self,
+        llm_api: str,
+        temperature: float,
+        max_tokens: int,
+    ) -> None:
+        """验证与音频文件路径无关的处理参数。"""
         if not 0 <= temperature <= 2:
             raise ValueError(f"Temperature must be between 0 and 2, got {temperature}")
 
@@ -299,6 +308,8 @@ class AudioProcessor(BaseProcessor):
             # 输入验证（text_override 模式下跳过文件存在性检查）
             if text_override is None:
                 self._validate_inputs(audio_file, llm_api, temperature, max_tokens)
+            else:
+                self._validate_processing_options(llm_api, temperature, max_tokens)
             self._check_cancellation(task_id)
 
             # 创建输出目录
