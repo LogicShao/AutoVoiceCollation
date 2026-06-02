@@ -8,6 +8,11 @@ import urllib.parse
 from functools import reduce
 
 import httpx
+from pydantic import BaseModel, Field
+
+from src.utils.logging.logger import get_logger
+
+logger = get_logger(__name__)
 
 _SEARCH_URL = "https://api.bilibili.com/x/web-interface/wbi/search/type"
 _NAV_URL = "https://api.bilibili.com/x/web-interface/nav"
@@ -213,3 +218,108 @@ async def search_videos(keyword: str, max_results: int = 10) -> dict:
         return {"error": f"B 站接口返回 HTTP {e.response.status_code}"}
     except Exception as e:
         return {"error": f"搜索异常: {e}"}
+
+
+# ========== 视频元数据 ==========
+
+
+class VideoMetadata(BaseModel):
+    """B站视频元数据"""
+
+    title: str = ""
+    description: str = ""
+    tags: list[str] = Field(default_factory=list)
+    owner: str = ""
+    chapters: list[dict] = Field(default_factory=list)
+    hot_comments: list[str] = Field(default_factory=list)
+
+
+async def get_video_metadata(bvid: str) -> VideoMetadata:
+    """聚合 B站视频元数据（3 个 API），单 API 失败则字段置空"""
+    result = VideoMetadata()
+
+    try:
+        http = await _ensure_session()
+        resp = await http.get(
+            "https://api.bilibili.com/x/web-interface/view", params={"bvid": bvid}
+        )
+        resp.raise_for_status()
+        data = resp.json().get("data", {}) or {}
+        result.title = data.get("title", "")
+        result.description = (data.get("desc", "") or "")[:1000]
+        result.tags = [t.get("tag_name", "") for t in data.get("tags", []) if isinstance(t, dict)]
+        result.owner = data.get("owner", {}).get("name", "")
+    except Exception as e:
+        logger.debug(f"[Metadata] view API failed for {bvid}: {e}")
+
+    try:
+        http = await _ensure_session()
+        resp = await http.get("https://api.bilibili.com/x/player/pagelist", params={"bvid": bvid})
+        resp.raise_for_status()
+        entries = resp.json().get("data", []) or []
+        result.chapters = [
+            {"title": e.get("part", ""), "part_number": i + 1, "duration": e.get("duration", 0)}
+            for i, e in enumerate(entries)
+            if isinstance(e, dict)
+        ]
+    except Exception as e:
+        logger.debug(f"[Metadata] pagelist API failed for {bvid}: {e}")
+
+    try:
+        http = await _ensure_session()
+        resp = await http.get(
+            "https://api.bilibili.com/x/v2/reply/main", params={"oid": bvid, "type": 1}
+        )
+        resp.raise_for_status()
+        replies = resp.json().get("data", {}).get("replies", []) or []
+        result.hot_comments = [
+            (
+                r.get("content", {}).get("message", "")
+                if isinstance(r.get("content"), dict)
+                else r.get("content", "")
+            )[:100]
+            for r in replies[:5]
+            if r
+        ]
+    except Exception as e:
+        logger.debug(f"[Metadata] reply API failed for {bvid}: {e}")
+
+    return result
+
+
+def _truncate_to_token_budget(text: str, max_tokens: int = 500) -> str:
+    """按 token 预算截断文本（汉字≈1 token，英文≈0.25 token/char）"""
+    if not text:
+        return ""
+    estimated = 0
+    result: list[str] = []
+    for char in text:
+        token_est = 1 if ord(char) > 127 else 0.25
+        if estimated + token_est > max_tokens:
+            break
+        estimated += token_est
+        result.append(char)
+    return "".join(result)
+
+
+def format_metadata_for_prompt(metadata: VideoMetadata) -> str:
+    """将 VideoMetadata 格式化为 LLM prompt 注入文本，限制 500 tokens"""
+    lines = ["[视频元数据]"]
+    if metadata.title:
+        lines.append(f"标题: {metadata.title}")
+    if metadata.description:
+        lines.append(f"描述: {metadata.description[:200]}")
+    if metadata.tags:
+        lines.append(f"标签: {', '.join(metadata.tags)}")
+    if metadata.owner:
+        lines.append(f"UP主: {metadata.owner}")
+    if metadata.chapters:
+        chapters_str = "; ".join(
+            f"P{c.get('part_number', '?')}:{c.get('title', '')}" for c in metadata.chapters
+        )
+        lines.append(f"分P目录: {chapters_str}")
+    if metadata.hot_comments:
+        lines.append(f"热门评论: {' | '.join(metadata.hot_comments)}")
+
+    full = "\n".join(lines)
+    return _truncate_to_token_budget(full, 500)

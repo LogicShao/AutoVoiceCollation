@@ -2,6 +2,7 @@
 
 import json
 from datetime import datetime
+from typing import Any
 
 from pydantic import BaseModel, Field
 
@@ -36,12 +37,19 @@ async def generate_analysis(
     transcript: str = "",
     output_dir: str = "",
     prompt_hint: str = "",
+    metadata: Any = None,
 ) -> VideoAnalysis:
     config = get_config()
     prompt_spec = get_prompt(PromptType.ANALYZE_VIDEO)
     system_instruction = prompt_spec.render_system()
     if prompt_hint.strip():
         system_instruction += f"\n\n---\n[Agent 指令]\n{prompt_hint.strip()[:500]}"
+    if metadata is not None:
+        from src.mcp.bilibili_api import format_metadata_for_prompt
+
+        metadata_text = format_metadata_for_prompt(metadata)
+        if metadata_text and metadata_text != "[视频元数据]":
+            system_instruction += f"\n\n---\n{metadata_text}"
     user_content = prompt_spec.render_user(text=polished_text, title=title)
 
     params = LLMQueryParams(

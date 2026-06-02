@@ -40,6 +40,7 @@ async def process_bilibili(
     disable_llm_summary: bool = False,
     output_style: str = "",
     prompt_hint: str = "",
+    part_sample: str = "",
 ) -> dict:
     """处理B站视频链接，返回 task_id 用于查询状态"""
     if not url.strip():
@@ -55,6 +56,8 @@ async def process_bilibili(
         body["output_style"] = output_style
     if prompt_hint:
         body["prompt_hint"] = prompt_hint
+    if part_sample:
+        body["part_sample"] = part_sample
     return await _api("POST", "/api/v1/process/bilibili", json=body)
 
 
@@ -118,6 +121,7 @@ async def process_batch(
     disable_llm_summary: bool = False,
     output_style: str = "",
     prompt_hint: str = "",
+    part_sample: str = "",
 ) -> dict:
     """批量处理多个B站视频链接，返回 task_id"""
     if not urls:
@@ -136,6 +140,8 @@ async def process_batch(
         body["output_style"] = output_style
     if prompt_hint:
         body["prompt_hint"] = prompt_hint
+    if part_sample:
+        body["part_sample"] = part_sample
     return await _api("POST", "/api/v1/process/batch", json=body)
 
 
@@ -158,11 +164,20 @@ async def get_task_status(task_id: str) -> dict:
             text[dst] = result[src]
     if result.get("key_points"):
         text["key_points"] = result["key_points"]
+    analysis = None
+    if result.get("key_points") or result.get("segments"):
+        analysis = {
+            "title": result.get("title", ""),
+            "summary": result.get("summary", ""),
+            "key_points": result.get("key_points", []),
+            "segments": result.get("segments", []),
+        }
     return {
         "task_id": task_id,
         "status": task.get("status", "unknown"),
         "message": task.get("message", ""),
         "text": text if text else None,
+        "analysis": analysis,
         "output_dir": result.get("output_dir", ""),
     }
 
@@ -175,13 +190,59 @@ async def cancel_task(task_id: str) -> dict:
 
 @mcp.tool()
 async def analyze_video(url: str, prompt_hint: str = "") -> dict:
-    """分析B站视频：一键完成转写+LLM结构化分析，返回 title/summary/key_points/segments"""
+    """分析B站视频：一键完成转写+LLM结构化分析，阻塞等待直到完成（最长120s），返回结构化结果"""
     if not url.strip():
         return {"error": "URL 不能为空"}
     data: dict = {"video_url": url.strip()}
     if prompt_hint:
         data["prompt_hint"] = prompt_hint
-    return await _api("POST", "/api/v1/analyze/video", data=data)
+    submit = await _api("POST", "/api/v1/analyze/video", data=data)
+    if "error" in submit:
+        return submit
+    task_id = submit.get("task_id")
+    if not task_id:
+        return {"error": "未获取到 task_id"}
+
+    timeout = float(os.environ.get("TASK_TIMEOUT", "120"))
+    elapsed = 0.0
+    interval = 2.0
+
+    while elapsed < timeout:
+        task = await _api("GET", f"/api/v1/task/{task_id}")
+        status = task.get("status", "")
+        if status == "completed":
+            result = task.get("result", {})
+            analysis = {}
+            if result.get("key_points"):
+                analysis["key_points"] = result["key_points"]
+            if result.get("segments"):
+                analysis["segments"] = result["segments"]
+            return {
+                "task_id": task_id,
+                "status": "completed",
+                "title": result.get("title", ""),
+                "summary": result.get("summary", ""),
+                "key_points": result.get("key_points", []),
+                "segments": result.get("segments", []),
+                "output_dir": result.get("output_dir", ""),
+            }
+        if status == "failed":
+            return {
+                "task_id": task_id,
+                "status": "failed",
+                "error": task.get("message", "处理失败"),
+            }
+        if status == "cancelled":
+            return {"task_id": task_id, "status": "cancelled", "error": "任务已取消"}
+
+        await asyncio.sleep(interval)
+        elapsed += interval
+
+    return {
+        "status": "processing",
+        "task_id": task_id,
+        "message": f"分析尚未完成（已等待 {timeout}s），请用 get_task_status 查询",
+    }
 
 
 @mcp.tool()
@@ -224,9 +285,9 @@ async def generate_mindmap(task_id: str, prompt_hint: str = "") -> dict:
 # ============================================================
 
 
-def _get_completed_task(task_id: str) -> dict | None:
+async def _get_completed_task(task_id: str) -> dict | None:
     """获取已完成的任务数据，未完成或不存在返回 None"""
-    task = asyncio.run(_api("GET", f"/api/v1/task/{task_id}"))
+    task = await _api("GET", f"/api/v1/task/{task_id}")
     if "error" in task or task.get("status") != "completed":
         return None
     return task.get("result", {})
@@ -235,7 +296,7 @@ def _get_completed_task(task_id: str) -> dict | None:
 @mcp.resource("avc://task/{task_id}/transcript")
 async def get_transcript(task_id: str) -> str:
     """原始转写全文"""
-    result = _get_completed_task(task_id)
+    result = await _get_completed_task(task_id)
     if not result:
         return "任务未完成或不存在"
     return result.get("transcript") or result.get("audio_text") or "（无转写文本）"
@@ -244,7 +305,7 @@ async def get_transcript(task_id: str) -> str:
 @mcp.resource("avc://task/{task_id}/polished")
 async def get_polished(task_id: str) -> str:
     """LLM 润色后文本"""
-    result = _get_completed_task(task_id)
+    result = await _get_completed_task(task_id)
     if not result:
         return "任务未完成或不存在"
     return result.get("polished_text") or "（无润色文本）"
@@ -253,7 +314,7 @@ async def get_polished(task_id: str) -> str:
 @mcp.resource("avc://task/{task_id}/summary")
 async def get_summary(task_id: str) -> str:
     """摘要"""
-    result = _get_completed_task(task_id)
+    result = await _get_completed_task(task_id)
     if not result:
         return "任务未完成或不存在"
     return result.get("summary") or result.get("summary_text") or "（无摘要）"
@@ -262,7 +323,7 @@ async def get_summary(task_id: str) -> str:
 @mcp.resource("avc://task/{task_id}/mindmap")
 async def get_mindmap_resource(task_id: str) -> str:
     """思维导图 JSON 结构"""
-    result = _get_completed_task(task_id)
+    result = await _get_completed_task(task_id)
     if not result:
         return "{}"
     text = result.get("text") or result.get("transcript") or ""
@@ -278,7 +339,7 @@ async def get_mindmap_resource(task_id: str) -> str:
 @mcp.resource("avc://task/{task_id}/analysis")
 async def get_analysis(task_id: str) -> str:
     """结构化 VideoAnalysis JSON"""
-    result = _get_completed_task(task_id)
+    result = await _get_completed_task(task_id)
     if not result:
         return "{}"
     key_points = result.get("key_points", [])
