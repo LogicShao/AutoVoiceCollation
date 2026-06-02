@@ -46,9 +46,14 @@ class InferenceQueue:
         if self._initialized:
             return
 
-        self.queue: Queue = Queue(maxsize=50)  # 限制队列容量,避免积压
+        self.queue: Queue = Queue(maxsize=50)
         self.worker_task: asyncio.Task | None = None
+        self._timeout_monitor_task: asyncio.Task | None = None
         self._initialized = True
+
+        self.task_timeout: float = float(os.environ.get("TASK_TIMEOUT", "600"))
+        self._task_submitted_at: dict[str, datetime] = {}
+        self._last_heartbeat: datetime | None = None
 
         # 初始化处理器（延迟加载模型）
         self.audio_processor = None
@@ -57,7 +62,7 @@ class InferenceQueue:
         self.multipart_processor = None
         self.task_manager = get_task_manager()
 
-        logger.info("推理队列初始化完成")
+        logger.info(f"推理队列初始化完成, task_timeout={self.task_timeout}s")
 
     def _get_audio_processor(self):
         if self.audio_processor is None:
@@ -88,20 +93,22 @@ class InferenceQueue:
         return self.multipart_processor
 
     async def start(self):
-        """启动工作循环"""
+        """启动工作循环和超时监控"""
         if self.worker_task is None or self.worker_task.done():
             self.worker_task = asyncio.create_task(self._worker_loop())
             logger.info("推理工作线程已启动")
+        if self._timeout_monitor_task is None or self._timeout_monitor_task.done():
+            self._timeout_monitor_task = asyncio.create_task(self._check_timeouts())
+            logger.info("超时监控已启动")
 
     async def stop(self):
-        """停止工作循环"""
-        if self.worker_task and not self.worker_task.done():
-            self.worker_task.cancel()
-            try:
-                await self.worker_task
-            except asyncio.CancelledError:
-                with suppress(ValueError):
-                    logger.info("推理工作线程已停止")
+        """停止工作循环和超时监控"""
+        for task in [self.worker_task, self._timeout_monitor_task]:
+            if task and not task.done():
+                task.cancel()
+                with suppress(asyncio.CancelledError):
+                    await task
+        logger.info("推理工作线程已停止")
 
     async def submit_task(
         self,
@@ -129,6 +136,7 @@ class InferenceQueue:
                 }
             )
             logger.info(f"任务已提交到队列: {task_id}, 队列长度: {self.queue.qsize()}")
+            self._task_submitted_at[task_id] = datetime.now()
             return True
         except asyncio.QueueFull:
             logger.error(f"队列已满,任务提交失败: {task_id}")
@@ -233,6 +241,62 @@ class InferenceQueue:
         except Exception as e:
             logger.warning(f"Failed to record history for task {task_id}: {e}", exc_info=True)
 
+    def _compute_queue_position(self, task_id: str) -> int:
+        """计算任务在 pending 队列中的位置（0=正在处理或已完成）"""
+        if self.queue.empty():
+            return 0
+        all_items = list(self.queue._queue)
+        for i, item in enumerate(all_items):
+            if item["task_id"] == task_id:
+                return i + 1
+        return 0
+
+    def get_queue_status(self) -> dict:
+        """获取队列健康状态"""
+        worker_alive = self.worker_task is not None and not self.worker_task.done()
+        return {
+            "depth": self.queue.qsize(),
+            "worker_alive": worker_alive,
+            "worker_last_heartbeat": self._last_heartbeat.isoformat()
+            if self._last_heartbeat
+            else None,
+            "pending_count": self.queue.qsize(),
+            "processing_count": 1 if worker_alive and self._last_heartbeat else 0,
+        }
+
+    async def cancel_task(self, task_id: str, tasks_store: dict) -> bool:
+        """取消任务（pending 标记跳过，processing 设置中断信号）"""
+        task_info = tasks_store.get(task_id, {})
+        status = task_info.get("status", "pending")
+
+        if status in ("completed", "failed", "cancelled"):
+            return False
+
+        self._mark_task_cancelled(task_id, tasks_store, "任务已被用户取消")
+        logger.info(f"任务已取消: {task_id} (原状态: {status})")
+        return True
+
+    async def _check_timeouts(self):
+        """后台协程：定期检查超时任务"""
+        while True:
+            try:
+                await asyncio.sleep(10)
+                now = datetime.now()
+                timeout_sec = self.task_timeout
+
+                for task_id, submitted_at in list(self._task_submitted_at.items()):
+                    if (now - submitted_at).total_seconds() > timeout_sec:
+                        timed_out = True
+                        if timed_out:
+                            logger.warning(
+                                f"任务超时: {task_id} (已等待 {(now - submitted_at).total_seconds():.0f}s)"
+                            )
+                            self._task_submitted_at.pop(task_id, None)
+            except asyncio.CancelledError:
+                break
+            except Exception as e:
+                logger.error(f"超时监控异常: {e}", exc_info=True)
+
     async def _worker_loop(self):
         """工作循环：持续从队列取任务并执行"""
         logger.info("工作循环已启动，等待任务...")
@@ -246,11 +310,37 @@ class InferenceQueue:
                 task_data = task_item["task_data"]
                 tasks_store = task_item["tasks_store"]
 
+                # 跳过已取消的任务（mark+skip 模式）
+                if self._is_task_cancelled(task_id, tasks_store):
+                    logger.info(f"跳过已取消的任务: {task_id}")
+                    self.queue.task_done()
+                    continue
+
+                # 检查超时
+                submitted_at = self._task_submitted_at.get(task_id)
+                if submitted_at:
+                    elapsed = (datetime.now() - submitted_at).total_seconds()
+                    if elapsed > self.task_timeout:
+                        logger.warning(
+                            f"任务超时: {task_id} ({elapsed:.0f}s > {self.task_timeout}s)"
+                        )
+                        tasks_store[task_id].update(
+                            {
+                                "status": "timeout",
+                                "message": f"任务等待超时 ({self.task_timeout}s)",
+                                "completed_at": datetime.now().isoformat(),
+                            }
+                        )
+                        self._task_submitted_at.pop(task_id, None)
+                        self.queue.task_done()
+                        continue
+
                 logger.info(
                     f"开始处理任务: {task_id}, 类型: {task_type}, 队列剩余: {self.queue.qsize()}"
                 )
 
                 try:
+                    self._last_heartbeat = datetime.now()
                     if self._is_task_cancelled(task_id, tasks_store):
                         self._mark_task_cancelled(task_id, tasks_store)
                         continue
@@ -294,6 +384,7 @@ class InferenceQueue:
                     )
 
                 finally:
+                    self._task_submitted_at.pop(task_id, None)
                     self.queue.task_done()
 
             except asyncio.CancelledError:
@@ -602,6 +693,7 @@ class InferenceQueue:
             data.get("text_only", False),
             task_id,
             data.get("output_style"),
+            data.get("part_sample"),
         )
 
         if self._is_task_cancelled(task_id, tasks_store):
@@ -665,6 +757,20 @@ class InferenceQueue:
             tasks_store[task_id]["message"] = "正在生成结构化分析..."
             from src.services.analysis import generate_analysis
 
+            video_metadata = None
+            try:
+                from src.mcp.bilibili_api import get_video_metadata
+
+                bvid_from_url = data.get("video_url", "")
+                if "BV" in bvid_from_url:
+                    import re
+
+                    match = re.search(r"(BV\w+)", bvid_from_url)
+                    if match:
+                        video_metadata = await get_video_metadata(match.group(1))
+            except Exception as e:
+                logger.debug(f"[Metadata] fetch failed, continuing without: {e}")
+
             analysis = await generate_analysis(
                 polished_text=polished_text,
                 title=title,
@@ -673,6 +779,7 @@ class InferenceQueue:
                 else "",
                 output_dir=output_dir,
                 prompt_hint=data.get("prompt_hint", ""),
+                metadata=video_metadata,
             )
 
             tasks_store[task_id].update(
