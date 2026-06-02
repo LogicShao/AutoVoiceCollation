@@ -274,6 +274,7 @@ class AudioProcessor(BaseProcessor):
         text_only: bool = False,
         task_id: str | None = None,
         output_style: str | None = None,
+        text_override: str | None = None,
     ) -> tuple[Any, float, float, str | None]:
         """
         处理音频文件，提取文本并润色
@@ -285,6 +286,7 @@ class AudioProcessor(BaseProcessor):
             max_tokens: 最大token数
             text_only: 是否只返回纯文本结果（不生成PDF）
             task_id: 任务ID，用于终止控制
+            text_override: 预提取文本，如果提供则跳过ASR阶段直接进入润色
 
         Returns:
             Tuple[Any, float, float, Optional[str]]: (结果数据, 提取时间, 润色时间, ZIP文件路径)
@@ -294,16 +296,24 @@ class AudioProcessor(BaseProcessor):
         task_id = self._ensure_task(task_id)
 
         try:
-            # 输入验证
-            self._validate_inputs(audio_file, llm_api, temperature, max_tokens)
+            # 输入验证（text_override 模式下跳过文件存在性检查）
+            if text_override is None:
+                self._validate_inputs(audio_file, llm_api, temperature, max_tokens)
             self._check_cancellation(task_id)
 
             # 创建输出目录
             output_dir = self._create_output_directory(audio_file)
             self._check_cancellation(task_id)
 
-            # ASR 提取文本
-            audio_text, extract_time = self._extract_text(audio_file, output_dir, task_id)
+            # ASR 提取文本（或使用覆盖文本跳过 ASR）
+            if text_override is not None:
+                audio_text = text_override
+                extract_time = 0.0
+                text_file_path = os.path.join(output_dir, "audio_transcription.txt")
+                with open(text_file_path, "w", encoding="utf-8") as f:
+                    f.write(audio_text)
+            else:
+                audio_text, extract_time = self._extract_text(audio_file, output_dir, task_id)
             self._check_cancellation(task_id)
 
             # LLM 润色文本

@@ -283,6 +283,9 @@ class MultiPartVideoRequest(BaseModel):
     disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
     disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
     prompt_hint: str | None = Field(default=None, description="Agent 分析方向提示词")
+    part_sample: str | None = Field(
+        default=None, description="分P采样策略: int/head+middle+tail/cc_only"
+    )
 
 
 class SubtitleGenerateRequest(BaseModel):
@@ -579,6 +582,7 @@ async def process_multi_part_video(request: MultiPartVideoRequest):
             "disable_llm_polish": request.disable_llm_polish,
             "disable_llm_summary": request.disable_llm_summary,
             "prompt_hint": request.prompt_hint or "",
+            "part_sample": request.part_sample,
         },
         tasks_store=tasks,
     )

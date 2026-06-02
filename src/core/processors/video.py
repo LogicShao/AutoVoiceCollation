@@ -4,6 +4,7 @@
 负责B站视频下载和批量处理
 """
 
+import contextlib
 from typing import Any
 
 from src.core.exceptions import TaskCancelledException
@@ -57,6 +58,40 @@ class VideoProcessor(BaseProcessor):
                 raise ValueError("请输入正确的B站链接。")
 
             self._check_cancellation(task_id)
+
+            # CC 字幕快速通道：检查是否可用 CC 字幕跳过 ASR
+            cc_text = None
+            cc_bvid = None
+            with contextlib.suppress(Exception):
+                from src.mcp.cc_subtitle import check_cc_sync, extract_bvid_from_url, get_cid_sync
+
+                cc_bvid = extract_bvid_from_url(video_url)
+                if cc_bvid:
+                    cid = get_cid_sync(cc_bvid)
+                    if cid:
+                        cc_text = check_cc_sync(cc_bvid, cid)
+                        if cc_text:
+                            self.logger.info(
+                                f"[CC] fast-path for {cc_bvid}: using CC text ({len(cc_text)} chars)"
+                            )
+
+            if cc_text:
+                dummy_file = BiliVideoFile(
+                    url=video_url,
+                    path=str(self.config.paths.download_dir / f"{cc_bvid or 'unknown'}.mp3"),
+                    title=f"B站视频 {cc_bvid or 'unknown'}",
+                )
+                result_data, extract_time, polish_time, zip_file = self.audio_processor.process(
+                    dummy_file,
+                    llm_api,
+                    temperature,
+                    max_tokens,
+                    text_only,
+                    task_id,
+                    output_style,
+                    text_override=cc_text,
+                )
+                return result_data, extract_time, polish_time, zip_file
 
             # 下载视频音频
             timer = Timer()

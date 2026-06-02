@@ -4,6 +4,9 @@
 负责B站多P（多分集）视频的下载、处理和合并
 """
 
+import contextlib
+import hashlib
+import random
 from pathlib import Path
 from typing import Any
 
@@ -34,6 +37,7 @@ class MultiPartVideoProcessor(BaseProcessor):
         text_only: bool = False,
         task_id: str | None = None,
         output_style: str | None = None,
+        part_sample: str | int | None = None,
     ) -> tuple[Any, float, float, str | None]:
         """
         处理多P视频
@@ -71,6 +75,22 @@ class MultiPartVideoProcessor(BaseProcessor):
                 f"多P视频：{multi_part_info.main_title}, 选中 {len(selected_parts_info)} 个分P"
             )
             self._check_cancellation(task_id)
+
+            if part_sample is not None:
+                selected_parts_info = self._sample_parts(
+                    selected_parts_info, part_sample, video_url
+                )
+                if not selected_parts_info:
+                    return (
+                        {
+                            "error": "所选视频的所有分P均无CC字幕，请尝试其他采样策略",
+                            "title": multi_part_info.main_title,
+                        },
+                        0.0,
+                        0.0,
+                        None,
+                    )
+                self.logger.info(f"采样后保留 {len(selected_parts_info)} 个分P")
 
             # 2. 创建输出目录
             output_dir = self._create_multipart_output_dir(multi_part_info.main_title)
@@ -188,6 +208,46 @@ class MultiPartVideoProcessor(BaseProcessor):
         finally:
             self._cleanup_task(task_id)
 
+    def _deterministic_seed(self, bvid: str) -> int:
+        return int(hashlib.md5(bvid.encode()).hexdigest(), 16) % (2**32)
+
+    def _sample_parts(self, parts_info: list, strategy: str | int, video_url: str) -> list:
+        total = len(parts_info)
+        if total == 0:
+            return []
+        if strategy is None:
+            return parts_info
+
+        if isinstance(strategy, int):
+            n = min(strategy, total)
+            import re
+
+            match = re.search(r"(BV\w+)", video_url)
+            bvid = match.group(1) if match else "default"
+            seed = self._deterministic_seed(bvid)
+            rng = random.Random(seed)
+            indices = sorted(rng.sample(range(total), n))
+            return [parts_info[i] for i in indices]
+
+        if strategy == "head+middle+tail":
+            if total <= 3:
+                return parts_info
+            indices = [0, (total - 1) // 2, total - 1]
+            return [parts_info[i] for i in indices]
+
+        if strategy == "cc_only":
+            cc_parts = []
+            for part in parts_info:
+                with contextlib.suppress(Exception):
+                    from src.mcp.cc_subtitle import check_cc_sync, extract_bvid_from_url
+
+                    bvid = extract_bvid_from_url(part.url)
+                    if bvid and check_cc_sync(bvid, part.video_id):
+                        cc_parts.append(part)
+            return cc_parts
+
+        return parts_info
+
     def _process_single_part(
         self,
         part_info,  # BiliVideoPart
@@ -217,31 +277,50 @@ class MultiPartVideoProcessor(BaseProcessor):
 
         timer = Timer()
 
-        # 下载音频
-        self._check_cancellation(task_id)
-        self.logger.info(f"下载分P {part_info.part_number} 音频：{part_info.url}")
-        timer.start()
-        audio_file = download_bilibili_audio(
-            part_info.url,  # 包含 ?p=N 的URL
-            output_format="mp3",
-            output_dir=str(part_dir),
-        )
-        download_time = timer.stop()
-        self.logger.info(f"下载完成，耗时 {download_time:.1f} 秒")
+        # CC 字幕快速通道
+        audio_text = None
+        download_time = 0.0
+        asr_time = 0.0
 
-        # ASR识别
-        self._check_cancellation(task_id)
-        self.logger.info(f"ASR识别分P {part_info.part_number}...")
-        from src.services.asr import transcribe_audio
+        with contextlib.suppress(Exception):
+            from src.mcp.cc_subtitle import check_cc_sync, extract_bvid_from_url
 
-        timer.start()
-        audio_text = transcribe_audio(
-            audio_file.path,
-            model_type=self.config.asr.asr_model,
-            task_id=task_id,
-        )
-        asr_time = timer.stop()
-        self.logger.info(f"ASR识别完成，耗时 {asr_time:.1f} 秒，文本长度 {len(audio_text)}")
+            bvid = extract_bvid_from_url(part_info.url)
+            if bvid:
+                cc_text = check_cc_sync(bvid, part_info.video_id)
+                if cc_text:
+                    self.logger.info(
+                        f"[CC] fast-path for part {part_info.part_number}: "
+                        f"using CC text ({len(cc_text)} chars)"
+                    )
+                    audio_text = cc_text
+
+        if audio_text is None:
+            # 下载音频
+            self._check_cancellation(task_id)
+            self.logger.info(f"下载分P {part_info.part_number} 音频：{part_info.url}")
+            timer.start()
+            audio_file = download_bilibili_audio(
+                part_info.url,  # 包含 ?p=N 的URL
+                output_format="mp3",
+                output_dir=str(part_dir),
+            )
+            download_time = timer.stop()
+            self.logger.info(f"下载完成，耗时 {download_time:.1f} 秒")
+
+            # ASR识别
+            self._check_cancellation(task_id)
+            self.logger.info(f"ASR识别分P {part_info.part_number}...")
+            from src.services.asr import transcribe_audio
+
+            timer.start()
+            audio_text = transcribe_audio(
+                audio_file.path,
+                model_type=self.config.asr.asr_model,
+                task_id=task_id,
+            )
+            asr_time = timer.stop()
+            self.logger.info(f"ASR识别完成，耗时 {asr_time:.1f} 秒，文本长度 {len(audio_text)}")
 
         # 保存原始转录
         with open(part_dir / "audio_transcription.txt", "w", encoding="utf-8") as f:
