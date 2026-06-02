@@ -211,6 +211,138 @@ Hermes: "研究一下 AI Agent 的最新进展"
 
 ---
 
+## 处理管线优化（2026-05-24）
+
+> **从实战踩坑中提炼：管线效率、分析深度、Agent 体验三个维度的改进。**
+
+### P0: CC 字幕 Fast Path（0.5 天）
+
+> **问题**：每条视频都 下载音频 → Whisper ASR，不论是否已有现成字幕。B站 AI 字幕覆盖率逐年提高，热门视频几乎都有 CC 字幕。
+
+**步骤 1: CC 字幕探测（0.15 天）**
+
+- [ ] 新增 `src/mcp/cc_subtitle.py`：调用 `x/player/v2` 的 `subtitle.subtitles` 字段
+- [ ] 若存在 CC 字幕，下载 JSON → 提取纯文本
+- [ ] 文本长度阈值判断（< 200 字视为无效，fallback 到 ASR）
+
+**步骤 2: 管线集成（0.2 天）**
+
+- [ ] `VideoProcessor.process()` — 下载音频前先尝试 CC 字幕
+- [ ] `MultiPartVideoProcessor._process_single_part()` — 同样加 fast path
+- [ ] CC 字幕命中时跳过 `download_bilibili_audio()` + `transcribe_audio()`，直接进入润色/分析
+- [ ] 未命中时回退现有 ASR 流程，零影响
+
+**步骤 3: 验证（0.15 天）**
+
+- [ ] 有 CC 字幕的视频：对比 CC 路径 vs ASR 路径的结果质量 + 耗时
+- [ ] 无 CC 字幕的视频：确认 fallback 正常工作
+- [ ] 多P 视频（教程合集）：确认每个分P 独立判断 CC/ASR
+
+**不做**：
+- ~~用 CC 字幕完全替代 ASR~~ — 很多深度内容（技术分享、演讲）没有 CC 字幕
+
+---
+
+### P1: 队列健壮性（1 天）
+
+> **问题（实战复现）**：`pending` 状态永不推进、取消后队列不解锁、无超时机制。
+
+**步骤 1: 任务超时（0.3 天）**
+
+- [ ] `InferenceQueue` 增加 `task_timeout` 配置（默认 10 分钟）
+- [ ] `pending` 超时自动标记 `timeout`，释放队列槽位
+- [ ] `processing` 超时自动标记 `failed`，释放 Worker
+
+**步骤 2: 取消语义修正（0.2 天）**
+
+- [ ] `cancel_task` 立即从队列移除（而非 "提交取消请求"）
+- [ ] 正在 `processing` 的任务设置中断标志，Worker 下一轮检查时终止
+
+**步骤 3: 可观测性（0.3 天）**
+
+- [ ] `get_task_status` 返回 `queue_position`（在 pending 队列中的位置）
+- [ ] Worker 心跳检测（30s 间隔），死 Worker 自动驱逐
+- [ ] `GET /api/v1/admin/queue-status` 显示队列深度 + Worker 状态
+
+**步骤 4: 验收（0.2 天）**
+
+- [ ] 提交 3 个任务 → 验证 queue_position 正确递减
+- [ ] 模拟 Worker 崩溃 → 验证超时自动重分配
+- [ ] cancel 任务 → 验证队列立即释放
+
+---
+
+### P2: 元数据富化（0.5 天）
+
+> **问题**：LLM 分析时只知道视频标题 + 转写文本。B站丰富的元数据（分P目录、热评、标签）未被利用。
+
+**步骤 1: 元数据采集（0.2 天）**
+
+- [ ] `src/mcp/bilibili_api.py` 新增 `get_video_metadata(bvid)` — 聚合以下数据：
+  - 视频信息：`x/web-interface/view` → title/desc/tags/owner
+  - 分P目录：`x/player/pagelist` → 章节列表
+  - 热门评论：`x/v2/reply/main` → top 5 热评
+- [ ] 结构化输出为 `VideoMetadata` Pydantic model
+
+**步骤 2: 分析注入（0.2 天）**
+
+- [ ] `VideoAnalysis` 入口调用 `get_video_metadata`，作为 system prompt 的一部分注入 LLM
+- [ ] `analyze_video` MCP Tool 返回结果中包含原始 metadata
+- [ ] `generate_analysis` 的 prompt 模板增加 metadata 占位符
+
+**步骤 3: 验证（0.1 天）**
+
+- [ ] 对比有无 metadata 的分析质量：key_points 相关性、segments 主题准确度
+- [ ] 确认 API 超时不阻塞主流程（metadata 采集失败 → 降级到无 metadata 模式）
+
+---
+
+### P3: MCP 一键式 + 分析结构化（0.5 天）
+
+> **问题 1**：Agent 调用 `process_bilibili` → 轮询 `get_task_status` 需要写循环，增加 token 消耗和复杂度。
+> **问题 2**：`get_task_status` 把结构化分析结果摊平到 `text` 字段，丢失 key_points/segments 结构。
+
+**步骤 1: 一键式阻塞等待（0.2 天）**
+
+- [ ] `analyze_video` 内部改为：提交任务 → 轮询直到完成 → 直接返回结果
+- [ ] 超时保护：最大等待 `task_timeout`，超时返回当前状态
+- [ ] 保持 `process_bilibili` 的异步语义不变（向后兼容）
+
+**步骤 2: 结构化输出保留（0.2 天）**
+
+- [ ] `get_task_status` 返回 `analysis` 字段（包含 `summary` / `key_points` / `segments`），替代摊平的 `text` 字段
+- [ ] MCP Resource `avc://task/{id}/analysis` 返回完整 `VideoAnalysis` JSON
+- [ ] `generate_mindmap` 直接消费 `analysis.segments` 结构而非重新解析
+
+**步骤 3: 验证（0.1 天）**
+
+- [ ] Hermes Agent 调用 `analyze_video`：确认一次调用拿到完整结果（无需轮询）
+- [ ] `get_task_status` 返回的 `analysis` 字段与原始 `VideoAnalysis` 一致
+
+---
+
+### P4: 多P 视频智能采样（0.3 天）
+
+> **问题**：110 集的教程合集，强制全量下载+ASR = 不可行。
+
+**步骤 1: 采样策略（0.15 天）**
+
+- [ ] `MultiPartVideoProcessor` 新增参数 `part_sample`（None=全量 / int=N 随机采样）
+- [ ] 新增策略 `head+middle+tail`：首中尾各取 M 个分P
+- [ ] 新增策略 `cc_only`：仅处理有 CC 字幕的分P（搭配 CC Fast Path）
+
+**步骤 2: API/MCP 暴露（0.1 天）**
+
+- [ ] `POST /api/v1/process/bilibili` 增加 `part_sample` 参数
+- [ ] MCP `process_bilibili` / `process_batch` 增加 `part_sample` 参数
+
+**步骤 3: 验证（0.05 天）**
+
+- [ ] 110 集教程 `part_sample=5`：确认只处理 5 个分P
+- [ ] `cc_only` 模式：确认跳过无 CC 字幕的分P
+
+---
+
 ## 不做
 
 - ~~Qwen2.5-Omni GGUF 替代 ASR~~ — 精度和时间戳不如专用 ASR

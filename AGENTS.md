@@ -1,5 +1,60 @@
 # Repository Guidelines
 
+## Multi-Agent Collaboration Model
+
+This project uses a **layered agent system** for plan-driven development. Two roles interact with the codebase:
+
+### Orchestrator (Atlas / Sisyphus)
+
+The Orchestrator **never writes code directly** outside `.sisyphus/`. It:
+- Reads `.sisyphus/plans/*.md` — parses task checkboxes, builds dependency graph
+- Breaks plan tasks into granular sub-tasks and registers them as todo items
+- Delegates each atomic task to a **Subagent** via structured prompts (7 elements — see [Delegation Protocol](#delegation-protocol))
+- Runs independent tasks in parallel by invoking multiple subagents in one message
+- **Verifies** every subagent output through a mandatory 4-phase gate before marking any task complete:
+  1. **Read** every changed file — understand what each line does
+  2. **Run** `ruff check` + `pytest` on changed modules
+  3. **QA** user-facing changes hands-on (curl for API, browser for UI, REPL for library code)
+  4. **Gate** — only proceed if all three: `code understood AND tests pass AND QA passed`
+- Batch-reports completed tasks to the Maintainer for approval
+- Tracks workspace state in `.sisyphus/boulder.json` and `.sisyphus/notepads/`
+- Failure recovery: resumes the **same subagent session** (`session_id`) — never starts fresh on a follow-up
+
+### Subagent (Sisyphus-Junior / explore / oracle / librarian)
+
+A Subagent receives **one atomic task** per delegation and:
+- Executes within a clearly defined scope (files, functions, constraints)
+- Follows TDD: write failing tests first (RED) → minimal implementation (GREEN) → refactor
+- Self-validates: `ruff check` + `pytest` + `lsp_diagnostics` MUST all pass before reporting "done"
+- Records findings in `.sisyphus/notepads/<plan>/learnings.md` (append, never overwrite)
+- Reports blockers to `.sisyphus/notepads/<plan>/issues.md` instead of stopping
+- Does NOT interact with the Maintainer directly — all communication goes through the Orchestrator
+- Must NOT modify files outside its delegated scope
+
+### Execution Flow
+
+```
+Maintainer approves plan
+         ↓
+Orchestrator reads plan → breaks into sub-tasks → registers todos
+         ↓
+┌─ Wave 1 (parallel) ──────────────────────┐
+│ Subagent A ──┐    Subagent B ──┐         │
+│ (Task 1)     │    (Task 2)     │  ...    │
+│    ↓         │       ↓         │         │
+│ Verify       │    Verify       │         │
+└──────────────┴─────────────────┴─────────┘
+         ↓
+┌─ Wave 2 (depends on Wave 1) ─────────────┐
+│ Subagent C ──┐    Subagent D ──┐         │
+│ (Task 4)     │    (Task 6)     │         │
+└──────────────┴─────────────────┴─────────┘
+         ↓
+Orchestrator batch-report → Maintainer approves
+```
+
+---
+
 ## Project Structure & Module Organization
 
 - `api.py`: FastAPI app (serves API + web UI).
@@ -59,9 +114,9 @@ When installing new dependencies in WSL, install to the user-specified Python en
 - Python quality gate: Ruff (`ruff check .` and `ruff format .`), configured in `ruff.toml`.
 - Convenience: `scripts/lint.sh [check|fix|format|all]` or `scripts/lint.bat [check|fix|format|all]`.
 
-### Post-Write Validation (MANDATORY)
+### Automated Validation Gate (MANDATORY for Subagent)
 
-**After every code change, you MUST verify correctness before marking a task as done:**
+**Before any Subagent reports "done", it MUST self-verify:**
 
 1. Run Ruff on changed files:
    ```bash
@@ -80,17 +135,29 @@ When installing new dependencies in WSL, install to the user-specified Python en
 
 5. Never use emoji or special Unicode symbols (e.g., `✅ ❌ ⚠️ ✨ 🎯`) in logger output, print statements, error messages, or any text that appears in terminal/API responses. These characters break on CJK-unaware terminals and logging pipelines. Use plain ASCII alternatives like `[OK]`, `[WARN]`, `[ERR]`, `->`, etc.
 
-**Failure to pass any of these checks = task NOT complete.**
+**Failure to pass any of these checks = task NOT complete. Do NOT report "done".**
 
-### Human Review Workflow (MANDATORY)
+### Orchestrator Verification (MANDATORY after every delegation)
 
-After writing code and passing all automated checks, you MUST:
+Subagents often claim "done" when code has errors. The Orchestrator is the QA gate:
 
-1. **Mark completion**: state "功能完成，等待人工验收" with a summary of changes.
-2. **Wait for approval**: do NOT proceed to next task until the maintainer replies.
-3. **After approval**: when the maintainer confirms, update the task to "功能验收通过".
+1. **Read** EVERY changed file line-by-line — understand what each line does
+2. **Run** `ruff check` + `pytest` for the changed modules (not just trusting subagent output)
+3. **Cross-check** subagent claims vs actual code — if `git diff` shows unexpected scope, reject
+4. **Hands-on QA** for user-facing changes: curl for APIs, browser for UI, REPL for libraries
+5. **Gate**: only proceed if `code understood AND tests pass AND QA passed`
 
-This ensures the maintainer has reviewed every change before you move on.
+If verification fails — **resume the same subagent session** via `session_id`, do NOT start fresh.
+
+### Maintainer Review Workflow
+
+The Orchestrator batches completed tasks for maintainer approval:
+
+1. **Batch report**: after a wave of tasks passes Orchestrator verification, state "功能完成，等待人工验收" with a summary of ALL changes in that batch
+2. **Wait for approval**: the Orchestrator may continue verifying independent tasks but must NOT mark batch as approved until the Maintainer replies
+3. **After approval**: the Orchestrator updates all tasks in the batch to "功能验收通过"
+
+This allows parallel task execution while keeping the Maintainer in the review loop.
 
 ## Testing Guidelines
 
@@ -109,11 +176,61 @@ This ensures the maintainer has reviewed every change before you move on.
 - Never commit `.env` or API keys; use `.env.example` as the public template.
 - Prefer small, reviewable changes; keep generated output (PDFs/zips) out of git history.
 
-## Agent Workflow (Approval Required)
+## Delegation Protocol
 
-- Before any repo-writing action (patches, write commands, branches/commits), provide a complete proposal: goal, affected files, steps/commands, validation, and rollback.
-- Wait for explicit approval by the maintainer replying with the token `OJBK` before making changes.
-- For risky or multi-file changes, propose using a dedicated branch (e.g., `agent/YYYY-MM-DD-short-desc`); proceed only if approved.
+When the Orchestrator delegates to a Subagent, the prompt MUST include these 7 elements:
+
+```
+1. TASK — exact checkbox item, no ambiguity
+2. EXPECTED OUTCOME — files created/modified, behavior, verification command
+3. REQUIRED TOOLS — specific tools and what to search/check
+4. MUST DO — patterns to follow, tests to write, notepad to append
+5. MUST NOT DO — scope boundaries, forbidden patterns, guardrails
+6. CONTEXT — notepad paths (READ/WRITE), inherited wisdom, dependencies
+7. REFERENCES — exact file paths with line numbers
+```
+
+**Scope Rules**:
+- One atomic task per delegation — never batch multiple plan items into one prompt
+- Subagent must NOT modify files outside its explicitly delegated scope
+- Subagent must NOT introduce new dependencies unless explicitly permitted
+
+**Failure Recovery**:
+- Always resume the same subagent session (`session_id`) for fixes/follow-ups
+- The subagent already has full context — restarting from scratch wastes 70%+ tokens
+- Maximum 3 retries per task; if still blocked, document in `issues.md` and move on
+
+**Specialist Selection**:
+- `explore` agent: codebase search / pattern discovery (always run in background)
+- `librarian` agent: remote repo analysis / official docs / GitHub examples (always run in background)
+- `oracle` agent: read-only architecture / debugging consultation
+- `category=deep` subagent: autonomous multi-file implementation with TDD
+- `category=quick` subagent: single-file changes, typo fixes, trivial modifications
+- `category=visual-engineering` subagent: frontend, UI/UX, styling, design, animation
+
+## Workspace State (.sisyphus/)
+
+The `.sisyphus/` directory is the persistent workspace for plan-driven development:
+
+```
+.sisyphus/
+├── boulder.json           # Active plan, session tracking, task→session mapping
+├── plans/*.md             # Prometheus-generated execution plans with checkboxes
+├── notepads/<plan>/
+│   ├── learnings.md       # Patterns, conventions, successful approaches (append)
+│   ├── decisions.md       # Architectural choices made during execution
+│   └── issues.md          # Problems, blockers, known gotchas
+├── evidence/              # QA scenario execution evidence (per-task)
+│   ├── task-1-<slug>.txt
+│   └── task-2-<slug>.txt
+└── drafts/                # Temporary work artifacts
+```
+
+**Rules**:
+- **Orchestrator** may READ/WRITE `.sisyphus/` files directly
+- **Subagent** must APPEND to notepads (never overwrite) and CREATE evidence files
+- `boulder.json` tracks session_ids for resumability — never delete it mid-plan
+- When completing a task: Orchestrator marks `- [x]` in the plan file AND updates `boulder.json`
 
 ## Single Source Of Truth
 
