@@ -1,0 +1,27 @@
+{
+  "short_text.txt": {
+    "skip_summary": true,
+    "forbidden_words": ["哲学", "主体锻造", "存在论"]
+  },
+  "ai_news_short.txt": {
+    "summary_min_chars": 20,
+    "summary_max_ratio": 0.45,
+    "key_points_min": 3,
+    "keywords": ["AI Agent", "多模态", "工具调用", "企业落地"],
+    "forbidden_words": ["哲学", "主体锻造", "存在论"]
+  },
+  "career_planning_long.txt": {
+    "summary_min_chars": 20,
+    "summary_max_ratio": 0.35,
+    "key_points_min": 3,
+    "keywords": ["职业规划", "简历", "实习", "面试"],
+    "forbidden_words": ["哲学", "主体锻造", "存在论"]
+  },
+  "game_spoken.txt": {
+    "summary_min_chars": 20,
+    "summary_max_ratio": 0.5,
+    "key_points_min": 3,
+    "keywords": ["中路", "打野", "龙团", "视野"],
+    "forbidden_words": ["哲学", "主体锻造", "存在论"]
+  }
+}

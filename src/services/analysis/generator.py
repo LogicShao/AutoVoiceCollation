@@ -6,6 +6,7 @@ from typing import Any
 
 from pydantic import BaseModel, Field
 
+from src.core.output_status import SUMMARY_SKIP_MESSAGE, should_skip_summary
 from src.services.llm import LLMQueryParams, query_llm_async
 from src.services.llm.prompts import PromptType, get_prompt
 from src.utils.config import get_config
@@ -39,6 +40,19 @@ async def generate_analysis(
     prompt_hint: str = "",
     metadata: Any = None,
 ) -> VideoAnalysis:
+    if should_skip_summary(polished_text, transcript or None):
+        logger.info(
+            "Skipping structured analysis because text is shorter than the reliability threshold"
+        )
+        return VideoAnalysis(
+            title=title,
+            transcript=transcript,
+            summary=SUMMARY_SKIP_MESSAGE,
+            key_points=[],
+            segments=[],
+            output_dir=output_dir,
+        )
+
     config = get_config()
     prompt_spec = get_prompt(PromptType.ANALYZE_VIDEO)
     system_instruction = prompt_spec.render_system()

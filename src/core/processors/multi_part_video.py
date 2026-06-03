@@ -6,10 +6,12 @@
 
 import hashlib
 import random
+from datetime import datetime
 from pathlib import Path
 from typing import Any
 
 from src.core.exceptions import TaskCancelledException
+from src.core.output_status import build_quality_warning, extract_bvid, write_result_metadata
 from src.services.download import download_bilibili_audio, get_multi_part_info
 from src.utils.config import get_config
 from src.utils.helpers.timer import Timer
@@ -55,6 +57,8 @@ class MultiPartVideoProcessor(BaseProcessor):
             Tuple[Any, float, float, Optional[str]]: (结果数据, 总提取时间, 总润色时间, ZIP文件路径)
         """
         task_id = self._ensure_task(task_id)
+        output_dir: str | None = None
+        created_at = datetime.now().isoformat()
 
         try:
             self._cc_text_cache.clear()
@@ -146,6 +150,7 @@ class MultiPartVideoProcessor(BaseProcessor):
             # 4. 合并文本（添加章节标题）
             self.logger.info("合并分P文本...")
             merged_polished_text = self._merge_parts_text(part_results, output_dir)
+            merged_audio_text = "\n".join(result["audio_text"] for result in part_results).strip()
 
             self._check_cancellation(task_id)
 
@@ -154,7 +159,10 @@ class MultiPartVideoProcessor(BaseProcessor):
             if not self.config.llm.disable_llm_summary:
                 self.logger.info("生成摘要...")
                 summary_text = self.audio_processor._generate_summary(
-                    merged_polished_text, output_dir, multi_part_info.main_title
+                    merged_polished_text,
+                    output_dir,
+                    multi_part_info.main_title,
+                    source_text=merged_audio_text,
                 )
 
             self._check_cancellation(task_id)
@@ -184,8 +192,10 @@ class MultiPartVideoProcessor(BaseProcessor):
                 "output_dir": output_dir,
                 "total_parts": len(selected_parts_info),
                 "processed_parts": len(part_results),
+                "audio_text": merged_audio_text,
                 "polished_text": merged_polished_text,
                 "summary_text": summary_text,
+                "quality_warning": build_quality_warning(merged_audio_text),
             }
 
             # 如果有失败的分P，添加失败信息
@@ -196,6 +206,29 @@ class MultiPartVideoProcessor(BaseProcessor):
                 )
                 self.logger.warning(f"部分分P处理失败：{failed_parts}")
 
+            result_data = write_result_metadata(
+                output_dir,
+                status="partial" if failed_parts else "completed",
+                source_url=video_url,
+                title=multi_part_info.main_title,
+                bvid=extract_bvid(video_url),
+                created_at=created_at,
+                completed_at=datetime.now().isoformat(),
+                audio_text=merged_audio_text,
+                polished_text=merged_polished_text,
+                summary_text=summary_text,
+                quality_warning=result_data["quality_warning"],
+                output_style=output_style or self.config.output_style,
+                model_config={
+                    "asr": self.config.asr.asr_model,
+                    "llm": llm_api,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "output_style": output_style or self.config.output_style,
+                },
+                extra=result_data,
+            )
+
             self.logger.info(
                 f"多P视频处理完成，成功 {len(part_results)}/{len(selected_parts_info)} 个分P"
             )
@@ -203,9 +236,47 @@ class MultiPartVideoProcessor(BaseProcessor):
 
         except TaskCancelledException as e:
             self.logger.warning(f"多P任务已取消: {e}")
+            if output_dir:
+                write_result_metadata(
+                    output_dir,
+                    status="failed",
+                    source_url=video_url,
+                    title="",
+                    bvid=extract_bvid(video_url),
+                    created_at=created_at,
+                    completed_at=datetime.now().isoformat(),
+                    output_style=output_style or self.config.output_style,
+                    model_config={
+                        "asr": self.config.asr.asr_model,
+                        "llm": llm_api,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                        "output_style": output_style or self.config.output_style,
+                    },
+                    extra={"error": str(e)},
+                )
             raise
         except Exception as e:
             self.logger.error(f"多P任务失败: {e}", exc_info=True)
+            if output_dir:
+                write_result_metadata(
+                    output_dir,
+                    status="failed",
+                    source_url=video_url,
+                    title="",
+                    bvid=extract_bvid(video_url),
+                    created_at=created_at,
+                    completed_at=datetime.now().isoformat(),
+                    output_style=output_style or self.config.output_style,
+                    model_config={
+                        "asr": self.config.asr.asr_model,
+                        "llm": llm_api,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                        "output_style": output_style or self.config.output_style,
+                    },
+                    extra={"error": str(e)},
+                )
             raise
         finally:
             self._cleanup_task(task_id)

@@ -24,6 +24,7 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from src.core.history import get_history_manager
+from src.core.output_status import scan_output_cache
 from src.utils.config import get_config
 from src.utils.helpers.filename import sanitize_filename
 from src.utils.helpers.task_manager import get_task_manager
@@ -870,6 +871,8 @@ async def get_history():
                 "output_dir": r.output_dir,
                 "last_processed": r.last_processed,
                 "process_count": r.process_count,
+                "quality_warning": r.outputs.get("quality_warning"),
+                "output_status": r.outputs.get("output_status") or r.outputs.get("status"),
             }
             for r in records
         ],
@@ -975,12 +978,34 @@ async def clean_download_directory(confirm: bool = Form(False)):
 async def get_maintenance_stats():
     """获取维护统计信息（任务数、历史记录数、各目录文件数）"""
     hm = get_history_manager()
+    output_scan = scan_output_cache(config.paths.output_dir)
     return {
         "queue_count": len(tasks),
         "history_count": len(hm.get_all_records()),
         "temp_files": _count_files(str(config.paths.temp_dir)),
         "output_files": _count_files(str(config.paths.output_dir)),
         "download_files": _count_files(str(config.paths.download_dir)),
+        "output_cache_size": output_scan["total_cache_size"],
+        "partial_output_count": len(output_scan["partial_directories"]),
+        "duplicate_output_count": len(output_scan["duplicate_groups"]),
+        "cleanup_candidate_count": len(output_scan["cleanup_candidates"]),
+    }
+
+
+@app.get("/api/v1/admin/output-cleanup-dry-run")
+async def output_cleanup_dry_run(keep_per_bvid: int = 3):
+    """列出输出目录清理候选，不删除任何文件。"""
+    if keep_per_bvid < 0:
+        raise HTTPException(status_code=400, detail="keep_per_bvid 不能小于 0")
+    scan = scan_output_cache(config.paths.output_dir, keep_per_bvid=keep_per_bvid)
+    return {
+        "status": "ok",
+        "dry_run": True,
+        "keep_per_bvid": keep_per_bvid,
+        "total_cache_size": scan["total_cache_size"],
+        "partial_directories": scan["partial_directories"],
+        "duplicate_groups": scan["duplicate_groups"],
+        "cleanup_candidates": scan["cleanup_candidates"],
     }
 
 

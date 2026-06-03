@@ -1,20 +1,37 @@
-"""
-配置管理模块单元测试
+"""当前 Pydantic 配置系统测试。"""
 
-注意：本测试文件已过时，测试的是旧的配置系统。
-新的配置系统基于 Pydantic，不再需要测试这些内部函数。
-
-如需测试新配置系统，请参考：
-- src/utils/config/ 目录下的配置模块
-- Pydantic 自动处理类型转换和验证
-"""
+from pathlib import Path
 
 import pytest
 
-# 标记整个模块为已废弃
-pytestmark = pytest.mark.skip(reason="旧配置系统测试已废弃，新系统基于 Pydantic")
+from src.utils.config import AppConfig, ASRConfig, LLMConfig, PathConfig
 
 
-def test_placeholder():
-    """占位测试，防止 pytest 报错"""
-    pass
+def test_output_style_validation_rejects_unknown_style():
+    with pytest.raises(ValueError, match="无效的输出样式"):
+        AppConfig(output_style="unknown")
+
+
+def test_path_config_resolves_project_relative_paths():
+    config = PathConfig(output_dir="out")
+
+    assert isinstance(config.output_dir, Path)
+    assert config.output_dir.is_absolute()
+    assert config.output_dir.name == "out"
+
+
+def test_asr_model_normalized_and_validated():
+    config = ASRConfig(asr_model="SENSE_VOICE")
+
+    assert config.asr_model == "sense_voice"
+
+    with pytest.raises(ValueError, match="不支持的 ASR 模型"):
+        ASRConfig(asr_model="bad_asr")
+
+
+def test_llm_numeric_fields_validate_ranges():
+    with pytest.raises(ValueError):
+        LLMConfig(llm_temperature=3.0)
+
+    with pytest.raises(ValueError):
+        LLMConfig(llm_max_tokens=0)

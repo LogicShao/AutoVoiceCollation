@@ -165,10 +165,15 @@ async def get_task_status(task_id: str) -> dict:
     if result.get("key_points"):
         text["key_points"] = result["key_points"]
     analysis = None
-    if result.get("key_points") or result.get("segments"):
+    if (
+        result.get("summary")
+        or result.get("summary_text")
+        or result.get("key_points")
+        or result.get("segments")
+    ):
         analysis = {
             "title": result.get("title", ""),
-            "summary": result.get("summary", ""),
+            "summary": result.get("summary") or result.get("summary_text", ""),
             "key_points": result.get("key_points", []),
             "segments": result.get("segments", []),
         }
@@ -179,6 +184,8 @@ async def get_task_status(task_id: str) -> dict:
         "text": text if text else None,
         "analysis": analysis,
         "output_dir": result.get("output_dir", ""),
+        "quality_warning": result.get("quality_warning"),
+        "output_status": result.get("output_status") or result.get("status"),
     }
 
 
@@ -344,10 +351,16 @@ async def get_analysis(task_id: str) -> str:
         return "{}"
     key_points = result.get("key_points", [])
     segments = result.get("segments", [])
-    if not key_points and not segments:
+    summary = result.get("summary") or result.get("summary_text", "")
+    if not summary and not key_points and not segments:
         return "{}"
     return json.dumps(
-        {"title": result.get("title", ""), "key_points": key_points, "segments": segments},
+        {
+            "title": result.get("title", ""),
+            "summary": summary,
+            "key_points": key_points,
+            "segments": segments,
+        },
         ensure_ascii=False,
     )
 

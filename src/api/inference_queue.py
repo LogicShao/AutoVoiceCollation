@@ -189,9 +189,11 @@ class InferenceQueue:
         try:
             hm = get_history_manager()
             config_data = {
+                "asr": data.get("asr_model", get_config().asr.asr_model),
                 "llm_api": data.get("llm_api", ""),
                 "temperature": data.get("temperature", 0),
                 "max_tokens": data.get("max_tokens", 0),
+                "output_style": data.get("output_style") or get_config().output_style,
             }
 
             if task_type == "bilibili":
@@ -471,6 +473,11 @@ class InferenceQueue:
 
             output_dir = self._extract_output_dir(output_data)
             zip_file_path = zip_file or self._build_lazy_zip_path(task_id, output_dir)
+            quality_warning = None
+            output_status = None
+            if isinstance(output_data, dict):
+                quality_warning = output_data.get("quality_warning")
+                output_status = output_data.get("output_status") or output_data.get("status")
             tasks_store[task_id].update(
                 {
                     "status": "completed",
@@ -480,6 +487,8 @@ class InferenceQueue:
                         "extract_time": extract_time,
                         "polish_time": polish_time,
                         "zip_file": zip_file_path,
+                        "quality_warning": quality_warning,
+                        "output_status": output_status,
                     },
                     "completed_at": completed_at,
                 }
@@ -568,6 +577,11 @@ class InferenceQueue:
 
             output_dir = self._extract_output_dir(output_data)
             zip_file_path = zip_file or self._build_lazy_zip_path(task_id, output_dir)
+            quality_warning = None
+            output_status = None
+            if isinstance(output_data, dict):
+                quality_warning = output_data.get("quality_warning")
+                output_status = output_data.get("output_status") or output_data.get("status")
             tasks_store[task_id].update(
                 {
                     "status": "completed",
@@ -577,6 +591,8 @@ class InferenceQueue:
                         "extract_time": extract_time,
                         "polish_time": polish_time,
                         "zip_file": zip_file_path,
+                        "quality_warning": quality_warning,
+                        "output_status": output_status,
                     },
                     "completed_at": completed_at,
                 }
@@ -714,6 +730,8 @@ class InferenceQueue:
                     "extract_time": extract_time,
                     "polish_time": polish_time,
                     "zip_file": zip_file,
+                    "quality_warning": result_data.get("quality_warning"),
+                    "output_status": result_data.get("output_status") or result_data.get("status"),
                 },
                 "completed_at": datetime.now().isoformat(),
             }
@@ -795,6 +813,14 @@ class InferenceQueue:
                         "transcript": analysis.transcript,
                         "extract_time": extract_time,
                         "polish_time": polish_time,
+                        "quality_warning": output_data.get("quality_warning")
+                        if isinstance(output_data, dict)
+                        else None,
+                        "output_status": (
+                            output_data.get("output_status") or output_data.get("status")
+                            if isinstance(output_data, dict)
+                            else None
+                        ),
                     },
                     "completed_at": datetime.now().isoformat(),
                 }

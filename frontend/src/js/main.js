@@ -46,6 +46,10 @@ document.addEventListener('alpine:init', () => {
       temp_files: 0,
       output_files: 0,
       download_files: 0,
+      output_cache_size: 0,
+      partial_output_count: 0,
+      duplicate_output_count: 0,
+      cleanup_candidate_count: 0,
     },
 
     init() {
@@ -607,5 +611,35 @@ document.addEventListener('alpine:init', () => {
     adminCleanTemp() { this.adminAction('/api/v1/admin/clean-temp', '清理临时文件'); },
     adminCleanOutput() { this.adminAction('/api/v1/admin/clean-output', '清理输出目录'); },
     adminCleanDownload() { this.adminAction('/api/v1/admin/clean-download', '清理下载缓存'); },
+    async adminOutputDryRun() {
+      this.adminLoading = true;
+      this.adminMessage = '';
+      try {
+        const r = await fetch('/api/v1/admin/output-cleanup-dry-run');
+        const data = await r.json();
+        if (r.ok) {
+          const partials = data.partial_directories.map((item) => item.name).slice(0, 3).join(', ') || '无';
+          const duplicates = data.duplicate_groups.map((group) => `${group.bvid}(${group.count})`).slice(0, 3).join(', ') || '无';
+          const candidates = data.cleanup_candidates.map((item) => item.name).slice(0, 3).join(', ') || '无';
+          this.adminMessage = `dry-run: 半成品 ${partials}；重复 ${duplicates}；候选 ${candidates}`;
+        } else {
+          this.adminMessage = '扫描失败: ' + (data.detail || '未知错误');
+        }
+      } catch (e) {
+        this.adminMessage = '请求失败: ' + e.message;
+      }
+      this.adminLoading = false;
+    },
+    formatBytes(bytes) {
+      if (!bytes) return '0 B';
+      const units = ['B', 'KB', 'MB', 'GB'];
+      let size = bytes;
+      let unit = 0;
+      while (size >= 1024 && unit < units.length - 1) {
+        size /= 1024;
+        unit += 1;
+      }
+      return `${size.toFixed(unit === 0 ? 0 : 1)} ${units[unit]}`;
+    },
   }));
 });

@@ -4,12 +4,19 @@
 负责音频文件的ASR识别、LLM润色和输出生成
 """
 
-import json
 import os
 import shutil
+from datetime import datetime
 from typing import Any
 
 from src.core.exceptions import TaskCancelledException
+from src.core.output_status import (
+    SUMMARY_SKIP_MESSAGE,
+    build_quality_warning,
+    extract_bvid,
+    should_skip_summary,
+    write_result_metadata,
+)
 from src.services.asr import transcribe_audio
 from src.services.download.bilibili_downloader import BiliVideoFile, new_local_bili_file
 from src.text_arrangement.summary_by_llm import summarize_text
@@ -193,7 +200,13 @@ class AudioProcessor(BaseProcessor):
         polish_time = timer.stop()
         return polished_text, polish_time
 
-    def _generate_summary(self, polished_text: str, output_dir: str, title: str) -> str:
+    def _generate_summary(
+        self,
+        polished_text: str,
+        output_dir: str,
+        title: str,
+        source_text: str | None = None,
+    ) -> str:
         """
         生成文本摘要
 
@@ -209,13 +222,17 @@ class AudioProcessor(BaseProcessor):
             self.logger.info("LLM summary is disabled, skipping")
             return ""
 
-        summary_text = summarize_text(
-            txt=polished_text,
-            api_server=self.config.llm.summary_llm_server,
-            temperature=self.config.llm.summary_llm_temperature,
-            max_tokens=self.config.llm.summary_llm_max_tokens,
-            title=title,
-        )
+        if should_skip_summary(polished_text, source_text):
+            summary_text = SUMMARY_SKIP_MESSAGE
+            self.logger.info("LLM summary skipped because text is too short")
+        else:
+            summary_text = summarize_text(
+                txt=polished_text,
+                api_server=self.config.llm.summary_llm_server,
+                temperature=self.config.llm.summary_llm_temperature,
+                max_tokens=self.config.llm.summary_llm_max_tokens,
+                title=title,
+            )
 
         # 保存摘要
         md_file_path = os.path.join(output_dir, "summary_text.md")
@@ -303,6 +320,8 @@ class AudioProcessor(BaseProcessor):
                 - text_only=False: 返回字典数据
         """
         task_id = self._ensure_task(task_id)
+        output_dir: str | None = None
+        created_at = datetime.now().isoformat()
 
         try:
             # 输入验证（text_override 模式下跳过文件存在性检查）
@@ -354,12 +373,33 @@ class AudioProcessor(BaseProcessor):
                     "polished_text": polished_text,
                     "summary_text": None,
                     "output_dir": output_dir,
+                    "quality_warning": build_quality_warning(audio_text),
                 }
 
                 # 保存为JSON
+                result_data = write_result_metadata(
+                    output_dir,
+                    status="completed",
+                    source_url=audio_file.url,
+                    title=audio_file.title,
+                    bvid=extract_bvid(audio_file.url),
+                    created_at=created_at,
+                    completed_at=datetime.now().isoformat(),
+                    audio_text=audio_text,
+                    polished_text=polished_text,
+                    summary_text=None,
+                    quality_warning=result_data["quality_warning"],
+                    output_style="text_only",
+                    model_config={
+                        "asr": self.config.asr.asr_model,
+                        "llm": llm_api,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                        "output_style": "text_only",
+                    },
+                    extra=result_data,
+                )
                 json_file_path = os.path.join(output_dir, "result.json")
-                with open(json_file_path, "w", encoding="utf-8") as f:
-                    json.dump(result_data, f, ensure_ascii=False, indent=2)
 
                 self.logger.info(f"Text-only result saved to {json_file_path}")
                 self.logger.info("all done")
@@ -407,7 +447,9 @@ class AudioProcessor(BaseProcessor):
             self._check_cancellation(task_id)
 
             # 生成摘要
-            summary_text = self._generate_summary(polished_text, output_dir, audio_file.title)
+            summary_text = self._generate_summary(
+                polished_text, output_dir, audio_file.title, source_text=audio_text
+            )
             self._check_cancellation(task_id)
 
             # 压缩输出
@@ -421,11 +463,74 @@ class AudioProcessor(BaseProcessor):
                 "audio_text": audio_text,
                 "polished_text": polished_text,
                 "summary_text": summary_text,
+                "quality_warning": build_quality_warning(audio_text),
             }
+            result_data = write_result_metadata(
+                output_dir,
+                status="completed",
+                source_url=audio_file.url,
+                title=audio_file.title,
+                bvid=extract_bvid(audio_file.url),
+                created_at=created_at,
+                completed_at=datetime.now().isoformat(),
+                audio_text=audio_text,
+                polished_text=polished_text,
+                summary_text=summary_text,
+                quality_warning=result_data["quality_warning"],
+                output_style=output_style or self.config.output_style,
+                model_config={
+                    "asr": self.config.asr.asr_model,
+                    "llm": llm_api,
+                    "temperature": temperature,
+                    "max_tokens": max_tokens,
+                    "output_style": output_style or self.config.output_style,
+                },
+                extra=result_data,
+            )
             return result_data, extract_time, polish_time, zip_file
 
         except TaskCancelledException as e:
             self.logger.warning(f"Task cancelled: {e}")
+            if output_dir:
+                write_result_metadata(
+                    output_dir,
+                    status="failed",
+                    source_url=audio_file.url,
+                    title=audio_file.title,
+                    bvid=extract_bvid(audio_file.url),
+                    created_at=created_at,
+                    completed_at=datetime.now().isoformat(),
+                    output_style=output_style or self.config.output_style,
+                    model_config={
+                        "asr": self.config.asr.asr_model,
+                        "llm": llm_api,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                        "output_style": output_style or self.config.output_style,
+                    },
+                    extra={"error": str(e)},
+                )
+            raise
+        except Exception as e:
+            if output_dir:
+                write_result_metadata(
+                    output_dir,
+                    status="failed",
+                    source_url=audio_file.url,
+                    title=audio_file.title,
+                    bvid=extract_bvid(audio_file.url),
+                    created_at=created_at,
+                    completed_at=datetime.now().isoformat(),
+                    output_style=output_style or self.config.output_style,
+                    model_config={
+                        "asr": self.config.asr.asr_model,
+                        "llm": llm_api,
+                        "temperature": temperature,
+                        "max_tokens": max_tokens,
+                        "output_style": output_style or self.config.output_style,
+                    },
+                    extra={"error": str(e)},
+                )
             raise
         finally:
             self._cleanup_task(task_id)

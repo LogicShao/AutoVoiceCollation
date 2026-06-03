@@ -28,7 +28,7 @@ class ProcessRecord:
     output_dir: str  # 输出目录
     last_processed: str  # 最后处理时间（ISO格式）
     config: dict[str, Any]  # 处理配置
-    outputs: dict[str, str]  # 输出文件路径
+    outputs: dict[str, Any]  # 输出文件路径与状态元数据
     process_count: int = 1  # 处理次数
 
     def to_dict(self) -> dict[str, Any]:

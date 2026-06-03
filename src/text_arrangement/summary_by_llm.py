@@ -1,3 +1,4 @@
+from src.core.output_status import SUMMARY_SKIP_MESSAGE, should_skip_summary
 from src.services.llm.models import LLMQueryParams
 from src.services.llm.prompts import get_prompt
 from src.utils.logging.logger import get_logger
@@ -17,6 +18,10 @@ def summarize_text(
     :param title: 文本标题（可选）
     :return: 总结后的文本
     """
+    if should_skip_summary(txt):
+        logger.info("Skipping summary because text is shorter than the reliability threshold")
+        return SUMMARY_SKIP_MESSAGE
+
     prompt_spec = get_prompt("summary")
     prompt = prompt_spec.render_user(text=txt, title=f"标题:{title}")
 

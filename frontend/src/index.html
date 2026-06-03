@@ -525,6 +525,19 @@
                 :class="adminLoading ? 'bg-gray-200 dark:bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-red-100 dark:bg-red-900/30 text-red-600 dark:text-red-400 hover:bg-red-200 dark:hover:bg-red-900/50'"
                 x-text="adminLoading ? '执行中...' : '执行'"></button>
             </div>
+            <div class="grid grid-cols-2 gap-2 text-xs text-gray-500 dark:text-gray-400">
+              <div>缓存大小：<span x-text="formatBytes(stats.output_cache_size)"></span></div>
+              <div>半成品：<span x-text="stats.partial_output_count"></span></div>
+              <div>重复组：<span x-text="stats.duplicate_output_count"></span></div>
+              <div>可清理候选：<span x-text="stats.cleanup_candidate_count"></span></div>
+            </div>
+            <div class="flex items-center justify-between">
+              <span class="text-sm text-gray-600 dark:text-gray-400">扫描输出清理候选</span>
+              <button @click="adminOutputDryRun" :disabled="adminLoading"
+                class="px-3 py-1 text-xs rounded transition-colors"
+                :class="adminLoading ? 'bg-gray-200 dark:bg-gray-600 text-gray-400 cursor-not-allowed' : 'bg-gray-100 dark:bg-gray-700 text-gray-700 dark:text-gray-200 hover:bg-gray-200 dark:hover:bg-gray-600'"
+                x-text="adminLoading ? '扫描中...' : 'dry-run'"></button>
+            </div>
             <div class="flex items-center justify-between">
               <span class="text-sm text-gray-600 dark:text-gray-400">
                 清理下载缓存 <span class="text-xs text-gray-400 dark:text-gray-500" x-text="'(' + stats.download_files + ' 个)'"></span>
