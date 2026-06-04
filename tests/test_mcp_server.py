@@ -1,6 +1,7 @@
 import asyncio
-
-import pytest
+import inspect
+import json
+from unittest.mock import patch
 
 
 class TestMcpServerImports:
@@ -22,6 +23,11 @@ class TestMcpServerImports:
 
 
 class TestProcessBilibili:
+    def test_signature_has_no_part_sample(self):
+        from src.mcp.server import process_bilibili
+
+        assert "part_sample" not in inspect.signature(process_bilibili).parameters
+
     def test_empty_url_returns_error(self):
         from src.mcp.server import process_bilibili
 
@@ -56,6 +62,11 @@ class TestProcessAudio:
 
 
 class TestProcessBatch:
+    def test_signature_has_no_part_sample(self):
+        from src.mcp.server import process_batch
+
+        assert "part_sample" not in inspect.signature(process_batch).parameters
+
     def test_empty_list_returns_error(self):
         from src.mcp.server import process_batch
 
@@ -83,3 +94,103 @@ class TestCancelTask:
 
         result = asyncio.run(cancel_task(task_id="nonexistent"))
         assert "error" in result
+
+
+class TestAnalysisPayload:
+    def test_get_task_status_includes_metadata_in_analysis(self):
+        from src.mcp.server import get_task_status
+
+        async def fake_api(method, path, **kwargs):
+            return {
+                "status": "completed",
+                "message": "done",
+                "result": {
+                    "title": "测试视频",
+                    "summary": "摘要",
+                    "key_points": ["要点"],
+                    "segments": [
+                        {
+                            "start_time": 0,
+                            "end_time": 10,
+                            "text": "分段内容",
+                            "topic": "主题",
+                        }
+                    ],
+                    "metadata": {"owner": "测试UP主"},
+                },
+            }
+
+        with patch("src.mcp.server._api", new=fake_api):
+            result = asyncio.run(get_task_status(task_id="task-1"))
+
+        assert result["analysis"]["metadata"] == {"owner": "测试UP主"}
+
+    def test_get_analysis_resource_includes_metadata(self):
+        from src.mcp.server import get_analysis
+
+        async def fake_completed_task(task_id):
+            return {
+                "title": "测试视频",
+                "summary": "摘要",
+                "key_points": ["要点"],
+                "segments": [],
+                "metadata": {"owner": "测试UP主"},
+            }
+
+        with patch("src.mcp.server._get_completed_task", new=fake_completed_task):
+            payload = asyncio.run(get_analysis(task_id="task-1"))
+
+        assert json.loads(payload)["metadata"] == {"owner": "测试UP主"}
+
+
+class TestGenerateMindmap:
+    def test_generate_mindmap_prefers_analysis_segments(self, tmp_path):
+        from src.mcp.server import generate_mindmap
+
+        class FakeRoot:
+            def model_dump(self):
+                return {"title": "root"}
+
+        class FakeOutput:
+            node_count = 1
+            root = FakeRoot()
+
+        captured = {}
+
+        async def fake_api(method, path, **kwargs):
+            return {
+                "status": "completed",
+                "message": "done",
+                "result": {
+                    "title": "测试视频",
+                    "transcript": "原始转写不应优先使用",
+                    "segments": [
+                        {
+                            "start_time": 0,
+                            "end_time": 10,
+                            "topic": "主题一",
+                            "text": "结构化分段一",
+                        }
+                    ],
+                    "output_dir": str(tmp_path),
+                },
+            }
+
+        async def fake_generate_mindmap(text, title, prompt_hint=""):
+            captured["text"] = text
+            captured["title"] = title
+            captured["prompt_hint"] = prompt_hint
+            return FakeOutput()
+
+        with (
+            patch("src.mcp.server._api", new=fake_api),
+            patch("src.services.mindmap.generate_mindmap", new=fake_generate_mindmap),
+            patch("src.services.mindmap.export_mindmap_to_files", return_value={}),
+            patch("src.services.mindmap.render_mermaid", return_value="graph TD"),
+        ):
+            result = asyncio.run(generate_mindmap(task_id="task-1", prompt_hint="聚焦主题"))
+
+        assert result["node_count"] == 1
+        assert captured["text"] == "主题一: 结构化分段一"
+        assert captured["title"] == "测试视频"
+        assert captured["prompt_hint"] == "聚焦主题"

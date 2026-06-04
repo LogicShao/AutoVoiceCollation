@@ -5,7 +5,8 @@ import json
 from pathlib import Path
 
 from src.core.output_status import SUMMARY_SKIP_MESSAGE, should_skip_summary
-from src.services.analysis.generator import generate_analysis
+from src.mcp.bilibili_api import VideoMetadata
+from src.services.analysis.generator import VideoAnalysis, generate_analysis
 from src.services.llm import prompts
 
 FIXTURE_DIR = Path(__file__).parent / "fixtures" / "quality_samples"
@@ -37,6 +38,33 @@ def test_short_text_must_skip_summary():
     assert should_skip_summary(sample)
 
 
+def test_text_only_summary_skips_short_source_text_without_llm(monkeypatch):
+    import api
+
+    def fail_summarize(*args, **kwargs):
+        raise AssertionError("short source text should not call LLM summary")
+
+    monkeypatch.setattr(api, "summarize_text", fail_summarize)
+
+    async def run_summary():
+        loop = asyncio.get_running_loop()
+        return await api._summarize_text_result(
+            loop,
+            {
+                "title": "短转写长润色",
+                "audio_text": _read_sample("short_text.txt"),
+                "polished_text": _read_sample("career_planning_long.txt"),
+            },
+            llm_api="http://example.invalid",
+            temperature=0.3,
+            max_tokens=256,
+        )
+
+    summary = asyncio.run(run_summary())
+
+    assert summary == SUMMARY_SKIP_MESSAGE
+
+
 def test_structured_analysis_skips_short_text_without_llm(monkeypatch):
     async def fail_query(*args, **kwargs):
         raise AssertionError("short text should not call LLM")
@@ -54,6 +82,75 @@ def test_structured_analysis_skips_short_text_without_llm(monkeypatch):
     assert analysis.summary == SUMMARY_SKIP_MESSAGE
     assert analysis.key_points == []
     assert analysis.segments == []
+
+
+def test_video_analysis_json_schema_contract():
+    schema = VideoAnalysis.model_json_schema()
+    properties = schema["properties"]
+
+    assert "summary" in properties
+    assert "key_points" in properties
+    assert "segments" in properties
+    assert "metadata" in properties
+    assert "summary" in schema["required"]
+
+
+def test_structured_analysis_preserves_metadata(monkeypatch):
+    sample = _read_sample("career_planning_long.txt")
+    captured = {}
+
+    async def fake_query(params):
+        captured["system_instruction"] = params.system_instruction
+        return (
+            '{"summary":"围绕职业规划给出可执行建议。",'
+            '"key_points":["明确目标岗位"],'
+            '"segments":[{"start_time":0,"end_time":12,"text":"目标岗位分析","topic":"规划"}]}'
+        )
+
+    monkeypatch.setattr("src.services.analysis.generator.query_llm_async", fake_query)
+
+    metadata = VideoMetadata(
+        title="职业规划视频",
+        owner="测试UP主",
+        tags=["职业", "简历"],
+        chapters=[{"title": "开场", "part_number": 1, "duration": 12}],
+    )
+    analysis = asyncio.run(
+        generate_analysis(sample, "职业规划", transcript=sample, metadata=metadata)
+    )
+
+    assert analysis.metadata is not None
+    assert analysis.metadata["title"] == "职业规划视频"
+    assert analysis.metadata["owner"] == "测试UP主"
+    assert analysis.metadata["tags"] == ["职业", "简历"]
+    assert "测试UP主" in captured["system_instruction"]
+
+
+def test_structured_analysis_accepts_dict_metadata(monkeypatch):
+    sample = _read_sample("career_planning_long.txt")
+    captured = {}
+
+    async def fake_query(params):
+        captured["system_instruction"] = params.system_instruction
+        return (
+            '{"summary":"围绕职业规划给出可执行建议。",'
+            '"key_points":["明确目标岗位"],'
+            '"segments":[{"start_time":0,"end_time":12,"text":"目标岗位分析","topic":"规划"}]}'
+        )
+
+    monkeypatch.setattr("src.services.analysis.generator.query_llm_async", fake_query)
+
+    analysis = asyncio.run(
+        generate_analysis(
+            sample,
+            "职业规划",
+            transcript=sample,
+            metadata={"title": "职业规划视频", "owner": "测试UP主", "tags": ["职业"]},
+        )
+    )
+
+    assert analysis.metadata == {"title": "职业规划视频", "owner": "测试UP主", "tags": ["职业"]}
+    assert "测试UP主" in captured["system_instruction"]
 
 
 def test_analysis_summary_style_and_length(monkeypatch):

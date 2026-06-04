@@ -32,6 +32,56 @@ async def _api(method: str, path: str, **kwargs) -> dict:
         return {"error": f"API 请求失败: {e}"}
 
 
+def _build_analysis_payload(result: dict) -> dict | None:
+    """构造 MCP 对外暴露的稳定分析结构。"""
+    summary = result.get("summary") or result.get("summary_text", "")
+    key_points = result.get("key_points", [])
+    segments = result.get("segments", [])
+    metadata = result.get("metadata")
+
+    if not summary and not key_points and not segments and metadata is None:
+        return None
+
+    analysis = {
+        "title": result.get("title", ""),
+        "summary": summary,
+        "key_points": key_points,
+        "segments": segments,
+    }
+    if metadata is not None:
+        analysis["metadata"] = metadata
+    return analysis
+
+
+def _text_from_analysis_segments(result: dict) -> str:
+    """将 analysis.segments 转成导图输入，避免重复解析整段转写。"""
+    segments = result.get("segments")
+    if not isinstance(segments, list):
+        return ""
+
+    lines: list[str] = []
+    for segment in segments:
+        if not isinstance(segment, dict):
+            continue
+        text = str(segment.get("text") or "").strip()
+        topic = str(segment.get("topic") or "").strip()
+        if not text:
+            continue
+        lines.append(f"{topic}: {text}" if topic else text)
+    return "\n".join(lines)
+
+
+def _select_mindmap_text(result: dict) -> str:
+    return (
+        _text_from_analysis_segments(result)
+        or result.get("text")
+        or result.get("transcript")
+        or result.get("audio_text")
+        or result.get("polished_text")
+        or ""
+    )
+
+
 @mcp.tool()
 async def process_bilibili(
     url: str,
@@ -40,7 +90,6 @@ async def process_bilibili(
     disable_llm_summary: bool = False,
     output_style: str = "",
     prompt_hint: str = "",
-    part_sample: str = "",
 ) -> dict:
     """处理B站视频链接，返回 task_id 用于查询状态"""
     if not url.strip():
@@ -56,8 +105,6 @@ async def process_bilibili(
         body["output_style"] = output_style
     if prompt_hint:
         body["prompt_hint"] = prompt_hint
-    if part_sample:
-        body["part_sample"] = part_sample
     return await _api("POST", "/api/v1/process/bilibili", json=body)
 
 
@@ -121,7 +168,6 @@ async def process_batch(
     disable_llm_summary: bool = False,
     output_style: str = "",
     prompt_hint: str = "",
-    part_sample: str = "",
 ) -> dict:
     """批量处理多个B站视频链接，返回 task_id"""
     if not urls:
@@ -140,8 +186,6 @@ async def process_batch(
         body["output_style"] = output_style
     if prompt_hint:
         body["prompt_hint"] = prompt_hint
-    if part_sample:
-        body["part_sample"] = part_sample
     return await _api("POST", "/api/v1/process/batch", json=body)
 
 
@@ -164,19 +208,7 @@ async def get_task_status(task_id: str) -> dict:
             text[dst] = result[src]
     if result.get("key_points"):
         text["key_points"] = result["key_points"]
-    analysis = None
-    if (
-        result.get("summary")
-        or result.get("summary_text")
-        or result.get("key_points")
-        or result.get("segments")
-    ):
-        analysis = {
-            "title": result.get("title", ""),
-            "summary": result.get("summary") or result.get("summary_text", ""),
-            "key_points": result.get("key_points", []),
-            "segments": result.get("segments", []),
-        }
+    analysis = _build_analysis_payload(result)
     return {
         "task_id": task_id,
         "status": task.get("status", "unknown"),
@@ -219,11 +251,6 @@ async def analyze_video(url: str, prompt_hint: str = "") -> dict:
         status = task.get("status", "")
         if status == "completed":
             result = task.get("result", {})
-            analysis = {}
-            if result.get("key_points"):
-                analysis["key_points"] = result["key_points"]
-            if result.get("segments"):
-                analysis["segments"] = result["segments"]
             return {
                 "task_id": task_id,
                 "status": "completed",
@@ -231,6 +258,7 @@ async def analyze_video(url: str, prompt_hint: str = "") -> dict:
                 "summary": result.get("summary", ""),
                 "key_points": result.get("key_points", []),
                 "segments": result.get("segments", []),
+                "metadata": result.get("metadata"),
                 "output_dir": result.get("output_dir", ""),
             }
         if status == "failed":
@@ -267,7 +295,7 @@ async def generate_mindmap(task_id: str, prompt_hint: str = "") -> dict:
     if task.get("status") != "completed":
         return {"error": f"任务尚未完成，当前状态: {task.get('status')}"}
     result = task.get("result", {})
-    text = result.get("text") or result.get("transcript") or ""
+    text = _select_mindmap_text(result)
     title = result.get("title") or task.get("message", "")
     if not text:
         return {"error": "任务结果中没有可用的文本内容"}
@@ -333,7 +361,7 @@ async def get_mindmap_resource(task_id: str) -> str:
     result = await _get_completed_task(task_id)
     if not result:
         return "{}"
-    text = result.get("text") or result.get("transcript") or ""
+    text = _select_mindmap_text(result)
     title = result.get("title") or ""
     if not text:
         return "{}"
@@ -349,20 +377,10 @@ async def get_analysis(task_id: str) -> str:
     result = await _get_completed_task(task_id)
     if not result:
         return "{}"
-    key_points = result.get("key_points", [])
-    segments = result.get("segments", [])
-    summary = result.get("summary") or result.get("summary_text", "")
-    if not summary and not key_points and not segments:
+    analysis = _build_analysis_payload(result)
+    if not analysis:
         return "{}"
-    return json.dumps(
-        {
-            "title": result.get("title", ""),
-            "summary": summary,
-            "key_points": key_points,
-            "segments": segments,
-        },
-        ensure_ascii=False,
-    )
+    return json.dumps(analysis, ensure_ascii=False)
 
 
 def main():

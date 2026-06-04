@@ -103,7 +103,10 @@ mcp_servers:
 | `avc://task/{task_id}/polished` | LLM 润色后文本 |
 | `avc://task/{task_id}/summary` | 摘要 |
 | `avc://task/{task_id}/mindmap` | 思维导图 JSON 结构 |
-| `avc://task/{task_id}/analysis` | 结构化分析（关键点 + 分段） |
+| `avc://task/{task_id}/analysis` | 结构化分析（摘要 + 关键点 + 分段 + 元数据） |
+
+`OUTPUT_STYLE=json` 表示普通文本导出 JSON（`output.json`），不等同于 Agent 可消费的结构化分析。Agent 分析结果通过 `analyze_video`、`get_task_status.analysis` 或 `avc://task/{task_id}/analysis` 获取。
+`generate_mindmap` 会优先使用结构化分析中的 `segments` 生成导图；没有分段时才回退到转写或润色文本。
 
 ### 演示 Prompt 示例
 
@@ -152,7 +155,7 @@ mcp_servers:
 - 多输入源：B站链接、本地音频、本地视频
 - 多 ASR 方案：`paraformer`、`sense_voice`、`whisper_cpp`
 - 多 LLM 提供商：DeepSeek / Gemini / Qwen / Cerebras / 本地模型
-- 多输出形态：`pdf_only`、`pdf_with_img`、`img_only`、`markdown`、`json`、`text_only`
+- 多输出形态：`pdf_only`、`pdf_with_img`、`img_only`、`markdown`、`json`（文本导出 JSON）、`text_only`
 - 异步任务队列：提交任务后立即返回 `task_id`，通过轮询获取结果
 - **MCP 协议**：AI Agent 原生接入，8 个工具 + 5 个资源，支持 Claude Desktop / Cursor / Hermes
 
@@ -276,7 +279,7 @@ LLM_TEMPERATURE=0.1
 LLM_MAX_TOKENS=6000
 
 # 输出
-OUTPUT_STYLE=pdf_only         # pdf_with_img / img_only / text_only / pdf_only / markdown / json / mindmap
+OUTPUT_STYLE=pdf_only         # pdf_with_img / img_only / text_only / pdf_only / markdown / json(文本导出) / mindmap
 ZIP_OUTPUT_ENABLED=false
 
 # 功能开关

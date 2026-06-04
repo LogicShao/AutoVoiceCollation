@@ -15,6 +15,7 @@ from typing import Any, Optional
 
 from src.core.exceptions import TaskCancelledException
 from src.core.history import get_history_manager
+from src.core.output_status import SUMMARY_SKIP_MESSAGE, should_skip_summary
 from src.utils.config import get_config
 from src.utils.helpers.task_manager import get_task_manager
 from src.utils.logging.logger import get_logger
@@ -154,6 +155,10 @@ class InferenceQueue:
         task_info = tasks_store.get(task_id, {})
         return task_info.get("status") == "cancelled" or self.task_manager.should_stop(task_id)
 
+    def _is_task_terminal(self, task_id: str, tasks_store: dict) -> bool:
+        task_info = tasks_store.get(task_id, {})
+        return task_info.get("status") in {"completed", "failed", "cancelled", "timeout"}
+
     def _mark_task_cancelled(
         self, task_id: str, tasks_store: dict, message: str = "任务已取消"
     ) -> None:
@@ -171,6 +176,24 @@ class InferenceQueue:
         )
         self.task_manager.remove_task(task_id)
 
+    def _mark_task_timeout(
+        self, task_id: str, tasks_store: dict, message: str | None = None
+    ) -> None:
+        task_info = tasks_store.get(task_id)
+        if task_info is None:
+            tasks_store[task_id] = {}
+            task_info = tasks_store[task_id]
+
+        task_info.update(
+            {
+                "status": "timeout",
+                "message": message or f"任务等待超时 ({self.task_timeout}s)",
+                "completed_at": datetime.now().isoformat(),
+            }
+        )
+        self._task_submitted_at.pop(task_id, None)
+        self.task_manager.remove_task(task_id)
+
     def _extract_output_dir(self, output_data: Any) -> str:
         if isinstance(output_data, dict):
             return output_data.get("output_dir", "")
@@ -182,6 +205,29 @@ class InferenceQueue:
         config = get_config()
         safe_name = Path(output_dir).name or "output"
         return str(config.paths.temp_dir / f"{safe_name}_{task_id}.zip")
+
+    async def _summarize_text_result(
+        self,
+        loop: asyncio.AbstractEventLoop,
+        result_data: dict[str, Any],
+        data: dict[str, Any],
+    ) -> str:
+        polished_text = result_data.get("polished_text", "")
+        source_text = result_data.get("audio_text")
+        if should_skip_summary(polished_text, source_text):
+            return SUMMARY_SKIP_MESSAGE
+
+        from src.text_arrangement.summary_by_llm import summarize_text
+
+        return await loop.run_in_executor(
+            None,
+            summarize_text,
+            polished_text,
+            data["llm_api"],
+            data["temperature"],
+            data["max_tokens"],
+            result_data.get("title", ""),
+        )
 
     def _record_history(
         self, task_id: str, task_type: str, data: dict, result: dict, output_dir: str
@@ -271,10 +317,23 @@ class InferenceQueue:
         task_info = tasks_store.get(task_id, {})
         status = task_info.get("status", "pending")
 
-        if status in ("completed", "failed", "cancelled"):
+        if status in ("completed", "failed", "cancelled", "timeout"):
             return False
 
+        if status == "processing":
+            self.task_manager.request_cancel(task_id)
+            task_info.update(
+                {
+                    "status": "cancelled",
+                    "message": "任务取消请求已提交",
+                    "completed_at": datetime.now().isoformat(),
+                }
+            )
+            logger.info(f"任务取消请求已提交: {task_id} (原状态: {status})")
+            return True
+
         self._mark_task_cancelled(task_id, tasks_store, "任务已被用户取消")
+        self._task_submitted_at.pop(task_id, None)
         logger.info(f"任务已取消: {task_id} (原状态: {status})")
         return True
 
@@ -283,21 +342,43 @@ class InferenceQueue:
         while True:
             try:
                 await asyncio.sleep(10)
-                now = datetime.now()
-                timeout_sec = self.task_timeout
-
-                for task_id, submitted_at in list(self._task_submitted_at.items()):
-                    if (now - submitted_at).total_seconds() > timeout_sec:
-                        timed_out = True
-                        if timed_out:
-                            logger.warning(
-                                f"任务超时: {task_id} (已等待 {(now - submitted_at).total_seconds():.0f}s)"
-                            )
-                            self._task_submitted_at.pop(task_id, None)
+                self._mark_expired_pending_tasks()
             except asyncio.CancelledError:
                 break
             except Exception as e:
                 logger.error(f"超时监控异常: {e}", exc_info=True)
+
+    def _mark_expired_pending_tasks(self, now: datetime | None = None) -> int:
+        """标记仍在 pending 队列里的超时任务。"""
+        now = now or datetime.now()
+        pending_items = {}
+        for item in list(self.queue._queue):
+            if not isinstance(item, dict) or not item.get("task_id"):
+                continue
+            task_id = item["task_id"]
+            task_info = item.get("tasks_store", {}).get(task_id, {})
+            if task_info.get("status", "pending") == "pending":
+                pending_items[task_id] = item
+        marked = 0
+
+        for task_id, submitted_at in list(self._task_submitted_at.items()):
+            item = pending_items.get(task_id)
+            if not item:
+                continue
+
+            elapsed = (now - submitted_at).total_seconds()
+            if elapsed <= self.task_timeout:
+                continue
+
+            logger.warning(f"任务超时: {task_id} (已等待 {elapsed:.0f}s)")
+            self._mark_task_timeout(
+                task_id,
+                item.get("tasks_store", {}),
+                f"任务等待超时 ({self.task_timeout}s)",
+            )
+            marked += 1
+
+        return marked
 
     async def _worker_loop(self):
         """工作循环：持续从队列取任务并执行"""
@@ -312,9 +393,17 @@ class InferenceQueue:
                 task_data = task_item["task_data"]
                 tasks_store = task_item["tasks_store"]
 
+                if self._is_task_terminal(task_id, tasks_store):
+                    logger.info(f"跳过已结束的任务: {task_id}")
+                    self._task_submitted_at.pop(task_id, None)
+                    self.queue.task_done()
+                    continue
+
                 # 跳过已取消的任务（mark+skip 模式）
                 if self._is_task_cancelled(task_id, tasks_store):
                     logger.info(f"跳过已取消的任务: {task_id}")
+                    self._mark_task_cancelled(task_id, tasks_store)
+                    self._task_submitted_at.pop(task_id, None)
                     self.queue.task_done()
                     continue
 
@@ -326,14 +415,11 @@ class InferenceQueue:
                         logger.warning(
                             f"任务超时: {task_id} ({elapsed:.0f}s > {self.task_timeout}s)"
                         )
-                        tasks_store[task_id].update(
-                            {
-                                "status": "timeout",
-                                "message": f"任务等待超时 ({self.task_timeout}s)",
-                                "completed_at": datetime.now().isoformat(),
-                            }
+                        self._mark_task_timeout(
+                            task_id,
+                            tasks_store,
+                            f"任务等待超时 ({self.task_timeout}s)",
                         )
-                        self._task_submitted_at.pop(task_id, None)
                         self.queue.task_done()
                         continue
 
@@ -435,17 +521,7 @@ class InferenceQueue:
                     self._mark_task_cancelled(task_id, tasks_store)
                     return
                 tasks_store[task_id]["message"] = "正在生成总结"
-                from src.text_arrangement.summary_by_llm import summarize_text
-
-                summary = await loop.run_in_executor(
-                    None,
-                    summarize_text,
-                    result_data["polished_text"],
-                    data["llm_api"],
-                    data["temperature"],
-                    data["max_tokens"],
-                    result_data.get("title", ""),
-                )
+                summary = await self._summarize_text_result(loop, result_data, data)
                 result_data["summary"] = summary
                 completed_at = datetime.now().isoformat()
 
@@ -539,17 +615,7 @@ class InferenceQueue:
                     self._mark_task_cancelled(task_id, tasks_store)
                     return
                 tasks_store[task_id]["message"] = "正在生成总结"
-                from src.text_arrangement.summary_by_llm import summarize_text
-
-                summary = await loop.run_in_executor(
-                    None,
-                    summarize_text,
-                    result_data["polished_text"],
-                    data["llm_api"],
-                    data["temperature"],
-                    data["max_tokens"],
-                    result_data.get("title", ""),
-                )
+                summary = await self._summarize_text_result(loop, result_data, data)
                 result_data["summary"] = summary
                 completed_at = datetime.now().isoformat()
 
@@ -716,6 +782,18 @@ class InferenceQueue:
             self._mark_task_cancelled(task_id, tasks_store)
             return
 
+        if isinstance(result_data, dict) and result_data.get("error"):
+            tasks_store[task_id].update(
+                {
+                    "status": "failed",
+                    "message": result_data["error"],
+                    "error": result_data["error"],
+                    "result": result_data,
+                    "completed_at": datetime.now().isoformat(),
+                }
+            )
+            return
+
         # 正常完成
         tasks_store[task_id].update(
             {
@@ -809,6 +887,7 @@ class InferenceQueue:
                         "summary": analysis.summary,
                         "key_points": analysis.key_points,
                         "segments": [s.model_dump() for s in analysis.segments],
+                        "metadata": analysis.metadata,
                         "output_dir": output_dir,
                         "transcript": analysis.transcript,
                         "extract_time": extract_time,

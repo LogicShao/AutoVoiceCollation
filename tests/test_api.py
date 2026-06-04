@@ -387,6 +387,20 @@ class TestTaskStatusEndpoint:
         data = response.json()
         assert data["task_id"] == task_id
         assert data["status"] == "pending"
+        assert data["queue_position"] == 0
+
+    @patch("api._get_inference_queue")
+    def test_get_task_status_pending_includes_queue_position(self, mock_get_queue, client):
+        """测试待处理任务返回队列位置"""
+        task_id = "test-task-queued"
+        tasks[task_id] = {"status": "pending", "message": "任务已创建"}
+        mock_get_queue.return_value._compute_queue_position.return_value = 2
+
+        response = client.get(f"/api/v1/task/{task_id}")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["queue_position"] == 2
 
     def test_get_task_status_completed(self, client):
         """测试查询已完成任务"""
@@ -402,6 +416,52 @@ class TestTaskStatusEndpoint:
         data = response.json()
         assert data["status"] == "completed"
         assert data["result"]["output_dir"] == "/output/dir"
+        assert data["queue_position"] == 0
+
+    @patch("api._get_inference_queue")
+    def test_admin_queue_status(self, mock_get_queue, client):
+        """测试队列健康状态端点"""
+        mock_get_queue.return_value.get_queue_status.return_value = {
+            "depth": 1,
+            "worker_alive": True,
+            "worker_last_heartbeat": "2026-06-04T00:00:00",
+            "pending_count": 1,
+            "processing_count": 1,
+        }
+
+        response = client.get("/api/v1/admin/queue-status")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "ok"
+        assert data["depth"] == 1
+        assert data["worker_alive"] is True
+
+    @patch("api._get_inference_queue")
+    def test_cancel_task_uses_inference_queue(self, mock_get_queue, client):
+        """测试取消端点委托给推理队列"""
+        task_id = "test-task-cancel"
+        tasks[task_id] = {"status": "pending", "message": "任务已创建"}
+
+        async def fake_cancel(cancel_task_id, tasks_store):
+            tasks_store[cancel_task_id].update(
+                {
+                    "status": "cancelled",
+                    "message": "任务已被用户取消",
+                    "completed_at": "2026-06-04T00:00:00",
+                }
+            )
+            return True
+
+        mock_get_queue.return_value.cancel_task = AsyncMock(side_effect=fake_cancel)
+
+        response = client.post(f"/api/v1/task/{task_id}/cancel")
+
+        assert response.status_code == 200
+        data = response.json()
+        assert data["status"] == "cancelled"
+        assert data["message"] == "任务已被用户取消"
+        mock_get_queue.return_value.cancel_task.assert_awaited_once_with(task_id, tasks)
 
 
 class TestDownloadEndpoint:
@@ -535,8 +595,9 @@ class TestBackgroundTasks:
         from api import process_bilibili_task
 
         # 配置 mock
+        long_polished_text = "这是一段用于验证摘要调用路径的长文本。" * 20
         mock_process.return_value = (
-            {"polished_text": "测试文本", "title": "测试标题"},
+            {"polished_text": long_polished_text, "title": "测试标题"},
             10.5,
             5.2,
             None,

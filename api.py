@@ -24,10 +24,9 @@ from fastapi.responses import FileResponse, HTMLResponse
 from pydantic import BaseModel, Field
 
 from src.core.history import get_history_manager
-from src.core.output_status import scan_output_cache
+from src.core.output_status import SUMMARY_SKIP_MESSAGE, scan_output_cache, should_skip_summary
 from src.utils.config import get_config
 from src.utils.helpers.filename import sanitize_filename
-from src.utils.helpers.task_manager import get_task_manager
 from src.utils.logging.logger import get_logger
 
 
@@ -46,7 +45,6 @@ config = get_config()
 _import_log("config loaded")
 
 
-task_manager = get_task_manager()
 _inference_queue = None
 _static_files_cls = None
 _exception_handlers_registered = False
@@ -166,9 +164,17 @@ tasks = {}
 
 
 def _build_task_response(task_id: str, task_info: dict) -> "TaskResponse":
+    status = task_info.get("status", "unknown")
+    queue_position = 0
+    if status == "pending":
+        try:
+            queue_position = _get_inference_queue()._compute_queue_position(task_id)
+        except Exception as e:
+            logger.debug(f"获取队列位置失败: {task_id}: {e}")
+
     return TaskResponse(
         task_id=task_id,
-        status=task_info.get("status", "unknown"),
+        status=status,
         message=task_info.get("message", ""),
         result=task_info.get("result"),
         error=task_info.get("error"),
@@ -176,6 +182,7 @@ def _build_task_response(task_id: str, task_info: dict) -> "TaskResponse":
         completed_at=task_info.get("completed_at"),
         url=task_info.get("url"),
         filename=task_info.get("filename"),
+        queue_position=queue_position,
     )
 
 
@@ -219,6 +226,30 @@ def summarize_text(
         temperature=temperature,
         max_tokens=max_tokens,
         title=title,
+    )
+
+
+async def _summarize_text_result(
+    loop: asyncio.AbstractEventLoop,
+    result_data: dict,
+    *,
+    llm_api: str,
+    temperature: float,
+    max_tokens: int,
+) -> str:
+    polished_text = result_data.get("polished_text", "")
+    source_text = result_data.get("audio_text")
+    if should_skip_summary(polished_text, source_text):
+        return SUMMARY_SKIP_MESSAGE
+
+    return await loop.run_in_executor(
+        None,
+        summarize_text,
+        polished_text,
+        llm_api,
+        temperature,
+        max_tokens,
+        result_data.get("title", ""),
     )
 
 
@@ -308,6 +339,7 @@ class TaskResponse(BaseModel):
     completed_at: str | None = Field(default=None, description="任务完成时间（ISO格式）")
     url: str | None = Field(default=None, description="处理的URL（如果有）")
     filename: str | None = Field(default=None, description="处理的文件名（如果有）")
+    queue_position: int = Field(default=0, description="pending 任务在队列中的位置，0 表示未排队")
 
 
 class TaskListResponse(BaseModel):
@@ -466,14 +498,12 @@ async def process_bilibili_task(
             result_data = output_data
 
             if summarize and isinstance(result_data, dict) and "polished_text" in result_data:
-                summary = await loop.run_in_executor(
-                    None,
-                    summarize_text,
-                    result_data["polished_text"],
-                    llm_api,
-                    temperature,
-                    max_tokens,
-                    result_data.get("title", ""),
+                summary = await _summarize_text_result(
+                    loop,
+                    result_data,
+                    llm_api=llm_api,
+                    temperature=temperature,
+                    max_tokens=max_tokens,
                 )
                 result_data["summary"] = summary
                 completed_at = datetime.now().isoformat()
@@ -992,6 +1022,12 @@ async def get_maintenance_stats():
     }
 
 
+@app.get("/api/v1/admin/queue-status")
+async def get_admin_queue_status():
+    """获取队列健康状态。"""
+    return {"status": "ok", **_get_inference_queue().get_queue_status()}
+
+
 @app.get("/api/v1/admin/output-cleanup-dry-run")
 async def output_cleanup_dry_run(keep_per_bvid: int = 3):
     """列出输出目录清理候选，不删除任何文件。"""
@@ -1038,26 +1074,25 @@ async def cancel_task(task_id: str):
     task_info = tasks[task_id]
     status = task_info.get("status", "unknown")
 
-    if status in ("completed", "failed", "cancelled"):
+    if status in ("completed", "failed", "cancelled", "timeout"):
         return {
             "task_id": task_id,
             "status": status,
             "message": "任务已结束，无法取消",
         }
 
-    task_manager.request_cancel(task_id)
-    task_info.update(
-        {
-            "status": "cancelled",
-            "message": "任务取消请求已提交",
-            "completed_at": datetime.now().isoformat(),
+    cancelled = await _get_inference_queue().cancel_task(task_id, tasks)
+    if not cancelled:
+        return {
+            "task_id": task_id,
+            "status": task_info.get("status", status),
+            "message": "任务已结束，无法取消",
         }
-    )
 
     return {
         "task_id": task_id,
-        "status": "cancelled",
-        "message": "任务取消请求已提交",
+        "status": task_info.get("status", "cancelled"),
+        "message": task_info.get("message", "任务取消请求已提交"),
     }
 
 

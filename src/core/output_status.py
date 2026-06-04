@@ -108,7 +108,9 @@ def build_result_metadata(
         "quality_warning": quality_warning or build_quality_warning(audio),
     }
     if extra:
-        data.update(extra)
+        extra_data = dict(extra)
+        extra_data.update(data)
+        return extra_data
     return data
 
 
@@ -184,7 +186,9 @@ def scan_output_cache(output_root: str | Path, keep_per_bvid: int = 3) -> dict[s
 def _scan_output_directory(path: Path) -> dict[str, Any]:
     result_json = _read_json(path / "result.json")
     bvid = result_json.get("bvid") or extract_bvid(path.name) or _read_bvid_from_video_info(path)
-    status = result_json.get("status") or _infer_directory_status(path)
+    stored_status = result_json.get("status") or _infer_directory_status(path)
+    output_style = _read_output_style(result_json)
+    status = normalize_output_status(path, stored_status, output_style)
     created_at = result_json.get("created_at") or _format_timestamp(path.stat().st_ctime)
     audio_text = _read_text(path / "audio_transcription.txt")
     return {
@@ -202,6 +206,18 @@ def _scan_output_directory(path: Path) -> dict[str, Any]:
         "quality_warning": result_json.get("quality_warning") or build_quality_warning(audio_text),
         "size_bytes": _directory_size(path),
     }
+
+
+def _read_output_style(result_json: dict[str, Any]) -> str | None:
+    model_config = result_json.get("model_config")
+    if isinstance(model_config, dict):
+        output_style = model_config.get("output_style")
+        if isinstance(output_style, str):
+            return output_style
+    output_style = result_json.get("output_style")
+    if isinstance(output_style, str):
+        return output_style
+    return None
 
 
 def _infer_directory_status(path: Path) -> str:

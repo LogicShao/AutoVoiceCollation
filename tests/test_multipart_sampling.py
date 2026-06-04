@@ -1,5 +1,5 @@
 from dataclasses import dataclass
-from unittest.mock import MagicMock, patch
+from unittest.mock import patch
 
 import pytest
 
@@ -13,6 +13,15 @@ class MockBiliVideoPart:
     video_id: str
     url: str
     duration: int = 0
+
+
+@dataclass
+class MockMultiPartInfo:
+    main_title: str
+    parts: list[MockBiliVideoPart]
+
+    def get_selected_parts(self, part_numbers: list[int]) -> list[MockBiliVideoPart]:
+        return [part for part in self.parts if part.part_number in part_numbers]
 
 
 def make_part(n, cid="", url=""):
@@ -122,3 +131,33 @@ class TestSampleParts:
     def test_empty_parts_returns_empty(self, processor):
         sampled = processor._sample_parts([], 3, "https://www.bilibili.com/video/BV1xx")
         assert len(sampled) == 0
+
+
+class TestCcOnlyProcess:
+    def test_cc_only_returns_readable_error_when_all_parts_have_no_cc(self, processor):
+        parts = [make_part(1, "201"), make_part(2, "202")]
+        multipart_info = MockMultiPartInfo(main_title="No CC Course", parts=parts)
+
+        with (
+            patch(
+                "src.core.processors.multi_part_video.get_multi_part_info",
+                return_value=multipart_info,
+            ),
+            patch("src.mcp.cc_subtitle.check_cc_sync", return_value=None),
+            patch.object(processor, "_process_single_part") as mock_process_part,
+        ):
+            result_data, extract_time, polish_time, zip_file = processor.process(
+                video_url="https://www.bilibili.com/video/BV1xx411c7mD",
+                selected_parts=[1, 2],
+                llm_api="http://example.invalid",
+                temperature=0.1,
+                max_tokens=1000,
+                part_sample="cc_only",
+            )
+
+        assert result_data["error"] == "所选视频的所有分P均无CC字幕，请尝试其他采样策略"
+        assert result_data["title"] == "No CC Course"
+        assert extract_time == 0.0
+        assert polish_time == 0.0
+        assert zip_file is None
+        mock_process_part.assert_not_called()

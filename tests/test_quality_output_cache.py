@@ -47,6 +47,53 @@ def test_write_result_metadata_marks_partial_and_quality_warning(tmp_path):
     assert result["quality_warning"]
 
 
+def test_write_result_metadata_extra_cannot_override_status(tmp_path):
+    output_dir = _make_output_dir(
+        tmp_path,
+        "BV1OverrideStatus",
+        bvid="BV1OverrideStatus",
+        audio="a" * 300,
+        polish="b" * 300,
+        pdf=False,
+    )
+
+    result = write_result_metadata(
+        output_dir,
+        status="completed",
+        output_style="pdf_only",
+        extra={"status": "completed", "output_status": "completed"},
+    )
+
+    assert result["status"] == "partial"
+    assert result["output_status"] == "partial"
+
+
+def test_scan_output_cache_corrects_stale_completed_status(tmp_path):
+    output_dir = _make_output_dir(
+        tmp_path,
+        "BV1StaleStatus",
+        bvid="BV1StaleStatus",
+        audio="a" * 300,
+        polish="",
+        pdf=False,
+    )
+    (output_dir / "result.json").write_text(
+        json.dumps(
+            {
+                "bvid": "BV1StaleStatus",
+                "status": "completed",
+                "model_config": {"output_style": "pdf_only"},
+            }
+        ),
+        encoding="utf-8",
+    )
+
+    scan = scan_output_cache(tmp_path)
+
+    partial = next(item for item in scan["partial_directories"] if item["bvid"] == "BV1StaleStatus")
+    assert partial["status"] == "partial"
+
+
 def test_scan_output_cache_finds_partial_duplicates_and_dry_run_candidates(tmp_path):
     _make_output_dir(
         tmp_path,
