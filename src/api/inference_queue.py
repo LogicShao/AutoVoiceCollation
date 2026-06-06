@@ -240,6 +240,7 @@ class InferenceQueue:
                 "temperature": data.get("temperature", 0),
                 "max_tokens": data.get("max_tokens", 0),
                 "output_style": data.get("output_style") or get_config().output_style,
+                "mindmap_depth": data.get("mindmap_depth", "low"),
             }
 
             if task_type == "bilibili":
@@ -500,6 +501,7 @@ class InferenceQueue:
             data["text_only"],
             task_id,
             data.get("output_style"),
+            data.get("mindmap_depth", "low"),
         )
 
         completed_at = datetime.now().isoformat()
@@ -591,6 +593,7 @@ class InferenceQueue:
                 data["text_only"],
                 task_id,
                 data.get("output_style"),
+                data.get("mindmap_depth", "low"),
             )
         finally:
             if os.path.exists(data["audio_path"]):
@@ -690,6 +693,7 @@ class InferenceQueue:
             data["text_only"],
             task_id,
             data.get("output_style"),
+            data.get("mindmap_depth", "low"),
         )
 
         if self._is_task_cancelled(task_id, tasks_store):
@@ -775,6 +779,7 @@ class InferenceQueue:
             data.get("text_only", False),
             task_id,
             data.get("output_style"),
+            data.get("mindmap_depth", "low"),
             data.get("part_sample"),
         )
 
@@ -837,6 +842,7 @@ class InferenceQueue:
             False,
             task_id,
             data.get("output_style"),
+            data.get("mindmap_depth", "low"),
         )
 
         if self._is_task_cancelled(task_id, tasks_store):

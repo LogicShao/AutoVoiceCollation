@@ -107,10 +107,12 @@ TITLE_USER_TEMPLATE = """请根据以下文本内容生成一个简洁、准确�
 MINDMAP_SYSTEM_PROMPT = """你是一个专业的思维导图生成助手。任务是从转写文本中提取层级主题结构。
 
 规则：
-1. 必须提取 {max_topics} 个一级主题（不少于 2 个），每个主题下包含 2-{max_sub_points} 个子要点
-2. 主题应覆盖文本的核心内容，避免重复或冗余。如果文本内容不足以提取足够主题，也至少提取 2 个
-3. 每个节点标题简洁（10字以内），使用中文
-4. 严格输出 JSON 格式，不要包含任何解释、Markdown 代码块标记或其他文字。children 数组绝对不能为空
+1. 当前深度：{depth_label}（请求值：{depth_value}，实际档位：{resolved_depth}）
+2. 层级控制：最多 {max_levels} 层。{depth_instruction}
+3. 必须提取 {max_topics} 个一级主题（不少于 2 个），每个主题下包含 2-{max_sub_points} 个子要点
+4. 主题应覆盖文本的核心内容，避免重复或冗余。如果文本内容不足以提取足够主题，也至少提取 2 个
+5. 每个节点标题简洁（10字以内），使用中文
+6. 严格输出 JSON 格式，不要包含任何解释、Markdown 代码块标记或其他文字。children 数组绝对不能为空
 
 输出格式示例：
 {{"title": "根标题", "children": [{{"title": "主题A", "children": [{{"title": "要点1"}}, {{"title": "要点2"}}]}}, {{"title": "主题B", "children": [{{"title": "要点3"}}, {{"title": "要点4"}}]}}]}}"""
@@ -119,7 +121,7 @@ MINDMAP_USER_TEMPLATE = """来源标题：{title}
 转写文本：
 {text}
 
-请基于以上内容生成思维导图 JSON。必须包含至少 2 个一级主题，每个主题下至少 2 个子要点。"""
+请基于以上内容生成{depth_label}思维导图 JSON。必须包含至少 2 个一级主题，每个主题下至少 2 个子要点。"""
 
 ANALYZE_VIDEO_SYSTEM_PROMPT = """你是一个专业的视频内容分析助手。任务是对转写文本进行结构化分析。
 

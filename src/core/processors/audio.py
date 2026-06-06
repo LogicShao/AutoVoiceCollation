@@ -251,6 +251,7 @@ class AudioProcessor(BaseProcessor):
         temperature: float,
         pdf_filename: str | None = None,
         output_style: str | None = None,
+        mindmap_depth: str = "low",
     ) -> None:
         """
         导出输出文件(PDF/图片)
@@ -272,6 +273,7 @@ class AudioProcessor(BaseProcessor):
             LLM_info=f"({llm_api},温度:{temperature})",
             ASR_model=self.config.asr.asr_model,
             pdf_filename=pdf_filename,
+            mindmap_depth=mindmap_depth,
         )
 
     def _zip_output(self, output_dir: str) -> str | None:
@@ -300,6 +302,7 @@ class AudioProcessor(BaseProcessor):
         text_only: bool = False,
         task_id: str | None = None,
         output_style: str | None = None,
+        mindmap_depth: str = "low",
         text_override: str | None = None,
     ) -> tuple[Any, float, float, str | None]:
         """
@@ -443,6 +446,7 @@ class AudioProcessor(BaseProcessor):
                 temperature,
                 pdf_filename=pdf_filename,
                 output_style=output_style,
+                mindmap_depth=mindmap_depth,
             )
             self._check_cancellation(task_id)
 
@@ -484,6 +488,7 @@ class AudioProcessor(BaseProcessor):
                     "temperature": temperature,
                     "max_tokens": max_tokens,
                     "output_style": output_style or self.config.output_style,
+                    "mindmap_depth": mindmap_depth,
                 },
                 extra=result_data,
             )
@@ -544,6 +549,7 @@ class AudioProcessor(BaseProcessor):
         text_only: bool = False,
         task_id: str | None = None,
         output_style: str | None = None,
+        mindmap_depth: str = "low",
     ) -> tuple[Any, float, float, str | None]:
         """
         处理上传的音频文件
@@ -564,5 +570,12 @@ class AudioProcessor(BaseProcessor):
 
         audio_file = new_local_bili_file(audio_path)
         return self.process(
-            audio_file, llm_api, temperature, max_tokens, text_only, task_id, output_style
+            audio_file,
+            llm_api,
+            temperature,
+            max_tokens,
+            text_only,
+            task_id,
+            output_style,
+            mindmap_depth=mindmap_depth,
         )

@@ -1,6 +1,6 @@
 # TODO — AutoVoiceCollation v2.0
 
-更新时间：2026-06-04
+更新时间：2026-06-06
 
 > 本文件只保留未完成、待复核和明确不做的事项。已完成的历史明细不再在 TODO 中展开；需要追溯时查看 Git history。
 
@@ -74,13 +74,13 @@
 
 ### 思维导图
 
-- [ ] 新增 `MindMapDepth` 枚举：`low` / `medium` / `high` / `auto`。
-- [ ] `MindMapOutput` 增加 `depth` 字段。
-- [ ] 根据 `depth` 动态构建 mindmap prompt。
-- [ ] `generate_mindmap(text, title, depth="low")` 增加参数。
-- [ ] API 端点与 MCP Tool 增加 `depth` 参数。
-- [ ] 前端高级选项增加深度下拉框。
-- [ ] 同一段文本用 4 种深度生成导图，对比层级和节点数。
+- [x] 新增 `MindMapDepth` 枚举：`low` / `medium` / `high` / `auto`。
+- [x] `MindMapOutput` 增加 `depth` 字段。
+- [x] 根据 `depth` 动态构建 mindmap prompt。
+- [x] `generate_mindmap(text, title, depth="low")` 增加参数。
+- [x] API 端点与 MCP Tool 增加 `depth` 参数。
+- [x] 前端高级选项增加深度下拉框。
+- [x] 同一段文本用 4 种深度生成导图，对比层级和节点数。
 
 ### 分析层增强
 

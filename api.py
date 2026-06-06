@@ -25,6 +25,7 @@ from pydantic import BaseModel, Field
 
 from src.core.history import get_history_manager
 from src.core.output_status import SUMMARY_SKIP_MESSAGE, scan_output_cache, should_skip_summary
+from src.services.mindmap import MindMapDepth
 from src.utils.config import get_config
 from src.utils.helpers.filename import sanitize_filename
 from src.utils.logging.logger import get_logger
@@ -281,6 +282,7 @@ class BilibiliVideoRequest(BaseModel):
     disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
     disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
     prompt_hint: str | None = Field(default=None, description="Agent 分析方向提示词")
+    mindmap_depth: MindMapDepth = Field(default=MindMapDepth.LOW, description="思维导图深度")
 
 
 class BatchProcessRequest(BaseModel):
@@ -298,6 +300,7 @@ class BatchProcessRequest(BaseModel):
     disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
     disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
     prompt_hint: str | None = Field(default=None, description="Agent 分析方向提示词")
+    mindmap_depth: MindMapDepth = Field(default=MindMapDepth.LOW, description="思维导图深度")
 
 
 class MultiPartVideoRequest(BaseModel):
@@ -315,6 +318,7 @@ class MultiPartVideoRequest(BaseModel):
     disable_llm_polish: bool | None = Field(default=None, description="禁用 LLM 润色")
     disable_llm_summary: bool | None = Field(default=None, description="禁用 LLM 摘要")
     prompt_hint: str | None = Field(default=None, description="Agent 分析方向提示词")
+    mindmap_depth: MindMapDepth = Field(default=MindMapDepth.LOW, description="思维导图深度")
     part_sample: str | None = Field(
         default=None, description="分P采样策略: int/head+middle+tail/cc_only"
     )
@@ -443,6 +447,7 @@ async def process_bilibili_video(request: BilibiliVideoRequest):
             "disable_llm_polish": request.disable_llm_polish,
             "disable_llm_summary": request.disable_llm_summary,
             "prompt_hint": request.prompt_hint or "",
+            "mindmap_depth": request.mindmap_depth.value,
         },
         tasks_store=tasks,  # 引用传递，队列可直接更新状态
     )
@@ -613,6 +618,7 @@ async def process_multi_part_video(request: MultiPartVideoRequest):
             "disable_llm_polish": request.disable_llm_polish,
             "disable_llm_summary": request.disable_llm_summary,
             "prompt_hint": request.prompt_hint or "",
+            "mindmap_depth": request.mindmap_depth.value,
             "part_sample": request.part_sample,
         },
         tasks_store=tasks,
@@ -642,6 +648,7 @@ async def process_audio_file(
     disable_llm_polish: bool = Form(default=config.llm.disable_llm_polish),
     disable_llm_summary: bool = Form(default=config.llm.disable_llm_summary),
     prompt_hint: str = Form(default=""),
+    mindmap_depth: MindMapDepth = Form(default=MindMapDepth.LOW),
 ):
     """处理上传的音频/视频文件（视频会自动提取音频）（异步队列版本）"""
     # 支持音频和视频格式
@@ -731,6 +738,7 @@ async def process_audio_file(
             "disable_llm_polish": disable_llm_polish,
             "disable_llm_summary": disable_llm_summary,
             "prompt_hint": prompt_hint,
+            "mindmap_depth": mindmap_depth.value,
         },
         tasks_store=tasks,
     )
@@ -783,6 +791,7 @@ async def process_batch_videos(request: BatchProcessRequest):
             "disable_llm_polish": request.disable_llm_polish,
             "disable_llm_summary": request.disable_llm_summary,
             "prompt_hint": request.prompt_hint or "",
+            "mindmap_depth": request.mindmap_depth.value,
         },
         tasks_store=tasks,
     )
@@ -1141,7 +1150,7 @@ async def download_result(task_id: str):
 
 
 @app.post("/api/v1/task/{task_id}/mindmap")
-async def generate_mindmap_endpoint(task_id: str):
+async def generate_mindmap_endpoint(task_id: str, depth: MindMapDepth = MindMapDepth.LOW):
     """为已完成的任务生成思维导图"""
     if task_id not in tasks:
         raise HTTPException(status_code=404, detail="任务不存在")
@@ -1159,12 +1168,13 @@ async def generate_mindmap_endpoint(task_id: str):
     from src.services.mindmap import export_mindmap_to_files, generate_mindmap
 
     output_dir = result.get("output_dir", f"./out/{task_id}")
-    mindmap_output = await generate_mindmap(text=text, title=title)
+    mindmap_output = await generate_mindmap(text=text, title=title, depth=depth)
     files = export_mindmap_to_files(mindmap_output, output_dir)
 
     return {
         "task_id": task_id,
         "title": title,
+        "depth": mindmap_output.depth.value,
         "node_count": mindmap_output.node_count,
         "mermaid_file": files.get("mermaid", ""),
         "json_file": files.get("json", ""),

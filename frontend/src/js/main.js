@@ -19,6 +19,7 @@ document.addEventListener('alpine:init', () => {
     enablePolish: true,
     enableSummary: true,
     promptHint: '',
+    mindmapDepth: 'low',
 
     // 多P视频相关状态
     multiPartInfo: null,
@@ -93,7 +94,8 @@ document.addEventListener('alpine:init', () => {
             output_style: this.outputStyle,
             disable_llm_polish: !this.enablePolish,
             disable_llm_summary: !this.enableSummary,
-            prompt_hint: this.promptHint || undefined
+            prompt_hint: this.promptHint || undefined,
+            mindmap_depth: this.mindmapDepth
           })
         });
 
@@ -179,7 +181,8 @@ document.addEventListener('alpine:init', () => {
             output_style: this.outputStyle,
             disable_llm_polish: !this.enablePolish,
             disable_llm_summary: !this.enableSummary,
-            prompt_hint: this.promptHint || undefined
+            prompt_hint: this.promptHint || undefined,
+            mindmap_depth: this.mindmapDepth
           })
         });
 
@@ -277,6 +280,7 @@ document.addEventListener('alpine:init', () => {
       formData.append('output_style', this.outputStyle);
       formData.append('disable_llm_polish', (!this.enablePolish).toString());
       formData.append('disable_llm_summary', (!this.enableSummary).toString());
+      formData.append('mindmap_depth', this.mindmapDepth);
       if (this.promptHint) formData.append('prompt_hint', this.promptHint);
 
       try {
@@ -326,7 +330,8 @@ document.addEventListener('alpine:init', () => {
             output_style: this.outputStyle,
             disable_llm_polish: !this.enablePolish,
             disable_llm_summary: !this.enableSummary,
-            prompt_hint: this.promptHint || undefined
+            prompt_hint: this.promptHint || undefined,
+            mindmap_depth: this.mindmapDepth
           })
         });
 

@@ -25,13 +25,18 @@ from src.utils.logging.logger import get_logger
 logger = get_logger(__name__)
 
 
-def _export_mindmap(txt: str, output_path: str, title: str | None = None) -> str:
+def _export_mindmap(
+    txt: str,
+    output_path: str,
+    title: str | None = None,
+    depth: str = "low",
+) -> str:
     """导出思维导图（内部函数，供 text_to_img_or_pdf 调用）"""
     import asyncio
 
     from src.services.mindmap import export_mindmap_to_files, generate_mindmap
 
-    output = asyncio.run(generate_mindmap(text=txt, title=title))
+    output = asyncio.run(generate_mindmap(text=txt, title=title, depth=depth))
     files = export_mindmap_to_files(output, output_path)
     mermaid_path = files.get("mermaid", "")
     json_path = files.get("json", "")
@@ -569,17 +574,19 @@ def text_to_img_or_pdf(
     metadata: dict[str, Any] | None = None,
     summary_text: str | None = None,
     pdf_filename: str | None = None,
+    mindmap_depth: str = "low",
 ) -> str:
     """
     将文本转换为图片或PDF/Markdown/JSON
     :param txt: 文本内容
-    :param output_style: 输出样式（'pdf_with_img', 'pdf_only', 'img_only', 'markdown', 'json', 'text_only'）
+    :param output_style: 输出样式（'pdf_with_img', 'pdf_only', 'img_only', 'markdown', 'json', 'text_only', 'mindmap'）
     :param title: 文本标题（可选）
     :param output_path: 输出路径
     :param LLM_info: LLM信息（可选）
     :param metadata: 元信息（JSON/Markdown 使用）
     :param summary_text: 摘要文本（JSON/Markdown 可选）
     :param pdf_filename: PDF 文件名（不含扩展名），用于智能命名
+    :param mindmap_depth: 思维导图深度（low/medium/high/auto）
     :return: 输出文件路径
     """
     if metadata is None:
@@ -627,7 +634,7 @@ def text_to_img_or_pdf(
             summary_text=summary_text,
         )
     if output_style == "mindmap":
-        return _export_mindmap(txt, output_path=output_path, title=title)
+        return _export_mindmap(txt, output_path=output_path, title=title, depth=mindmap_depth)
     raise ValueError(f"Unsupported output style: {output_style}")
 
 

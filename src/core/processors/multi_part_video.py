@@ -39,6 +39,7 @@ class MultiPartVideoProcessor(BaseProcessor):
         text_only: bool = False,
         task_id: str | None = None,
         output_style: str | None = None,
+        mindmap_depth: str = "low",
         part_sample: str | int | None = None,
     ) -> tuple[Any, float, float, str | None]:
         """
@@ -176,6 +177,7 @@ class MultiPartVideoProcessor(BaseProcessor):
                 llm_api,
                 temperature,
                 output_style=output_style,
+                mindmap_depth=mindmap_depth,
             )
 
             self._check_cancellation(task_id)
@@ -225,6 +227,7 @@ class MultiPartVideoProcessor(BaseProcessor):
                     "temperature": temperature,
                     "max_tokens": max_tokens,
                     "output_style": output_style or self.config.output_style,
+                    "mindmap_depth": mindmap_depth,
                 },
                 extra=result_data,
             )

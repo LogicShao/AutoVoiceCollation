@@ -16,7 +16,7 @@ AutoVoiceCollation 是一个面向中文场景的音视频转文本工具，集�
 | **B 站搜索** | Agent 直接搜索 B 站视频，无需浏览器 |
 | **一键分析** | 提交视频 → 自动转写 + LLM 结构化分析（摘要/关键点/分段） |
 | **文本交付** | Agent 直接获取转写原文、润色稿、摘要 —— 无需下载文件 |
-| **思维导图** | 基于转写内容自动生成 Mermaid 思维导图 |
+| **思维导图** | 基于转写内容自动生成 Mermaid 思维导图，支持 `low` / `medium` / `high` / `auto` 深度 |
 | **批量处理** | 一次性提交多个视频 URL，异步排队处理 |
 
 ### 快速体验（1 分钟）
@@ -93,7 +93,7 @@ mcp_servers:
 | `cancel_task` | 取消进行中的任务 | `task_id` |
 | `analyze_video` | 一键分析：转写 + LLM 结构化 | `url`, `prompt_hint` |
 | `search_bilibili` | 搜索 B 站视频 | `keyword`, `max_results` |
-| `generate_mindmap` | 为已完成任务生成思维导图 | `task_id`, `prompt_hint` |
+| `generate_mindmap` | 为已完成任务生成思维导图 | `task_id`, `depth`, `prompt_hint` |
 
 ### MCP 资源（Agent 直读，无需下载文件）
 
@@ -106,7 +106,7 @@ mcp_servers:
 | `avc://task/{task_id}/analysis` | 结构化分析（摘要 + 关键点 + 分段 + 元数据） |
 
 `OUTPUT_STYLE=json` 表示普通文本导出 JSON（`output.json`），不等同于 Agent 可消费的结构化分析。Agent 分析结果通过 `analyze_video`、`get_task_status.analysis` 或 `avc://task/{task_id}/analysis` 获取。
-`generate_mindmap` 会优先使用结构化分析中的 `segments` 生成导图；没有分段时才回退到转写或润色文本。
+`generate_mindmap` 会优先使用结构化分析中的 `segments` 生成导图；没有分段时才回退到转写或润色文本。`depth` 可选 `low`、`medium`、`high`、`auto`，默认 `low`；`auto` 会根据文本长度选择实际层级。
 
 ### 演示 Prompt 示例
 
@@ -141,7 +141,7 @@ mcp_servers:
 **场景 5：思维导图生成**
 
 ```
-任务 abc123 已经完成了，帮我为它的转写内容生成思维导图
+任务 abc123 已经完成了，帮我为它的转写内容生成高深度思维导图
 ```
 
 **场景 6：搜索 + 资讯聚合**
@@ -155,7 +155,7 @@ mcp_servers:
 - 多输入源：B站链接、本地音频、本地视频
 - 多 ASR 方案：`paraformer`、`sense_voice`、`whisper_cpp`
 - 多 LLM 提供商：DeepSeek / Gemini / Qwen / Cerebras / 本地模型
-- 多输出形态：`pdf_only`、`pdf_with_img`、`img_only`、`markdown`、`json`（文本导出 JSON）、`text_only`
+- 多输出形态：`pdf_only`、`pdf_with_img`、`img_only`、`markdown`、`json`（文本导出 JSON）、`text_only`、`mindmap`
 - 异步任务队列：提交任务后立即返回 `task_id`，通过轮询获取结果
 - **MCP 协议**：AI Agent 原生接入，8 个工具 + 5 个资源，支持 Claude Desktop / Cursor / Hermes
 
@@ -258,12 +258,18 @@ python "api.py"
 - `POST /api/v1/process/batch`
 - `POST /api/v1/process/subtitle`
 - `POST /api/v1/summarize`
+- `POST /api/v1/task/{task_id}/mindmap`
 - `GET /api/v1/task/{task_id}`
 - `GET /api/v1/tasks`
 - `POST /api/v1/task/{task_id}/cancel`
 - `GET /api/v1/download/{task_id}`
 
 完整示例见 `docs/user-guide/api-usage.md`。
+
+思维导图深度参数：
+
+- 批量/单任务处理接口在 `output_style="mindmap"` 时可传 `mindmap_depth`：`low`、`medium`、`high`、`auto`
+- 已完成任务的独立导图接口可通过查询参数传 `depth`，例如 `POST /api/v1/task/{task_id}/mindmap?depth=high`
 
 ## 关键配置（`.env`）
 

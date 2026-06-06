@@ -176,9 +176,10 @@ class TestGenerateMindmap:
                 },
             }
 
-        async def fake_generate_mindmap(text, title, prompt_hint=""):
+        async def fake_generate_mindmap(text, title, depth="low", prompt_hint=""):
             captured["text"] = text
             captured["title"] = title
+            captured["depth"] = depth
             captured["prompt_hint"] = prompt_hint
             return FakeOutput()
 
@@ -188,9 +189,13 @@ class TestGenerateMindmap:
             patch("src.services.mindmap.export_mindmap_to_files", return_value={}),
             patch("src.services.mindmap.render_mermaid", return_value="graph TD"),
         ):
-            result = asyncio.run(generate_mindmap(task_id="task-1", prompt_hint="聚焦主题"))
+            result = asyncio.run(
+                generate_mindmap(task_id="task-1", depth="high", prompt_hint="聚焦主题")
+            )
 
         assert result["node_count"] == 1
+        assert result["depth"] == "high"
         assert captured["text"] == "主题一: 结构化分段一"
         assert captured["title"] == "测试视频"
+        assert captured["depth"] == "high"
         assert captured["prompt_hint"] == "聚焦主题"

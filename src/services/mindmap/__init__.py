@@ -1,6 +1,7 @@
 """思维导图生成服务"""
 
 from .generator import (
+    MindMapDepth,
     MindMapNode,
     MindMapOutput,
     export_mindmap_to_files,
@@ -10,6 +11,7 @@ from .generator import (
 )
 
 __all__ = [
+    "MindMapDepth",
     "MindMapNode",
     "MindMapOutput",
     "generate_mindmap",

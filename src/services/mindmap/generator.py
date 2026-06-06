@@ -3,6 +3,7 @@
 import json
 import os
 from datetime import datetime
+from enum import StrEnum
 
 from pydantic import BaseModel, Field
 
@@ -12,6 +13,40 @@ from src.utils.config import get_config
 from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
+
+
+class MindMapDepth(StrEnum):
+    """思维导图生成深度"""
+
+    LOW = "low"
+    MEDIUM = "medium"
+    HIGH = "high"
+    AUTO = "auto"
+
+
+_DEPTH_SETTINGS = {
+    MindMapDepth.LOW: {
+        "label": "浅层",
+        "max_topics": 3,
+        "max_sub_points": 3,
+        "max_levels": 2,
+        "instruction": "只保留主干主题和直接要点，避免展开细节。",
+    },
+    MindMapDepth.MEDIUM: {
+        "label": "中等",
+        "max_topics": 5,
+        "max_sub_points": 4,
+        "max_levels": 3,
+        "instruction": "保留主题、子主题和关键细节，适合常规知识整理。",
+    },
+    MindMapDepth.HIGH: {
+        "label": "深入",
+        "max_topics": 7,
+        "max_sub_points": 5,
+        "max_levels": 4,
+        "instruction": "充分展开主题层级、关键细节和因果关系，但不要臆造原文没有的信息。",
+    },
+}
 
 
 class MindMapNode(BaseModel):
@@ -25,6 +60,7 @@ class MindMapOutput(BaseModel):
     """思维导图输出"""
 
     root: MindMapNode
+    depth: MindMapDepth = MindMapDepth.LOW
     source_url: str | None = None
     source_title: str | None = None
     generated_at: str = Field(default_factory=lambda: datetime.now().isoformat())
@@ -41,19 +77,33 @@ class MindMapOutput(BaseModel):
 async def generate_mindmap(
     text: str,
     title: str | None = None,
+    depth: MindMapDepth | str = MindMapDepth.LOW,
     source_url: str | None = None,
-    max_topics: int = 5,
-    max_sub_points: int = 4,
+    max_topics: int | None = None,
+    max_sub_points: int | None = None,
     prompt_hint: str = "",
 ) -> MindMapOutput:
     config = get_config()
+    requested_depth = _normalize_depth(depth)
+    prompt_depth = _resolve_prompt_depth(requested_depth, text)
+    depth_settings = _DEPTH_SETTINGS[prompt_depth]
+    resolved_max_topics = max_topics or depth_settings["max_topics"]
+    resolved_max_sub_points = max_sub_points or depth_settings["max_sub_points"]
     prompt_spec = get_prompt(PromptType.MINDMAP)
     system_instruction = prompt_spec.render_system(
-        max_topics=max_topics, max_sub_points=max_sub_points
+        depth_value=requested_depth.value,
+        depth_label=depth_settings["label"],
+        resolved_depth=prompt_depth.value,
+        max_topics=resolved_max_topics,
+        max_sub_points=resolved_max_sub_points,
+        max_levels=depth_settings["max_levels"],
+        depth_instruction=depth_settings["instruction"],
     )
     if prompt_hint.strip():
         system_instruction += f"\n\n---\n[Agent 指令]\n{prompt_hint.strip()[:500]}"
-    user_content = prompt_spec.render_user(text=text, title=title or "未命名")
+    user_content = prompt_spec.render_user(
+        text=text, title=title or "未命名", depth_label=depth_settings["label"]
+    )
 
     params = LLMQueryParams(
         content=user_content,
@@ -74,9 +124,34 @@ async def generate_mindmap(
 
     return MindMapOutput(
         root=root,
+        depth=requested_depth,
         source_url=source_url,
         source_title=title,
     )
+
+
+def _normalize_depth(depth: MindMapDepth | str) -> MindMapDepth:
+    if isinstance(depth, MindMapDepth):
+        return depth
+    try:
+        return MindMapDepth(str(depth).lower())
+    except ValueError:
+        valid_values = ", ".join(item.value for item in MindMapDepth)
+        raise ValueError(
+            f"Unsupported mindmap depth: {depth}. Valid values: {valid_values}"
+        ) from None
+
+
+def _resolve_prompt_depth(depth: MindMapDepth, text: str) -> MindMapDepth:
+    if depth != MindMapDepth.AUTO:
+        return depth
+
+    text_length = len(text.strip())
+    if text_length >= 6000:
+        return MindMapDepth.HIGH
+    if text_length >= 2000:
+        return MindMapDepth.MEDIUM
+    return MindMapDepth.LOW
 
 
 def _parse_llm_response(response: str, fallback_title: str | None = None) -> MindMapNode:

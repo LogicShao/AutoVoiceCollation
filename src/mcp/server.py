@@ -287,7 +287,7 @@ async def search_bilibili(keyword: str, max_results: int = 10) -> dict:
 
 
 @mcp.tool()
-async def generate_mindmap(task_id: str, prompt_hint: str = "") -> dict:
+async def generate_mindmap(task_id: str, depth: str = "low", prompt_hint: str = "") -> dict:
     """为已完成的任务生成思维导图，返回 Mermaid + JSON 文件路径"""
     task = await _api("GET", f"/api/v1/task/{task_id}")
     if "error" in task:
@@ -303,11 +303,13 @@ async def generate_mindmap(task_id: str, prompt_hint: str = "") -> dict:
     from src.services.mindmap import generate_mindmap as _gen
 
     output_dir = result.get("output_dir", f"./out/{task_id}")
-    output = await _gen(text=text, title=title, prompt_hint=prompt_hint)
+    output = await _gen(text=text, title=title, depth=depth, prompt_hint=prompt_hint)
     files = export_mindmap_to_files(output, output_dir)
+    output_depth = getattr(output, "depth", depth)
     return {
         "task_id": task_id,
         "title": title,
+        "depth": getattr(output_depth, "value", output_depth),
         "node_count": output.node_count,
         "mermaid": render_mermaid(output.root),
         "structure": output.root.model_dump(),

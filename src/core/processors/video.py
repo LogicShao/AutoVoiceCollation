@@ -63,6 +63,7 @@ class VideoProcessor(BaseProcessor):
         text_only: bool = False,
         task_id: str | None = None,
         output_style: str | None = None,
+        mindmap_depth: str = "low",
     ) -> tuple[Any, float, float, str | None]:
         """
         下载并处理B站视频
@@ -104,6 +105,7 @@ class VideoProcessor(BaseProcessor):
                     text_only,
                     task_id,
                     output_style,
+                    mindmap_depth,
                     text_override=cc_text,
                 )
                 return result_data, extract_time, polish_time, zip_file
@@ -122,7 +124,14 @@ class VideoProcessor(BaseProcessor):
 
             # 处理音频
             output_dir, extract_time, polish_time, zip_file = self.audio_processor.process(
-                audio_file, llm_api, temperature, max_tokens, text_only, task_id, output_style
+                audio_file,
+                llm_api,
+                temperature,
+                max_tokens,
+                text_only,
+                task_id,
+                output_style,
+                mindmap_depth,
             )
 
             # 返回总时间（下载+提取）
@@ -143,6 +152,7 @@ class VideoProcessor(BaseProcessor):
         text_only: bool = False,
         task_id: str | None = None,
         output_style: str | None = None,
+        mindmap_depth: str = "low",
     ) -> tuple[str, float, float, None]:
         """
         批量处理B站视频链接
@@ -199,6 +209,7 @@ class VideoProcessor(BaseProcessor):
                         text_only,
                         task_id,
                         output_style,
+                        mindmap_depth,
                     )
 
                     # 处理返回结果（可能是字典或字符串）
