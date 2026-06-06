@@ -7,12 +7,22 @@ import shutil
 import subprocess
 import time
 from dataclasses import dataclass
+from urllib.parse import urlparse
 
 from yt_dlp import YoutubeDL
 
 from src.utils.logging.logger import get_logger
 
 logger = get_logger(__name__)
+
+BILIBILI_HTTP_HEADERS = {
+    "User-Agent": (
+        "Mozilla/5.0 (Windows NT 10.0; Win64; x64) "
+        "AppleWebKit/537.36 (KHTML, like Gecko) "
+        "Chrome/125.0 Safari/537.36"
+    ),
+    "Referer": "https://www.bilibili.com/",
+}
 
 
 def _find_ffmpeg_location() -> str | None:
@@ -22,6 +32,7 @@ def _find_ffmpeg_location() -> str | None:
         if path:
             return os.path.dirname(path)
     return None
+
 
 _pre_text = (
     "本项目使用{ASR_model}+LLM({LLM_api},温度:{temperature})进行音频文本提取和润色，"
@@ -50,7 +61,7 @@ class BiliVideoFile:
             self.title = os.path.splitext(os.path.basename(self.path))[0]
 
     @property
-    def BV_id(self) -> str:
+    def BV_id(self) -> str:  # noqa: N802
         """从 URL 中提取 BV 号"""
         match = re.search(r"(BV\w+)", self.url)
         return match.group(1) if match else "UnknownBV"
@@ -109,6 +120,22 @@ def _find_downloaded_file(video_id: str, resolved_dir: str, ext: str) -> str | N
     return os.path.abspath(candidates[0])
 
 
+def _is_bilibili_url(video_url: str) -> bool:
+    hostname = (urlparse(video_url).hostname or "").lower()
+    return hostname == "bilibili.com" or hostname.endswith(".bilibili.com") or hostname == "b23.tv"
+
+
+def _build_ydl_options(video_url: str, **options) -> dict:
+    ydl_opts = dict(options)
+    if _is_bilibili_url(video_url):
+        existing_headers = dict(ydl_opts.get("http_headers") or {})
+        ydl_opts["http_headers"] = {
+            **BILIBILI_HTTP_HEADERS,
+            **existing_headers,
+        }
+    return ydl_opts
+
+
 # ========== 下载视频 ==========
 def download_bilibili_video(
     video_url,
@@ -136,7 +163,7 @@ def _download_bilibili_video_once(
     os.makedirs(resolved_dir, exist_ok=True)
     output_template = os.path.join(resolved_dir, "%(id)s.%(ext)s")
 
-    with YoutubeDL({"quiet": True}) as ydl:
+    with YoutubeDL(_build_ydl_options(video_url, quiet=True)) as ydl:
         info_dict = ydl.extract_info(video_url, download=False)
 
     video_id = info_dict.get("id")
@@ -151,14 +178,15 @@ def _download_bilibili_video_once(
         if d.get("status") == "finished" and "filename" in d:
             output_file_path["path"] = d["filename"]
 
-    ydl_opts = {
-        "format": "bv+ba/best",
-        "outtmpl": output_template,
-        "progress_hooks": [hook],
-        "noplaylist": True,
-        "quiet": False,
-        "restrictfilenames": True,
-    }
+    ydl_opts = _build_ydl_options(
+        video_url,
+        format="bv+ba/best",
+        outtmpl=output_template,
+        progress_hooks=[hook],
+        noplaylist=True,
+        quiet=False,
+        restrictfilenames=True,
+    )
     if ffmpeg_dir := _find_ffmpeg_location():
         ydl_opts["ffmpeg_location"] = ffmpeg_dir
 
@@ -206,7 +234,7 @@ def _download_bilibili_audio_once(
     os.makedirs(resolved_dir, exist_ok=True)
     output_template = os.path.join(resolved_dir, "%(id)s.%(ext)s")
 
-    with YoutubeDL({"quiet": True}) as ydl:
+    with YoutubeDL(_build_ydl_options(video_url, quiet=True)) as ydl:
         info_dict = ydl.extract_info(video_url, download=False)
 
     video_id = info_dict.get("id")
@@ -221,21 +249,22 @@ def _download_bilibili_audio_once(
         if d.get("status") == "finished" and "filename" in d:
             output_file_path["path"] = d["filename"]
 
-    ydl_opts = {
-        "format": "ba",
-        "outtmpl": output_template,
-        "postprocessors": [
+    ydl_opts = _build_ydl_options(
+        video_url,
+        format="ba",
+        outtmpl=output_template,
+        postprocessors=[
             {
                 "key": "FFmpegExtractAudio",
                 "preferredcodec": output_format,
                 "preferredquality": "192",
             }
         ],
-        "progress_hooks": [hook],
-        "noplaylist": True,
-        "quiet": False,
-        "restrictfilenames": True,
-    }
+        progress_hooks=[hook],
+        noplaylist=True,
+        quiet=False,
+        restrictfilenames=True,
+    )
     if ffmpeg_dir := _find_ffmpeg_location():
         ydl_opts["ffmpeg_location"] = ffmpeg_dir
 
@@ -291,7 +320,7 @@ def extract_audio_from_video(
     ]
 
     logger.info(f"开始提取音频：{audio_path}")
-    result = subprocess.run(command, capture_output=True, text=True, encoding='utf-8', timeout=300)
+    result = subprocess.run(command, capture_output=True, text=True, encoding="utf-8", timeout=300)
 
     if result.returncode != 0:
         raise RuntimeError(f"音频提取失败：{result.stderr}")
@@ -301,9 +330,11 @@ def extract_audio_from_video(
 
 # ========== 多P视频支持 ==========
 
+
 @dataclass
 class BiliVideoPart:
     """B站视频分P信息"""
+
     part_number: int
     title: str
     video_id: str
@@ -315,6 +346,7 @@ class BiliVideoPart:
 @dataclass
 class BiliMultiPartVideo:
     """B站多P视频信息"""
+
     main_url: str
     main_title: str
     total_parts: int
@@ -335,7 +367,7 @@ def detect_multi_part(video_url: str) -> tuple[bool, dict | None]:
     logger.info(f"检测多P视频：{video_url}")
     try:
         # 关键：noplaylist: False 启用播放列表模式
-        with YoutubeDL({"quiet": True, "noplaylist": False}) as ydl:
+        with YoutubeDL(_build_ydl_options(video_url, quiet=True, noplaylist=False)) as ydl:
             info_dict = ydl.extract_info(video_url, download=False)
 
         # 必须检查 entries 长度 > 1，因为某些单P视频也可能返回 playlist 类型
